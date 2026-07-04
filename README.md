@@ -32,3 +32,40 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+<!-- graphify:start -->
+## Graphify — AI Knowledge Graph
+
+This project uses [Graphify](https://github.com/safishamsi/graphify) to generate a
+queryable knowledge graph of the source code. AI coding assistants read the graph
+instead of broad file searches, which reduces unnecessary reads and improves accuracy.
+
+The graph is built locally in `graphify-out/` (git-ignored) and regenerates automatically
+after each commit.
+
+### Setup (once per machine)
+
+Requires Python 3.12+.
+
+```bash
+pip install graphifyy
+python -m graphify .
+```
+
+> **Windows note:** always use `python -m graphify`, never `graphify` directly — the
+> executable may not be on PATH.
+
+### Manual update
+
+```bash
+python -m graphify . --update
+```
+
+### Query the graph from your assistant
+
+```
+python -m graphify query "where is the projects store?"
+python -m graphify path "ModuleA" "ModuleB"
+python -m graphify explain "concept-name"
+```
+<!-- graphify:end -->
