@@ -1,6 +1,9 @@
-import type { Database, PreparedStatement } from '../../domain/database/Database.ts';
-import type { QueryOutcome } from '../../domain/sql/QueryOutcome.ts';
-import { isReadOnly } from '../../domain/sql/isReadOnly.ts';
+import type {
+  Database,
+  PreparedStatement,
+} from "../../domain/database/Database.ts";
+import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { isReadOnly } from "../../domain/sql/isReadOnly.ts";
 
 export class ExecuteQuery {
   private readonly db: Database;
@@ -11,7 +14,7 @@ export class ExecuteQuery {
 
   execute(sql: string): QueryOutcome {
     const trimmed = sql.trim();
-    if (trimmed === '') return { kind: 'error', message: 'empty query' };
+    if (trimmed === "") return { kind: "error", message: "empty query" };
 
     let stmt: PreparedStatement;
     try {
@@ -24,17 +27,29 @@ export class ExecuteQuery {
       if (isReadOnly(trimmed)) {
         const columns = stmt.columns();
         const rows = stmt.all();
-        return { kind: 'rows', columns, rows };
+        return { kind: "rows", columns, rows };
       }
       const info = stmt.run();
-      return { kind: 'affected', changes: info.changes, lastInsertRowid: info.lastInsertRowid };
+      return {
+        kind: "affected",
+        changes: info.changes,
+        lastInsertRowid: info.lastInsertRowid,
+      };
     } catch (err) {
       return this.toError(err);
     }
   }
 
   private toError(err: unknown): QueryOutcome {
-    const message = err instanceof Error ? err.message : String(err);
-    return { kind: 'error', message };
+    if (err instanceof Error) {
+      const code =
+        "code" in err && typeof (err as { code: unknown }).code === "string"
+          ? (err as { code: string }).code
+          : undefined;
+      return code !== undefined
+        ? { kind: "error", code, message: err.message }
+        : { kind: "error", message: err.message };
+    }
+    return { kind: "error", message: String(err) };
   }
 }
