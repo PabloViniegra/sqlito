@@ -40,22 +40,110 @@ describe("appReducer", () => {
   });
 
   describe("submit", () => {
+    const rowsOutcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "a", type: null }],
+      rows: [[1]],
+    };
+
     it("clears the prompt", () => {
       const state = { ...initialState, prompt: "SELECT 1" };
-      const next = appReducer(state, { type: "submit" });
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: rowsOutcome,
+      });
 
       expect(next.prompt).toBe("");
     });
 
-    it("is a no-op when prompt is empty (prompt stays empty)", () => {
-      const next = appReducer(initialState, { type: "submit" });
+    it("is a no-op for prompt when prompt is empty (prompt stays empty)", () => {
+      const next = appReducer(initialState, {
+        type: "submit",
+        outcome: rowsOutcome,
+      });
 
       expect(next.prompt).toBe("");
     });
 
     it("clears statusMessage", () => {
-      const state = { ...initialState, statusMessage: "exported" };
-      const next = appReducer(state, { type: "submit" });
+      const state = {
+        ...initialState,
+        statusMessage: { text: "exported", kind: "info" as const },
+      };
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: rowsOutcome,
+      });
+
+      expect(next.statusMessage).toBeNull();
+    });
+
+    it("stores lastRowsOutcome when the outcome is rows", () => {
+      const state = { ...initialState, lastRowsOutcome: null };
+      const next = appReducer(state, { type: "submit", outcome: rowsOutcome });
+
+      expect(next.lastRowsOutcome).toBe(rowsOutcome);
+    });
+
+    it("clears lastRowsOutcome when the outcome is affected", () => {
+      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
+      });
+
+      expect(next.lastRowsOutcome).toBeNull();
+    });
+
+    it("clears lastRowsOutcome when the outcome is side-effect", () => {
+      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: { kind: "side-effect" },
+      });
+
+      expect(next.lastRowsOutcome).toBeNull();
+    });
+
+    it("clears lastRowsOutcome when the outcome is error", () => {
+      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: { kind: "error", message: "boom" },
+      });
+
+      expect(next.lastRowsOutcome).toBeNull();
+    });
+  });
+
+  describe("setStatus", () => {
+    it("sets an info status message", () => {
+      const next = appReducer(initialState, {
+        type: "setStatus",
+        status: { text: "Exported 3 rows", kind: "info" },
+      });
+
+      expect(next.statusMessage).toEqual({
+        text: "Exported 3 rows",
+        kind: "info",
+      });
+    });
+
+    it("sets an error status message", () => {
+      const next = appReducer(initialState, {
+        type: "setStatus",
+        status: { text: "boom", kind: "error" },
+      });
+
+      expect(next.statusMessage).toEqual({ text: "boom", kind: "error" });
+    });
+
+    it("clears the status message when null", () => {
+      const state = {
+        ...initialState,
+        statusMessage: { text: "old", kind: "info" as const },
+      };
+      const next = appReducer(state, { type: "setStatus", status: null });
 
       expect(next.statusMessage).toBeNull();
     });
@@ -66,7 +154,7 @@ describe("appReducer", () => {
       const state = {
         ...initialState,
         prompt: "SELECT 1",
-        statusMessage: "msg",
+        statusMessage: { text: "msg", kind: "info" as const },
       };
       const next = appReducer(state, { type: "exit" });
 
