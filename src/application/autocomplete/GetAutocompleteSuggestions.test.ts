@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest";
-import type { SchemaRepository } from "./Suggestion.ts";
+import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
+import type { Table } from "../../domain/schema/Table.ts";
 import { GetAutocompleteSuggestions } from "./GetAutocompleteSuggestions.ts";
 
-const stubSchema = (tables: readonly string[]): SchemaRepository => ({
+const stubSchema = (tables: readonly Table[]): SchemaRepository => ({
   listTables: () => tables,
+  describe: (name: string) => tables.find((t) => t.name === name),
+  refresh: () => {},
 });
+
+const USERS_TABLE: Table = {
+  name: "users",
+  columns: [
+    { name: "id", type: "INTEGER" },
+    { name: "email", type: "TEXT" },
+    { name: "age", type: "INTEGER" },
+  ],
+};
+
+const POSTS_TABLE: Table = {
+  name: "posts",
+  columns: [{ name: "id", type: "INTEGER" }],
+};
 
 describe("GetAutocompleteSuggestions", () => {
   describe("empty prefix", () => {
@@ -26,7 +43,7 @@ describe("GetAutocompleteSuggestions", () => {
     });
 
     it("only shows keywords (not tables) when prefix is empty", () => {
-      const sut = new GetAutocompleteSuggestions(stubSchema(["users"]));
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
 
       const result = sut.suggest("", {});
 
@@ -45,12 +62,12 @@ describe("GetAutocompleteSuggestions", () => {
     });
 
     it("matches a table when prefix differs in case", () => {
-      const sut = new GetAutocompleteSuggestions(stubSchema(["Users"]));
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
 
       const result = sut.suggest("use", {});
 
       expect(result).toContainEqual({
-        label: "Users",
+        label: "users",
         kind: "table",
         detail: "table",
       });
@@ -120,7 +137,7 @@ describe("GetAutocompleteSuggestions", () => {
 
   describe("table suggestions", () => {
     it("marks table kind with detail 'table'", () => {
-      const sut = new GetAutocompleteSuggestions(stubSchema(["users"]));
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
 
       const result = sut.suggest("us", {});
 
@@ -140,7 +157,7 @@ describe("GetAutocompleteSuggestions", () => {
     });
 
     it("combines keyword and table suggestions in one list", () => {
-      const sut = new GetAutocompleteSuggestions(stubSchema(["users"]));
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
 
       const result = sut.suggest("u", {});
 
@@ -151,12 +168,91 @@ describe("GetAutocompleteSuggestions", () => {
 
   describe("cap", () => {
     it("caps the result at 10 suggestions", () => {
-      const tables = Array.from({ length: 30 }, (_, i) => `t${i}`);
+      const tables = Array.from({ length: 30 }, (_, i) => ({
+        name: `t${i}`,
+        columns: [],
+      }));
       const sut = new GetAutocompleteSuggestions(stubSchema(tables));
 
       const result = sut.suggest("", {});
 
       expect(result.length).toBe(10);
+    });
+  });
+
+  describe("column completion via referencedTable context", () => {
+    it("returns only the columns of the referenced table, with type in detail", () => {
+      const sut = new GetAutocompleteSuggestions(
+        stubSchema([USERS_TABLE, POSTS_TABLE]),
+      );
+
+      const result = sut.suggest("", { referencedTable: "users" });
+
+      expect(result).toEqual([
+        { label: "id", kind: "column", detail: "INTEGER" },
+        { label: "age", kind: "column", detail: "INTEGER" },
+        { label: "email", kind: "column", detail: "TEXT" },
+      ]);
+    });
+
+    it("returns no keywords or tables when the referenced table resolves", () => {
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
+
+      const result = sut.suggest("sel", { referencedTable: "users" });
+
+      expect(result.every((s) => s.kind === "column")).toBe(true);
+      expect(result.some((s) => s.kind === "keyword")).toBe(false);
+      expect(result.some((s) => s.kind === "table")).toBe(false);
+    });
+
+    it("filters column suggestions case-insensitively and ranks prefix matches first", () => {
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
+
+      const result = sut.suggest("e", { referencedTable: "users" });
+      const labels = result.map((s) => s.label);
+
+      expect(labels).toContain("email");
+      if (labels.includes("age")) {
+        expect(labels.indexOf("email")).toBeLessThan(labels.indexOf("age"));
+      }
+    });
+
+    it("ranks shorter prefix matches ahead of substring matches in columns", () => {
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
+
+      const result = sut.suggest("i", { referencedTable: "users" });
+
+      const labels = result.map((s) => s.label);
+      expect(labels).toContain("id");
+    });
+
+    it("does not include any keywords even when prefix matches a keyword", () => {
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
+
+      const result = sut.suggest("FROM", { referencedTable: "users" });
+
+      expect(result.every((s) => s.kind === "column")).toBe(true);
+    });
+
+    it("falls back to keywords + tables when referencedTable does not resolve", () => {
+      const sut = new GetAutocompleteSuggestions(stubSchema([USERS_TABLE]));
+
+      const result = sut.suggest("sel", {
+        referencedTable: "missing_table",
+      });
+
+      const kinds = new Set(result.map((s) => s.kind));
+      expect(kinds.has("keyword")).toBe(true);
+    });
+
+    it("returns no detail for columns with null type", () => {
+      const sut = new GetAutocompleteSuggestions(
+        stubSchema([{ name: "loose", columns: [{ name: "a", type: null }] }]),
+      );
+
+      const result = sut.suggest("", { referencedTable: "loose" });
+
+      expect(result).toEqual([{ label: "a", kind: "column" }]);
     });
   });
 });
