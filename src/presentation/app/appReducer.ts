@@ -23,18 +23,23 @@ export type AutocompleteState = {
   context: AutocompleteContext;
 };
 
+export type StatusMessage = {
+  text: string;
+  kind: "info" | "error";
+};
+
 export type AppState = {
   prompt: string;
   history: { entries: readonly HistoryEntry[]; cursor: number };
   pastQueries: readonly PastQuery[];
   autocomplete: AutocompleteState | null;
   lastRowsOutcome: QueryOutcome | null;
-  statusMessage: string | null;
+  statusMessage: StatusMessage | null;
 };
 
 export type AppEvent =
   | { type: "setPrompt"; value: string }
-  | { type: "submit" }
+  | { type: "submit"; outcome: QueryOutcome }
   | { type: "backspace" }
   | { type: "clearPrompt" }
   | { type: "exit" }
@@ -45,7 +50,8 @@ export type AppEvent =
   | { type: "historyUp" }
   | { type: "historyDown" }
   | { type: "exportTo"; path: string }
-  | { type: "command"; line: string };
+  | { type: "command"; line: string }
+  | { type: "setStatus"; status: StatusMessage | null };
 
 export const initialState: AppState = {
   prompt: "",
@@ -65,7 +71,14 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "clearPrompt":
       return { ...state, prompt: "" };
     case "submit":
-      return { ...state, prompt: "", statusMessage: null };
+      return {
+        ...state,
+        prompt: "",
+        statusMessage: null,
+        lastRowsOutcome: event.outcome.kind === "rows" ? event.outcome : null,
+      };
+    case "setStatus":
+      return { ...state, statusMessage: event.status };
     case "exit":
       return state;
     case "openAutocomplete":
