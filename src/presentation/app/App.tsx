@@ -1,5 +1,6 @@
 import { Box, Static, useApp, useInput } from "ink";
 import { useEffect, useMemo, useReducer, useRef } from "react";
+import { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
 import { LoadHistory } from "../../application/history/LoadHistory.ts";
 import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
@@ -9,9 +10,11 @@ import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
 import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
+import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
+import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
 import { handleDotCommand } from "./dotCommand.ts";
 
@@ -22,6 +25,8 @@ type Props = {
 
 type Event = Parameters<typeof appReducer>[1];
 type Dispatch = (event: Event) => void;
+
+const STUB_SCHEMA = { listTables: (): readonly string[] => [] };
 
 export function App({ db, dbPath }: Props) {
   const { exit } = useApp();
@@ -38,6 +43,10 @@ export function App({ db, dbPath }: Props) {
   const saveHistory = useMemo(
     () => new SaveHistory(historyRepo),
     [historyRepo],
+  );
+  const autocomplete = useMemo(
+    () => new GetAutocompleteSuggestions(STUB_SCHEMA),
+    [],
   );
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
@@ -83,6 +92,22 @@ export function App({ db, dbPath }: Props) {
     if (key.ctrl && input === "r") {
       promptBeforeReverseRef.current = state.prompt;
       dispatch({ type: "reverseSearchOpen" });
+      return;
+    }
+    if (state.autocomplete !== null) {
+      handleAutocompleteInput({
+        input,
+        key,
+        autocomplete,
+        prompt: state.prompt,
+        popup: state.autocomplete,
+        dispatch,
+      });
+      return;
+    }
+    if (key.tab) {
+      const prefix = state.prompt.match(/\S+$/)?.[0] ?? "";
+      dispatch({ type: "openAutocomplete", prefix });
       return;
     }
     if (key.return) {
@@ -137,6 +162,10 @@ export function App({ db, dbPath }: Props) {
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
+  const popup = state.autocomplete;
+  const suggestions =
+    popup === null ? [] : autocomplete.suggest(popup.prefix, {});
+
   return (
     <Box flexDirection="column">
       <Header dbPath={dbPath} statusMessage={state.statusMessage} />
@@ -148,6 +177,9 @@ export function App({ db, dbPath }: Props) {
         </Static>
       )}
       <Prompt value={displayedPrompt} prefix={prefix} />
+      {popup !== null && (
+        <AutocompletePopup suggestions={suggestions} index={popup.index} />
+      )}
     </Box>
   );
 }
