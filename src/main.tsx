@@ -1,4 +1,3 @@
-import { render } from 'ink';
-import { App } from './presentation/app/App.tsx';
+import { run } from './cli.ts';
 
-render(<App />);
+run(process.argv);
