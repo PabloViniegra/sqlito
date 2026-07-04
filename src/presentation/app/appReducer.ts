@@ -1,10 +1,5 @@
+import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
-
-export type HistoryEntry = {
-  sql: string;
-  outcome: "ok" | "affected" | "side-effect";
-  timestamp: number;
-};
 
 export type PastQuery = {
   sql: string;
@@ -28,6 +23,10 @@ export type StatusMessage = {
   kind: "info" | "error";
 };
 
+export type ReverseSearchState = {
+  query: string;
+};
+
 export type AppState = {
   prompt: string;
   history: { entries: readonly HistoryEntry[]; cursor: number };
@@ -35,6 +34,7 @@ export type AppState = {
   autocomplete: AutocompleteState | null;
   lastRowsOutcome: QueryOutcome | null;
   statusMessage: StatusMessage | null;
+  reverseSearch: ReverseSearchState | null;
 };
 
 export type AppEvent =
@@ -47,8 +47,14 @@ export type AppEvent =
   | { type: "closeAutocomplete" }
   | { type: "moveAutocomplete"; delta: -1 | 1 }
   | { type: "commitAutocomplete" }
+  | { type: "loadHistory"; entries: readonly HistoryEntry[] }
+  | { type: "recordQuery"; entry: HistoryEntry; outcome: QueryOutcome }
   | { type: "historyUp" }
   | { type: "historyDown" }
+  | { type: "reverseSearchOpen" }
+  | { type: "reverseSearchChange"; query: string }
+  | { type: "reverseSearchCommit" }
+  | { type: "reverseSearchCancel" }
   | { type: "exportTo"; path: string }
   | { type: "command"; line: string }
   | { type: "setStatus"; status: StatusMessage | null };
@@ -60,7 +66,12 @@ export const initialState: AppState = {
   autocomplete: null,
   lastRowsOutcome: null,
   statusMessage: null,
+  reverseSearch: null,
 };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 export function appReducer(state: AppState, event: AppEvent): AppState {
   switch (event.type) {
@@ -70,13 +81,16 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       return { ...state, prompt: state.prompt.slice(0, -1) };
     case "clearPrompt":
       return { ...state, prompt: "" };
-    case "submit":
-      return {
+    case "submit": {
+      const next: AppState = {
         ...state,
         prompt: "",
         statusMessage: null,
         lastRowsOutcome: event.outcome.kind === "rows" ? event.outcome : null,
       };
+      if (state.reverseSearch !== null) next.reverseSearch = null;
+      return next;
+    }
     case "setStatus":
       return { ...state, statusMessage: event.status };
     case "exit":
@@ -98,12 +112,32 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     }
     case "commitAutocomplete":
       return { ...state, autocomplete: null };
+    case "loadHistory":
+      return {
+        ...state,
+        history: { entries: event.entries, cursor: 0 },
+      };
+    case "recordQuery": {
+      const nextEntries = [...state.history.entries, event.entry];
+      return {
+        ...state,
+        history: { ...state.history, entries: nextEntries },
+        pastQueries: [
+          ...state.pastQueries,
+          { sql: event.entry.sql, outcome: event.outcome },
+        ],
+      };
+    }
     case "historyUp":
       return {
         ...state,
         history: {
           ...state.history,
-          cursor: Math.max(0, state.history.cursor - 1),
+          cursor: clamp(
+            state.history.cursor + 1,
+            0,
+            state.history.entries.length,
+          ),
         },
       };
     case "historyDown":
@@ -111,12 +145,22 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
         ...state,
         history: {
           ...state.history,
-          cursor: Math.min(
+          cursor: clamp(
+            state.history.cursor - 1,
+            0,
             state.history.entries.length,
-            state.history.cursor + 1,
           ),
         },
       };
+    case "reverseSearchOpen":
+      return { ...state, reverseSearch: { query: "" } };
+    case "reverseSearchChange":
+      if (state.reverseSearch === null) return state;
+      return { ...state, reverseSearch: { query: event.query } };
+    case "reverseSearchCommit":
+      return { ...state, reverseSearch: null };
+    case "reverseSearchCancel":
+      return { ...state, reverseSearch: null };
     case "exportTo":
       return state;
     case "command":
