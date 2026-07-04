@@ -31,6 +31,8 @@ function renderBody(outcome: QueryOutcome, terminalWidth: number) {
         </Text>
       );
     }
+    case "side-effect":
+      return <Text dimColor>done</Text>;
     case "error":
       return <Text color="red">{outcome.message}</Text>;
   }

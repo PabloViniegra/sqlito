@@ -88,6 +88,19 @@ describe("ResultsTable", () => {
     expect(frame).not.toContain("last insert rowid");
   });
 
+  it("renders side-effect outcome as 'done' with no row count or rowid", async () => {
+    const outcome: QueryOutcome = { kind: "side-effect" };
+
+    const frame = await capture(
+      <ResultsTable outcome={outcome} sql="VACUUM" />,
+    );
+
+    expect(frame).toContain("VACUUM");
+    expect(frame).toContain("done");
+    expect(frame).not.toContain("rows affected");
+    expect(frame).not.toContain("last insert rowid");
+  });
+
   it("renders error outcome with the SQLite message", async () => {
     const outcome: QueryOutcome = {
       kind: "error",

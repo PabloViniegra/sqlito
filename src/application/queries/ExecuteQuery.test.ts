@@ -71,15 +71,12 @@ describe("ExecuteQuery", () => {
     expect(Number(outcome.lastInsertRowid)).toBeGreaterThan(0);
   });
 
-  it("executes CREATE TABLE (DDL) and returns affected outcome", () => {
+  it("executes CREATE TABLE (DDL) and returns side-effect outcome", () => {
     const exec = setup();
 
     const outcome = exec.execute("CREATE TABLE t (id INTEGER)");
 
-    expect(outcome.kind).toBe("affected");
-    if (outcome.kind !== "affected") throw new Error("expected affected");
-    expect(outcome.changes).toBe(0);
-    expect(Number(outcome.lastInsertRowid)).toBe(0);
+    expect(outcome.kind).toBe("side-effect");
   });
 
   it("executes UPDATE and returns affected outcome with change count", () => {
@@ -147,15 +144,12 @@ describe("ExecuteQuery", () => {
     expect(outcome.rows).toEqual([[0]]);
   });
 
-  it("executes PRAGMA setter and returns affected outcome", () => {
+  it("executes PRAGMA setter and returns side-effect outcome", () => {
     const exec = setup();
 
     const outcome = exec.execute("PRAGMA user_version = 7");
 
-    expect(outcome.kind).toBe("affected");
-    if (outcome.kind !== "affected") throw new Error("expected affected");
-    expect(outcome.changes).toBe(0);
-    expect(Number(outcome.lastInsertRowid)).toBe(0);
+    expect(outcome.kind).toBe("side-effect");
     expect(db.prepare("PRAGMA user_version").all()).toEqual([[7]]);
   });
 
@@ -182,15 +176,50 @@ describe("ExecuteQuery", () => {
     expect(outcome.rows).toEqual([[1]]);
   });
 
-  it("executes VACUUM and returns affected outcome", () => {
+  it("executes VACUUM and returns side-effect outcome", () => {
     const exec = setup();
     db.prepare("CREATE TABLE t (id INTEGER)").run();
     db.prepare("INSERT INTO t VALUES (1), (2)").run();
 
     const outcome = exec.execute("VACUUM");
 
-    expect(outcome.kind).toBe("affected");
-    if (outcome.kind !== "affected") throw new Error("expected affected");
-    expect(outcome.changes).toBe(0);
+    expect(outcome.kind).toBe("side-effect");
+  });
+
+  it("executes REINDEX and returns side-effect outcome", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER PRIMARY KEY)").run();
+    db.prepare("INSERT INTO t VALUES (1)").run();
+
+    const outcome = exec.execute("REINDEX");
+
+    expect(outcome.kind).toBe("side-effect");
+  });
+
+  it("executes ANALYZE and returns side-effect outcome", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER)").run();
+
+    const outcome = exec.execute("ANALYZE");
+
+    expect(outcome.kind).toBe("side-effect");
+  });
+
+  it("executes DROP TABLE and returns side-effect outcome", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER)").run();
+
+    const outcome = exec.execute("DROP TABLE t");
+
+    expect(outcome.kind).toBe("side-effect");
+  });
+
+  it("executes ALTER TABLE and returns side-effect outcome", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER)").run();
+
+    const outcome = exec.execute("ALTER TABLE t ADD COLUMN name TEXT");
+
+    expect(outcome.kind).toBe("side-effect");
   });
 });
