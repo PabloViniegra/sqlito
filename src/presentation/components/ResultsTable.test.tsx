@@ -5,9 +5,15 @@ import { describe, expect, it } from "vitest";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { ResultsTable } from "./ResultsTable.tsx";
 
-async function capture(node: React.ReactElement): Promise<string> {
-  const stdout = new PassThrough();
+async function capture(
+  node: React.ReactElement,
+  options: { columns?: number } = {},
+): Promise<string> {
+  const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
+    columns: number;
+  };
   let buffer = "";
+  stdout.columns = options.columns ?? 80;
   stdout.write = (chunk: string | Uint8Array): boolean => {
     buffer += chunk.toString();
     return true;
@@ -94,5 +100,58 @@ describe("ResultsTable", () => {
 
     expect(frame).toContain("SELECT syntax");
     expect(frame).toContain('near "syntax": syntax error');
+  });
+
+  it("renders NULL cells as the literal string NULL", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [
+        { name: "id", type: null },
+        { name: "name", type: null },
+      ],
+      rows: [
+        [1, null],
+        [2, undefined],
+      ],
+    };
+
+    const frame = await capture(
+      <ResultsTable outcome={outcome} sql="SELECT id, name FROM t" />,
+    );
+
+    expect(frame).toContain("NULL");
+    expect(frame).not.toContain("undefined");
+  });
+
+  it("renders bigint rowids as their numeric string", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "rowid", type: null }],
+      rows: [[42n]],
+    };
+
+    const frame = await capture(
+      <ResultsTable outcome={outcome} sql="SELECT rowid FROM t" />,
+    );
+
+    expect(frame).toContain("42");
+  });
+
+  it("truncates long cell values to fit the rendered width", async () => {
+    const longValue =
+      "this string is intentionally much longer than the column width";
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "v", type: null }],
+      rows: [[longValue]],
+    };
+
+    const frame = await capture(
+      <ResultsTable outcome={outcome} sql="SELECT v FROM t" />,
+      { columns: 20 },
+    );
+
+    expect(frame).toContain("…");
+    expect(frame).not.toContain(longValue);
   });
 });
