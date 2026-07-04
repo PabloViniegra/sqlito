@@ -1,15 +1,10 @@
+import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
+import type { Table } from "../../domain/schema/Table.ts";
 import { SQL_KEYWORDS } from "../../domain/sql/keywords.ts";
-import type {
-  AutocompleteContext,
-  SchemaRepository,
-  Suggestion,
-} from "./Suggestion.ts";
+import type { AutocompleteContext, Suggestion } from "./Suggestion.ts";
 
-export type {
-  AutocompleteContext,
-  SchemaRepository,
-  Suggestion,
-} from "./Suggestion.ts";
+export type { AutocompleteContext, Suggestion } from "./Suggestion.ts";
+export { type SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 
 export class GetAutocompleteSuggestions {
   private readonly schema: SchemaRepository;
@@ -18,7 +13,14 @@ export class GetAutocompleteSuggestions {
     this.schema = schema;
   }
 
-  suggest(prefix: string, _context: AutocompleteContext): Suggestion[] {
+  suggest(prefix: string, context: AutocompleteContext): Suggestion[] {
+    if (context.referencedTable !== undefined) {
+      const table = this.schema.describe(context.referencedTable);
+      if (table !== undefined) {
+        return this.columnSuggestions(prefix, table);
+      }
+    }
+
     const trimmed = prefix.trim();
     const haystack = trimmed.toLowerCase();
 
@@ -28,7 +30,8 @@ export class GetAutocompleteSuggestions {
 
     const tableMatches = this.schema
       .listTables()
-      .filter((t) => matches(haystack, t.toLowerCase()))
+      .map((t) => t.name)
+      .filter((name) => matches(haystack, name.toLowerCase()))
       .map<Suggestion>((label) => ({
         label,
         kind: "table" as const,
@@ -38,6 +41,23 @@ export class GetAutocompleteSuggestions {
     const combined = [...keywordMatches, ...tableMatches];
     if (haystack === "") return combined.slice(0, 10);
     return rank(combined, haystack).slice(0, 10);
+  }
+
+  private columnSuggestions(prefix: string, table: Table): Suggestion[] {
+    const trimmed = prefix.trim();
+    const haystack = trimmed.toLowerCase();
+    const matched = table.columns.filter((c) =>
+      matches(haystack, c.name.toLowerCase()),
+    );
+    const ranked = rank(
+      matched.map<Suggestion>((c) => ({
+        label: c.name,
+        kind: "column",
+        detail: c.type === null ? undefined : c.type,
+      })),
+      haystack,
+    );
+    return ranked.slice(0, 10);
   }
 }
 

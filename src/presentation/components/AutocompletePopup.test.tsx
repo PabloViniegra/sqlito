@@ -31,6 +31,11 @@ const TBL = (label: string): Suggestion => ({
   kind: "table",
   detail: "table",
 });
+const COL = (label: string, type: string): Suggestion => ({
+  label,
+  kind: "column",
+  detail: type,
+});
 
 describe("AutocompletePopup", () => {
   it("renders the suggestion list when there are matches", async () => {
@@ -103,5 +108,23 @@ describe("AutocompletePopup", () => {
 
     expect(first).toContain("SELECT");
     expect(second).toContain("SET");
+  });
+
+  it("renders column suggestions with their SQLite type as detail", async () => {
+    const frame = await capture(
+      <AutocompletePopup
+        suggestions={[
+          COL("id", "INTEGER"),
+          COL("email", "TEXT"),
+          COL("created_at", "REAL"),
+        ]}
+        index={0}
+      />,
+    );
+
+    expect(frame).toContain("id");
+    expect(frame).toContain("INTEGER");
+    expect(frame).toContain("email");
+    expect(frame).toContain("TEXT");
   });
 });

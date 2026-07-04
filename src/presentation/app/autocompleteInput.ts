@@ -4,6 +4,7 @@ import type {
   AutocompleteContext,
   AutocompleteState,
 } from "./appReducer.ts";
+import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 
 type Dispatch = (event: AppEvent) => void;
 
@@ -28,7 +29,7 @@ export function handleAutocompleteInput(args: {
   dispatch: Dispatch;
 }): void {
   const { input, key, autocomplete: ac, prompt, popup, dispatch } = args;
-  const suggestions = ac.suggest(popup.prefix, {} as AutocompleteContext);
+  const suggestions = ac.suggest(popup.prefix, popup.context);
   if (key.escape) {
     dispatch({ type: "closeAutocomplete" });
     return;
@@ -39,7 +40,14 @@ export function handleAutocompleteInput(args: {
       dispatch({ type: "closeAutocomplete" });
       return;
     }
-    const nextPrompt = prompt.replace(/\S+$/, picked.label);
+    const trailing = prompt.match(/\S+$/)?.[0] ?? "";
+    const base = popup.prefixBase ?? "";
+    const nextPrompt =
+      trailing.length === 0
+        ? prompt + base + picked.label
+        : prompt.slice(0, prompt.length - trailing.length) +
+          base +
+          picked.label;
     dispatch({ type: "commitAutocomplete", replacement: nextPrompt });
     return;
   }
@@ -58,8 +66,40 @@ export function handleAutocompleteInput(args: {
   if (key.backspace || key.delete || (input && !key.ctrl && !key.meta)) {
     const nextPrompt =
       key.backspace || key.delete ? prompt.slice(0, -1) : prompt + input;
-    const prefix = nextPrompt.match(/\S+$/)?.[0] ?? "";
+    const context: AutocompleteContext = popup.context;
+    const derived =
+      context.referencedTable !== undefined
+        ? keepColumnContext(nextPrompt, context)
+        : deriveAutocompleteContext(nextPrompt);
     dispatch({ type: "setPrompt", value: nextPrompt });
-    dispatch({ type: "openAutocomplete", prefix });
+    dispatch({
+      type: "openAutocomplete",
+      prefix: derived.prefix,
+      prefixBase: derived.prefixBase,
+      context: derived.context,
+    });
   }
+}
+
+function keepColumnContext(
+  prompt: string,
+  context: AutocompleteContext,
+): {
+  prefix: string;
+  prefixBase?: string;
+  context: AutocompleteContext;
+} {
+  const trailing = prompt.match(/\S+$/)?.[0] ?? "";
+  const dotIdx = trailing.lastIndexOf(".");
+  if (dotIdx >= 0) {
+    const id = trailing.slice(0, dotIdx);
+    const filter = trailing.slice(dotIdx + 1);
+    const nextContext: AutocompleteContext = { ...context };
+    return {
+      prefix: filter,
+      prefixBase: `${id}.`,
+      context: nextContext,
+    };
+  }
+  return deriveAutocompleteContext(prompt);
 }

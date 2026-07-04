@@ -173,6 +173,7 @@ describe("appReducer", () => {
         open: true,
         index: 0,
         prefix: "sel",
+        prefixBase: undefined,
         context: {},
       });
     });
@@ -196,6 +197,7 @@ describe("appReducer", () => {
         open: true,
         index: 0,
         prefix: "new",
+        prefixBase: undefined,
         context: {},
       });
     });
@@ -207,6 +209,23 @@ describe("appReducer", () => {
       });
 
       expect(next.autocomplete?.prefix).toBe("");
+    });
+
+    it("opens with prefixBase and context when provided for column completion", () => {
+      const next = appReducer(initialState, {
+        type: "openAutocomplete",
+        prefix: "",
+        prefixBase: "u.",
+        context: { referencedTable: "users" },
+      });
+
+      expect(next.autocomplete).toEqual({
+        open: true,
+        index: 0,
+        prefix: "",
+        prefixBase: "u.",
+        context: { referencedTable: "users" },
+      });
     });
   });
 

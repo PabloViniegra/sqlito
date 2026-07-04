@@ -7,6 +7,8 @@ import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import type { Database } from "../../domain/database/Database.ts";
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
+import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
+import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
 import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
@@ -14,21 +16,21 @@ import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
+import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
 import { handleDotCommand } from "./dotCommand.ts";
 
 type Props = {
   db: Database;
+  schema: SchemaRepository;
   dbPath: string;
 };
 
 type Event = Parameters<typeof appReducer>[1];
 type Dispatch = (event: Event) => void;
 
-const STUB_SCHEMA = { listTables: (): readonly string[] => [] };
-
-export function App({ db, dbPath }: Props) {
+export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
   const executeQuery = useMemo(() => new ExecuteQuery(db), [db]);
   const exportCsv = useMemo(() => new ExportCsv(), []);
@@ -45,11 +47,15 @@ export function App({ db, dbPath }: Props) {
     [historyRepo],
   );
   const autocomplete = useMemo(
-    () => new GetAutocompleteSuggestions(STUB_SCHEMA),
-    [],
+    () => new GetAutocompleteSuggestions(schema),
+    [schema],
   );
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
+
+  useEffect(() => {
+    schema.refresh();
+  }, [schema]);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,8 +112,13 @@ export function App({ db, dbPath }: Props) {
       return;
     }
     if (key.tab) {
-      const prefix = state.prompt.match(/\S+$/)?.[0] ?? "";
-      dispatch({ type: "openAutocomplete", prefix });
+      const ac = deriveAutocompleteContext(state.prompt);
+      dispatch({
+        type: "openAutocomplete",
+        prefix: ac.prefix,
+        prefixBase: ac.prefixBase,
+        context: ac.context,
+      });
       return;
     }
     if (key.return) {
@@ -125,6 +136,9 @@ export function App({ db, dbPath }: Props) {
       }
       const outcome = executeQuery.execute(sql);
       dispatch({ type: "submit", outcome });
+      if (outcome.kind === "side-effect" && classifySideEffect(sql)) {
+        schema.refresh();
+      }
       if (outcome.kind !== "error") {
         const timestamp = Date.now();
         dispatch({
@@ -153,18 +167,19 @@ export function App({ db, dbPath }: Props) {
     }
   });
 
-  const displayedPrompt = (() => {
-    const { cursor, entries } = state.history;
-    if (state.reverseSearch !== null) return state.prompt;
-    if (cursor === 0) return state.prompt;
-    return entries[cursor - 1]?.sql ?? state.prompt;
-  })();
+  const { cursor, entries } = state.history;
+  const displayedPrompt =
+    state.reverseSearch !== null
+      ? state.prompt
+      : cursor === 0
+        ? state.prompt
+        : (entries[cursor - 1]?.sql ?? state.prompt);
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
   const popup = state.autocomplete;
   const suggestions =
-    popup === null ? [] : autocomplete.suggest(popup.prefix, {});
+    popup === null ? [] : autocomplete.suggest(popup.prefix, popup.context);
 
   return (
     <Box flexDirection="column">

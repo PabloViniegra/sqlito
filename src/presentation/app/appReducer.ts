@@ -15,6 +15,7 @@ export type AutocompleteState = {
   open: boolean;
   index: number;
   prefix: string;
+  prefixBase?: string;
   context: AutocompleteContext;
 };
 
@@ -43,7 +44,12 @@ export type AppEvent =
   | { type: "backspace" }
   | { type: "clearPrompt" }
   | { type: "exit" }
-  | { type: "openAutocomplete"; prefix: string }
+  | {
+      type: "openAutocomplete";
+      prefix: string;
+      prefixBase?: string;
+      context?: AutocompleteContext;
+    }
   | { type: "closeAutocomplete" }
   | { type: "moveAutocomplete"; delta: -1 | 1; count: number }
   | { type: "commitAutocomplete"; replacement: string }
@@ -102,7 +108,8 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
           open: true,
           index: 0,
           prefix: event.prefix,
-          context: {},
+          prefixBase: event.prefixBase,
+          context: event.context ?? {},
         },
       };
     case "closeAutocomplete":

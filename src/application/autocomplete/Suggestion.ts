@@ -10,7 +10,3 @@ export type AutocompleteContext = {
   precedingToken?: string;
   referencedTable?: string;
 };
-
-export type SchemaRepository = {
-  listTables: () => readonly string[];
-};
