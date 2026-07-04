@@ -6,10 +6,8 @@ import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import type { Database } from "../../domain/database/Database.ts";
-import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
-import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
 import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
 import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
@@ -20,15 +18,14 @@ import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
 import { handleDotCommand } from "./dotCommand.ts";
+import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
+import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
 type Props = {
   db: Database;
   schema: SchemaRepository;
   dbPath: string;
 };
-
-type Event = Parameters<typeof appReducer>[1];
-type Dispatch = (event: Event) => void;
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
@@ -72,16 +69,10 @@ export function App({ db, schema, dbPath }: Props) {
       handleReverseSearchInput({
         input,
         key,
+        promptBeforeReverse: promptBeforeReverseRef.current,
         query: state.reverseSearch.query,
         entries: state.history.entries,
         dispatch,
-        onCancel: () => {
-          dispatch({
-            type: "setPrompt",
-            value: promptBeforeReverseRef.current,
-          });
-          dispatch({ type: "reverseSearchCancel" });
-        },
       });
       return;
     }
@@ -197,65 +188,4 @@ export function App({ db, schema, dbPath }: Props) {
       )}
     </Box>
   );
-}
-
-function handleReverseSearchInput(args: {
-  input: string;
-  key: {
-    return: boolean;
-    escape: boolean;
-    backspace: boolean;
-    delete: boolean;
-    ctrl: boolean;
-  };
-  query: string;
-  entries: readonly HistoryEntry[];
-  dispatch: Dispatch;
-  onCancel: () => void;
-}): void {
-  const { input, key, query, entries, dispatch, onCancel } = args;
-  if (key.escape) {
-    onCancel();
-    return;
-  }
-  if (key.return) {
-    dispatch({ type: "reverseSearchCommit" });
-    return;
-  }
-  const nextQuery =
-    key.backspace || key.delete
-      ? query.slice(0, -1)
-      : input && !key.ctrl
-        ? query + input
-        : query;
-  const match = findNewestMatch(nextQuery, entries);
-  dispatch({ type: "reverseSearchChange", query: nextQuery });
-  dispatch({ type: "setPrompt", value: match === null ? "" : match.sql });
-}
-
-function findNewestMatch(
-  query: string,
-  entries: readonly HistoryEntry[],
-): HistoryEntry | null {
-  const haystack = query.toLowerCase();
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    if (entry !== undefined && entry.sql.toLowerCase().includes(haystack)) {
-      return entry;
-    }
-  }
-  return null;
-}
-
-function outcomeToHistoryKind(outcome: QueryOutcome): HistoryEntry["outcome"] {
-  switch (outcome.kind) {
-    case "rows":
-      return "ok";
-    case "affected":
-      return "affected";
-    case "side-effect":
-      return "side-effect";
-    case "error":
-      return "ok";
-  }
 }
