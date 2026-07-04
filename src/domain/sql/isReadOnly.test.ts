@@ -40,4 +40,32 @@ describe("isReadOnly", () => {
   ])("classifies %j as %s", (sql, expected) => {
     expect(isReadOnly(sql)).toBe(expected);
   });
+
+  it("classifies PRAGMA wal_autocheckpoint(1000) as a write", () => {
+    expect(isReadOnly("PRAGMA wal_autocheckpoint(1000)")).toBe(false);
+  });
+
+  it("classifies PRAGMA wal_autocheckpoint (no parens) as a read", () => {
+    expect(isReadOnly("PRAGMA wal_autocheckpoint")).toBe(true);
+  });
+
+  it("classifies PRAGMA wal_autocheckpoint() (empty parens) as a write", () => {
+    expect(isReadOnly("PRAGMA wal_autocheckpoint()")).toBe(false);
+  });
+
+  it("tolerates leading whitespace before PRAGMA wal_autocheckpoint(1000)", () => {
+    expect(isReadOnly("   \t\n  PRAGMA wal_autocheckpoint(1000)")).toBe(false);
+  });
+
+  it("tolerates a line comment before PRAGMA wal_autocheckpoint(1000)", () => {
+    expect(isReadOnly("-- tune WAL\nPRAGMA wal_autocheckpoint(1000)")).toBe(
+      false,
+    );
+  });
+
+  it("tolerates a block comment before PRAGMA wal_autocheckpoint(1000)", () => {
+    expect(isReadOnly("/* tune */ PRAGMA wal_autocheckpoint(1000)")).toBe(
+      false,
+    );
+  });
 });
