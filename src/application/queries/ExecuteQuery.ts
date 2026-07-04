@@ -2,8 +2,9 @@ import type {
   Database,
   PreparedStatement,
 } from "../../domain/database/Database.ts";
-import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
 import { isReadOnly } from "../../domain/sql/isReadOnly.ts";
+import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 
 export class ExecuteQuery {
   private readonly db: Database;
@@ -30,6 +31,9 @@ export class ExecuteQuery {
         return { kind: "rows", columns, rows };
       }
       const info = stmt.run();
+      if (classifySideEffect(trimmed)) {
+        return { kind: "side-effect" };
+      }
       return {
         kind: "affected",
         changes: info.changes,
