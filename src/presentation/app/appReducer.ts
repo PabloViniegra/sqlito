@@ -43,10 +43,10 @@ export type AppEvent =
   | { type: "backspace" }
   | { type: "clearPrompt" }
   | { type: "exit" }
-  | { type: "openAutocomplete" }
+  | { type: "openAutocomplete"; prefix: string }
   | { type: "closeAutocomplete" }
-  | { type: "moveAutocomplete"; delta: -1 | 1 }
-  | { type: "commitAutocomplete" }
+  | { type: "moveAutocomplete"; delta: -1 | 1; count: number }
+  | { type: "commitAutocomplete"; replacement: string }
   | { type: "loadHistory"; entries: readonly HistoryEntry[] }
   | { type: "recordQuery"; entry: HistoryEntry; outcome: QueryOutcome }
   | { type: "historyUp" }
@@ -98,20 +98,27 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "openAutocomplete":
       return {
         ...state,
-        autocomplete: { open: true, index: 0, prefix: "", context: {} },
+        autocomplete: {
+          open: true,
+          index: 0,
+          prefix: event.prefix,
+          context: {},
+        },
       };
     case "closeAutocomplete":
       return { ...state, autocomplete: null };
     case "moveAutocomplete": {
       if (state.autocomplete === null) return state;
-      const nextIndex = Math.max(0, state.autocomplete.index + event.delta);
+      if (event.count <= 0) return state;
+      const raw = state.autocomplete.index + event.delta;
+      const wrapped = ((raw % event.count) + event.count) % event.count;
       return {
         ...state,
-        autocomplete: { ...state.autocomplete, index: nextIndex },
+        autocomplete: { ...state.autocomplete, index: wrapped },
       };
     }
     case "commitAutocomplete":
-      return { ...state, autocomplete: null };
+      return { ...state, prompt: event.replacement, autocomplete: null };
     case "loadHistory":
       return {
         ...state,

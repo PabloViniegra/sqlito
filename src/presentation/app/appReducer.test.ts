@@ -163,18 +163,21 @@ describe("appReducer", () => {
   });
 
   describe("openAutocomplete", () => {
-    it("opens autocomplete with index 0 and empty prefix/context", () => {
-      const next = appReducer(initialState, { type: "openAutocomplete" });
+    it("opens autocomplete with the given prefix and index 0", () => {
+      const next = appReducer(initialState, {
+        type: "openAutocomplete",
+        prefix: "sel",
+      });
 
       expect(next.autocomplete).toEqual({
         open: true,
         index: 0,
-        prefix: "",
+        prefix: "sel",
         context: {},
       });
     });
 
-    it("replaces a previously open autocomplete", () => {
+    it("replaces a previously open autocomplete and resets index", () => {
       const state = {
         ...initialState,
         autocomplete: {
@@ -184,14 +187,26 @@ describe("appReducer", () => {
           context: { precedingToken: "x" },
         },
       };
-      const next = appReducer(state, { type: "openAutocomplete" });
+      const next = appReducer(state, {
+        type: "openAutocomplete",
+        prefix: "new",
+      });
 
       expect(next.autocomplete).toEqual({
         open: true,
         index: 0,
-        prefix: "",
+        prefix: "new",
         context: {},
       });
+    });
+
+    it("opens with empty prefix when called with ''", () => {
+      const next = appReducer(initialState, {
+        type: "openAutocomplete",
+        prefix: "",
+      });
+
+      expect(next.autocomplete?.prefix).toBe("");
     });
   });
 
@@ -223,6 +238,7 @@ describe("appReducer", () => {
       const next = appReducer(openAt(3), {
         type: "moveAutocomplete",
         delta: -1,
+        count: 10,
       });
 
       expect(next.autocomplete?.index).toBe(2);
@@ -232,15 +248,27 @@ describe("appReducer", () => {
       const next = appReducer(openAt(3), {
         type: "moveAutocomplete",
         delta: 1,
+        count: 10,
       });
 
       expect(next.autocomplete?.index).toBe(4);
     });
 
-    it("clamps at 0 when moving up from index 0", () => {
+    it("wraps from index 0 with delta -1 to count - 1", () => {
       const next = appReducer(openAt(0), {
         type: "moveAutocomplete",
         delta: -1,
+        count: 5,
+      });
+
+      expect(next.autocomplete?.index).toBe(4);
+    });
+
+    it("wraps from the last index with delta 1 to 0", () => {
+      const next = appReducer(openAt(4), {
+        type: "moveAutocomplete",
+        delta: 1,
+        count: 5,
       });
 
       expect(next.autocomplete?.index).toBe(0);
@@ -250,27 +278,71 @@ describe("appReducer", () => {
       const next = appReducer(initialState, {
         type: "moveAutocomplete",
         delta: 1,
+        count: 5,
       });
 
       expect(next.autocomplete).toBeNull();
     });
+
+    it("is a no-op when count is 0 (popup is empty)", () => {
+      const next = appReducer(openAt(2), {
+        type: "moveAutocomplete",
+        delta: 1,
+        count: 0,
+      });
+
+      expect(next.autocomplete?.index).toBe(2);
+    });
+
+    it("moves within a 1-item popup without going out of range", () => {
+      const next = appReducer(openAt(0), {
+        type: "moveAutocomplete",
+        delta: 1,
+        count: 1,
+      });
+
+      expect(next.autocomplete?.index).toBe(0);
+    });
   });
 
   describe("commitAutocomplete", () => {
-    it("closes the autocomplete popup", () => {
+    it("closes the autocomplete popup and sets the prompt to replacement", () => {
       const state = {
         ...initialState,
-        autocomplete: { open: true, index: 1, prefix: "sel", context: {} },
+        prompt: "SE",
+        autocomplete: { open: true, index: 1, prefix: "SE", context: {} },
       };
-      const next = appReducer(state, { type: "commitAutocomplete" });
+      const next = appReducer(state, {
+        type: "commitAutocomplete",
+        replacement: "SELECT",
+      });
+
+      expect(next.autocomplete).toBeNull();
+      expect(next.prompt).toBe("SELECT");
+    });
+
+    it("is a no-op when autocomplete is already null", () => {
+      const next = appReducer(initialState, {
+        type: "commitAutocomplete",
+        replacement: "SELECT",
+      });
 
       expect(next.autocomplete).toBeNull();
     });
 
-    it("is a no-op when autocomplete is already null", () => {
-      const next = appReducer(initialState, { type: "commitAutocomplete" });
+    it("preserves the prior prompt when replacement is empty (driver-driven no-op)", () => {
+      const state = {
+        ...initialState,
+        prompt: "SEL",
+        autocomplete: { open: true, index: 0, prefix: "SEL", context: {} },
+      };
+      const next = appReducer(state, {
+        type: "commitAutocomplete",
+        replacement: "SEL",
+      });
 
       expect(next.autocomplete).toBeNull();
+      expect(next.prompt).toBe("SEL");
     });
   });
 
