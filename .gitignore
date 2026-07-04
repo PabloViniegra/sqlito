@@ -33,3 +33,10 @@ PRD.md
 AGENTS.md
 .agents/**
 graphify-out/
+
+# Build / tsbuildinfo
+*.tsbuildinfo
+node_modules/.tmp/
+
+# Vitest cache
+.vitest-cache/
