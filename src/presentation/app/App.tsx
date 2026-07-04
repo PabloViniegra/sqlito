@@ -1,30 +1,75 @@
 import { Box, Static, useApp, useInput } from "ink";
-import { useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
+import { LoadHistory } from "../../application/history/LoadHistory.ts";
+import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
-import { parseExportCommand } from "../../application/commands/parseCommand.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import type { Database } from "../../domain/database/Database.ts";
+import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
+import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
-import type { StatusMessage } from "./appReducer.ts";
 import { appReducer, initialState } from "./appReducer.ts";
-import type { PastQuery } from "./appReducer.ts";
+import { handleDotCommand } from "./dotCommand.ts";
 
 type Props = {
   db: Database;
   dbPath: string;
 };
 
+type Event = Parameters<typeof appReducer>[1];
+type Dispatch = (event: Event) => void;
+
 export function App({ db, dbPath }: Props) {
   const { exit } = useApp();
-  const executeQuery = new ExecuteQuery(db);
-  const exportCsv = new ExportCsv();
+  const executeQuery = useMemo(() => new ExecuteQuery(db), [db]);
+  const exportCsv = useMemo(() => new ExportCsv(), []);
+  const historyRepo = useMemo(
+    () => new XdgHistoryRepository(resolveXdgHistoryPath()),
+    [],
+  );
+  const loadHistory = useMemo(
+    () => new LoadHistory(historyRepo),
+    [historyRepo],
+  );
+  const saveHistory = useMemo(
+    () => new SaveHistory(historyRepo),
+    [historyRepo],
+  );
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const [pastQueries, setPastQueries] = useState<PastQuery[]>([]);
+  const promptBeforeReverseRef = useRef<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadHistory.load().then((entries) => {
+      if (!cancelled) dispatch({ type: "loadHistory", entries });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadHistory]);
 
   useInput((input, key) => {
+    if (state.reverseSearch !== null) {
+      handleReverseSearchInput({
+        input,
+        key,
+        query: state.reverseSearch.query,
+        entries: state.history.entries,
+        dispatch,
+        onCancel: () => {
+          dispatch({
+            type: "setPrompt",
+            value: promptBeforeReverseRef.current,
+          });
+          dispatch({ type: "reverseSearchCancel" });
+        },
+      });
+      return;
+    }
     if (key.ctrl && input === "c") {
       db.close();
       dispatch({ type: "exit" });
@@ -35,17 +80,43 @@ export function App({ db, dbPath }: Props) {
       dispatch({ type: "clearPrompt" });
       return;
     }
+    if (key.ctrl && input === "r") {
+      promptBeforeReverseRef.current = state.prompt;
+      dispatch({ type: "reverseSearchOpen" });
+      return;
+    }
     if (key.return) {
       const sql = state.prompt.trim();
       if (sql === "") return;
       if (sql.startsWith(".")) {
-        void handleDotCommand(sql, dispatch, exportCsv, state.lastRowsOutcome);
+        void handleDotCommand(
+          sql,
+          dispatch as Parameters<typeof handleDotCommand>[1],
+          exportCsv,
+          state.lastRowsOutcome,
+        );
         dispatch({ type: "command", line: sql });
         return;
       }
       const outcome = executeQuery.execute(sql);
-      setPastQueries([...pastQueries, { sql, outcome }]);
       dispatch({ type: "submit", outcome });
+      if (outcome.kind !== "error") {
+        const timestamp = Date.now();
+        dispatch({
+          type: "recordQuery",
+          entry: { sql, outcome: outcomeToHistoryKind(outcome), timestamp },
+          outcome,
+        });
+        void saveHistory.save(sql, outcome, timestamp);
+      }
+      return;
+    }
+    if (key.upArrow) {
+      dispatch({ type: "historyUp" });
+      return;
+    }
+    if (key.downArrow) {
+      dispatch({ type: "historyDown" });
       return;
     }
     if (key.backspace || key.delete) {
@@ -57,59 +128,87 @@ export function App({ db, dbPath }: Props) {
     }
   });
 
+  const displayedPrompt = (() => {
+    const { cursor, entries } = state.history;
+    if (state.reverseSearch !== null) return state.prompt;
+    if (cursor === 0) return state.prompt;
+    return entries[cursor - 1]?.sql ?? state.prompt;
+  })();
+  const prefix =
+    state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
+
   return (
     <Box flexDirection="column">
       <Header dbPath={dbPath} statusMessage={state.statusMessage} />
-      {pastQueries.length > 0 && (
-        <Static items={pastQueries}>
+      {state.pastQueries.length > 0 && (
+        <Static items={[...state.pastQueries]}>
           {(item, index) => (
             <ResultsTable key={index} outcome={item.outcome} sql={item.sql} />
           )}
         </Static>
       )}
-      <Prompt value={state.prompt} />
+      <Prompt value={displayedPrompt} prefix={prefix} />
     </Box>
   );
 }
 
-async function handleDotCommand(
-  line: string,
-  dispatch: (event: {
-    type: "setStatus";
-    status: StatusMessage | null;
-  }) => void,
-  exportCsv: ExportCsv,
-  lastRowsOutcome: QueryOutcome | null,
-): Promise<void> {
-  const parsed = parseExportCommand(line);
-  if (!parsed.ok) {
-    dispatch({
-      type: "setStatus",
-      status: { text: parsed.error, kind: "error" },
-    });
+function handleReverseSearchInput(args: {
+  input: string;
+  key: {
+    return: boolean;
+    escape: boolean;
+    backspace: boolean;
+    delete: boolean;
+    ctrl: boolean;
+  };
+  query: string;
+  entries: readonly HistoryEntry[];
+  dispatch: Dispatch;
+  onCancel: () => void;
+}): void {
+  const { input, key, query, entries, dispatch, onCancel } = args;
+  if (key.escape) {
+    onCancel();
     return;
   }
-  if (lastRowsOutcome === null) {
-    dispatch({
-      type: "setStatus",
-      status: { text: "No tabular result to export", kind: "error" },
-    });
+  if (key.return) {
+    dispatch({ type: "reverseSearchCommit" });
     return;
   }
-  try {
-    const result = await exportCsv.run(lastRowsOutcome, parsed.path);
-    dispatch({
-      type: "setStatus",
-      status: {
-        text: `Exported ${result.rowsWritten} rows to ${result.path}`,
-        kind: "info",
-      },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    dispatch({
-      type: "setStatus",
-      status: { text: message, kind: "error" },
-    });
+  const nextQuery =
+    key.backspace || key.delete
+      ? query.slice(0, -1)
+      : input && !key.ctrl
+        ? query + input
+        : query;
+  const match = findNewestMatch(nextQuery, entries);
+  dispatch({ type: "reverseSearchChange", query: nextQuery });
+  dispatch({ type: "setPrompt", value: match === null ? "" : match.sql });
+}
+
+function findNewestMatch(
+  query: string,
+  entries: readonly HistoryEntry[],
+): HistoryEntry | null {
+  const haystack = query.toLowerCase();
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (entry !== undefined && entry.sql.toLowerCase().includes(haystack)) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+function outcomeToHistoryKind(outcome: QueryOutcome): HistoryEntry["outcome"] {
+  switch (outcome.kind) {
+    case "rows":
+      return "ok";
+    case "affected":
+      return "affected";
+    case "side-effect":
+      return "side-effect";
+    case "error":
+      return "ok";
   }
 }

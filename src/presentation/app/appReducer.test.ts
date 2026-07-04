@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
-import type { HistoryEntry } from "./appReducer.ts";
 import { appReducer, initialState } from "./appReducer.ts";
 
 describe("appReducer", () => {
@@ -275,35 +275,7 @@ describe("appReducer", () => {
   });
 
   describe("historyUp", () => {
-    it("decrements cursor by 1", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 1 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-
-    it("clamps cursor at 0", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 0 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-  });
-
-  describe("historyDown", () => {
-    it("increments cursor by 1", () => {
+    it("increments cursor toward older entries", () => {
       const entries: readonly HistoryEntry[] = [
         { sql: "a", outcome: "ok", timestamp: 0 },
         { sql: "b", outcome: "ok", timestamp: 1 },
@@ -312,12 +284,62 @@ describe("appReducer", () => {
         ...initialState,
         history: { entries, cursor: 0 },
       };
+      const next = appReducer(state, { type: "historyUp" });
+
+      expect(next.history.cursor).toBe(1);
+    });
+
+    it("is a no-op on empty history (cursor stays at 0)", () => {
+      const next = appReducer(initialState, { type: "historyUp" });
+
+      expect(next.history.cursor).toBe(0);
+    });
+
+    it("clamps at entries.length once the cursor reaches the oldest entry", () => {
+      const entries: readonly HistoryEntry[] = [
+        { sql: "a", outcome: "ok", timestamp: 0 },
+        { sql: "b", outcome: "ok", timestamp: 1 },
+      ];
+      const state = {
+        ...initialState,
+        history: { entries, cursor: entries.length },
+      };
+      const next = appReducer(state, { type: "historyUp" });
+
+      expect(next.history.cursor).toBe(entries.length);
+    });
+
+    it("shows the most-recent entry on the first ↑ from cursor 0", () => {
+      const entries: readonly HistoryEntry[] = [
+        { sql: "a", outcome: "ok", timestamp: 0 },
+        { sql: "b", outcome: "ok", timestamp: 1 },
+      ];
+      const state = {
+        ...initialState,
+        history: { entries, cursor: 0 },
+      };
+      const next = appReducer(state, { type: "historyUp" });
+
+      expect(next.history.entries[next.history.cursor - 1]?.sql).toBe("a");
+    });
+  });
+
+  describe("historyDown", () => {
+    it("decrements cursor toward the typed prompt (0)", () => {
+      const entries: readonly HistoryEntry[] = [
+        { sql: "a", outcome: "ok", timestamp: 0 },
+        { sql: "b", outcome: "ok", timestamp: 1 },
+      ];
+      const state = {
+        ...initialState,
+        history: { entries, cursor: 2 },
+      };
       const next = appReducer(state, { type: "historyDown" });
 
       expect(next.history.cursor).toBe(1);
     });
 
-    it("clamps cursor at entries.length", () => {
+    it("clamps cursor at 0 (returns to the typed prompt)", () => {
       const entries: readonly HistoryEntry[] = [
         { sql: "a", outcome: "ok", timestamp: 0 },
       ];
@@ -327,7 +349,16 @@ describe("appReducer", () => {
       };
       const next = appReducer(state, { type: "historyDown" });
 
-      expect(next.history.cursor).toBe(1);
+      expect(next.history.cursor).toBe(0);
+    });
+
+    it("is a no-op when the cursor is already at 0", () => {
+      const next = appReducer(
+        { ...initialState, history: { entries: [], cursor: 0 } },
+        { type: "historyDown" },
+      );
+
+      expect(next.history.cursor).toBe(0);
     });
   });
 
@@ -358,6 +389,183 @@ describe("appReducer", () => {
       const next = appReducer(state, { type: "command", line: ".tables" });
 
       expect(next).toBe(state);
+    });
+  });
+
+  describe("loadHistory", () => {
+    it("replaces history.entries and resets the cursor to 0", () => {
+      const entries: readonly HistoryEntry[] = [
+        { sql: "a", outcome: "ok", timestamp: 1 },
+        { sql: "b", outcome: "ok", timestamp: 2 },
+      ];
+      const next = appReducer(initialState, {
+        type: "loadHistory",
+        entries,
+      });
+
+      expect(next.history.entries).toEqual(entries);
+      expect(next.history.cursor).toBe(0);
+    });
+
+    it("overwrites any prior loaded entries", () => {
+      const prior: HistoryEntry = {
+        sql: "old",
+        outcome: "ok",
+        timestamp: 0,
+      };
+      const state = {
+        ...initialState,
+        history: { entries: [prior], cursor: 1 },
+      };
+      const next = appReducer(state, {
+        type: "loadHistory",
+        entries: [],
+      });
+
+      expect(next.history.entries).toEqual([]);
+      expect(next.history.cursor).toBe(0);
+    });
+  });
+
+  describe("recordQuery", () => {
+    const entry: HistoryEntry = {
+      sql: "SELECT 1",
+      outcome: "ok",
+      timestamp: 1,
+    };
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [],
+      rows: [[1]],
+    };
+
+    it("appends the entry to history.entries", () => {
+      const next = appReducer(initialState, {
+        type: "recordQuery",
+        entry,
+        outcome,
+      });
+
+      expect(next.history.entries).toEqual([entry]);
+    });
+
+    it("appends sql+outcome to pastQueries", () => {
+      const next = appReducer(initialState, {
+        type: "recordQuery",
+        entry,
+        outcome,
+      });
+
+      expect(next.pastQueries).toEqual([{ sql: entry.sql, outcome }]);
+    });
+
+    it("preserves prior history.entries", () => {
+      const prior: HistoryEntry = {
+        sql: "SELECT 0",
+        outcome: "ok",
+        timestamp: 0,
+      };
+      const state = {
+        ...initialState,
+        history: { entries: [prior], cursor: 1 },
+      };
+      const next = appReducer(state, {
+        type: "recordQuery",
+        entry,
+        outcome,
+      });
+
+      expect(next.history.entries).toEqual([prior, entry]);
+    });
+  });
+
+  describe("reverseSearchOpen", () => {
+    it("opens reverse-search with an empty query", () => {
+      const next = appReducer(initialState, { type: "reverseSearchOpen" });
+
+      expect(next.reverseSearch).toEqual({ query: "" });
+    });
+
+    it("replaces a previously open reverse-search", () => {
+      const state = {
+        ...initialState,
+        reverseSearch: { query: "old" },
+      };
+      const next = appReducer(state, { type: "reverseSearchOpen" });
+
+      expect(next.reverseSearch).toEqual({ query: "" });
+    });
+  });
+
+  describe("reverseSearchChange", () => {
+    it("updates the query string", () => {
+      const state = {
+        ...initialState,
+        reverseSearch: { query: "" },
+      };
+      const next = appReducer(state, {
+        type: "reverseSearchChange",
+        query: "sel",
+      });
+
+      expect(next.reverseSearch?.query).toBe("sel");
+    });
+
+    it("is a no-op when reverse-search is closed", () => {
+      const next = appReducer(initialState, {
+        type: "reverseSearchChange",
+        query: "sel",
+      });
+
+      expect(next.reverseSearch).toBeNull();
+    });
+  });
+
+  describe("reverseSearchCommit", () => {
+    it("closes reverse-search", () => {
+      const state = {
+        ...initialState,
+        reverseSearch: { query: "sel" },
+      };
+      const next = appReducer(state, { type: "reverseSearchCommit" });
+
+      expect(next.reverseSearch).toBeNull();
+    });
+  });
+
+  describe("reverseSearchCancel", () => {
+    it("closes reverse-search without affecting entries or prompt", () => {
+      const prior: HistoryEntry = {
+        sql: "a",
+        outcome: "ok",
+        timestamp: 1,
+      };
+      const state = {
+        ...initialState,
+        prompt: "typed",
+        reverseSearch: { query: "sel" },
+        history: { entries: [prior], cursor: 0 },
+      };
+      const next = appReducer(state, { type: "reverseSearchCancel" });
+
+      expect(next.reverseSearch).toBeNull();
+      expect(next.prompt).toBe("typed");
+      expect(next.history.entries).toEqual([prior]);
+    });
+  });
+
+  describe("submit + reverse-search interaction", () => {
+    it("closes an open reverse-search on submit", () => {
+      const state = {
+        ...initialState,
+        reverseSearch: { query: "sel" },
+      };
+      const next = appReducer(state, {
+        type: "submit",
+        outcome: { kind: "rows", columns: [], rows: [[1]] },
+      });
+
+      expect(next.reverseSearch).toBeNull();
     });
   });
 });
