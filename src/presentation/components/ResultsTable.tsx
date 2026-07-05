@@ -26,7 +26,28 @@ function renderBody(
   switch (outcome.kind) {
     case "rows":
       return formatRows(outcome.columns, outcome.rows, terminalWidth).map(
-        (line, i) => <Text key={i}>{line}</Text>,
+        (line, i) => {
+          if (i === 0) {
+            return (
+              <Text key={i} bold color={theme.tokens.accent}>
+                {line}
+              </Text>
+            );
+          }
+          if (i === 1) {
+            return (
+              <Text key={i} color={theme.tokens.dim}>
+                {line}
+              </Text>
+            );
+          }
+          const isAlternate = (i - 2) % 2 === 1;
+          return (
+            <Text key={i} color={isAlternate ? theme.tokens.dim : undefined}>
+              {line}
+            </Text>
+          );
+        },
       );
     case "affected": {
       const showRowid = Number(outcome.lastInsertRowid) > 0;

@@ -1,4 +1,4 @@
-import { Text } from "ink";
+import { Box, Text } from "ink";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
 type Props = {
@@ -7,5 +7,9 @@ type Props = {
 };
 
 export function Header({ dbPath, theme }: Props) {
-  return <Text color={theme.tokens.accent}>SQLito • {dbPath}</Text>;
+  return (
+    <Box borderStyle="round" borderColor={theme.tokens.border} paddingX={1}>
+      <Text color={theme.tokens.accent}>SQLito • {dbPath}</Text>
+    </Box>
+  );
 }

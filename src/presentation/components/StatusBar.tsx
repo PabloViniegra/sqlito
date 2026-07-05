@@ -10,9 +10,19 @@ type Props = {
 
 export function StatusBar({ dbPath, theme, statusMessage }: Props) {
   return (
-    <Box flexDirection="column">
-      <Text color={theme.tokens.dim}>
-        {dbPath} • {theme.name}
+    <Box
+      flexDirection="column"
+      borderStyle="single"
+      borderColor={theme.tokens.border}
+      borderBottom={false}
+      borderLeft={false}
+      borderRight={false}
+    >
+      <Text>
+        <Text color={theme.tokens.success}>{"● "}</Text>
+        <Text color={theme.tokens.dim}>
+          {dbPath} • {theme.name} • ^R search • ^P palette • ^C quit
+        </Text>
       </Text>
       {statusMessage !== null ? (
         <StatusLine message={statusMessage} theme={theme} />
