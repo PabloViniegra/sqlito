@@ -11,6 +11,8 @@ import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import { RunExplain } from "../../application/queries/RunExplain.ts";
 import { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
+import { LoadTheme } from "../../application/theme/LoadTheme.ts";
+import { SwitchTheme } from "../../application/theme/SwitchTheme.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import type { Database } from "../../domain/database/Database.ts";
 import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
@@ -19,6 +21,8 @@ import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistory
 import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
 import { XdgFavoritesRepository } from "../../infrastructure/filesystem/XdgFavoritesRepository.ts";
 import { resolveXdgFavoritesPath } from "../../infrastructure/filesystem/resolveXdgFavoritesPath.ts";
+import { XdgThemeRepository } from "../../infrastructure/filesystem/XdgThemeRepository.ts";
+import { resolveXdgConfigPath } from "../../infrastructure/filesystem/resolveXdgConfigPath.ts";
 import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
@@ -85,6 +89,12 @@ export function App({ db, schema, dbPath }: Props) {
     () => new ForgetFavorite(favoritesRepo),
     [favoritesRepo],
   );
+  const themeRepo = useMemo(
+    () => new XdgThemeRepository(resolveXdgConfigPath()),
+    [],
+  );
+  const loadTheme = useMemo(() => new LoadTheme(themeRepo), [themeRepo]);
+  const switchTheme = useMemo(() => new SwitchTheme(themeRepo), [themeRepo]);
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
@@ -118,6 +128,16 @@ export function App({ db, schema, dbPath }: Props) {
       cancelled = true;
     };
   }, [listFavorites]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadTheme.load().then((theme) => {
+      if (!cancelled) dispatch({ type: "setTheme", theme });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadTheme]);
 
   useInput((input, key) => {
     if (state.reverseSearch !== null) {
@@ -193,6 +213,7 @@ export function App({ db, schema, dbPath }: Props) {
           runFavorite,
           forgetFavorite,
           favorites: state.favorites,
+          switchTheme,
         });
         dispatch({ type: "command", line: sql });
         return;

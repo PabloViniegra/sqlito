@@ -10,6 +10,7 @@ import type { RunExplain } from "../../application/queries/RunExplain.ts";
 import type { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
 import type { RunFavorite } from "../../application/favorites/RunFavorite.ts";
 import type { ForgetFavorite } from "../../application/favorites/ForgetFavorite.ts";
+import type { SwitchTheme } from "../../application/theme/SwitchTheme.ts";
 import {
   InvalidVariableName,
   type SessionVariables,
@@ -36,6 +37,7 @@ export type DotCommandDeps = {
   runFavorite: RunFavorite;
   forgetFavorite: ForgetFavorite;
   favorites: readonly [string, string][];
+  switchTheme: SwitchTheme;
 };
 
 const FAVORITE_SQL_WIDTH = 60;
@@ -112,6 +114,10 @@ export const COMMAND_REGISTRY: CommandRegistry = {
   export: {
     ...COMMAND_DESCRIPTORS.export,
     run: (command, deps) => runExport(deps, command.path),
+  },
+  theme: {
+    ...COMMAND_DESCRIPTORS.theme,
+    run: (command, deps) => runTheme(deps, command.name),
   },
 };
 
@@ -251,6 +257,16 @@ async function runExport(deps: DotCommandDeps, path: string): Promise<void> {
       `Exported ${result.rowsWritten} rows to ${result.path}`,
       "info",
     );
+  } catch (err) {
+    setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+  }
+}
+
+async function runTheme(deps: DotCommandDeps, name: string): Promise<void> {
+  try {
+    const theme = await deps.switchTheme.switch(name);
+    deps.dispatch({ type: "setTheme", theme });
+    setStatus(deps, `theme set to ${theme.name}`, "info");
   } catch (err) {
     setStatus(deps, err instanceof Error ? err.message : String(err), "error");
   }

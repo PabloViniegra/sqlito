@@ -13,6 +13,7 @@ import {
   parseSchemaCommand,
   parseSetCommand,
   parseTablesCommand,
+  parseThemeCommand,
   parseUnsetCommand,
   parseVarsCommand,
 } from "./parseCommand.ts";
@@ -506,6 +507,45 @@ describe("parseDotCommand (favorites)", () => {
     expect(parseDotCommand(".forget top")).toEqual({
       ok: true,
       command: { kind: "forget", name: "top" },
+    });
+  });
+});
+
+describe("parseThemeCommand", () => {
+  it("parses '.theme high-contrast'", () => {
+    expect(parseThemeCommand(".theme high-contrast")).toEqual({
+      ok: true,
+      name: "high-contrast",
+    });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseThemeCommand(".theme")).toEqual({
+      ok: false,
+      error: "theme: missing name",
+    });
+  });
+
+  it("errors on too many arguments", () => {
+    expect(parseThemeCommand(".theme a b")).toEqual({
+      ok: false,
+      error: "theme: too many arguments",
+    });
+  });
+
+  it("rejects a non-theme command", () => {
+    expect(parseThemeCommand(".vars")).toEqual({
+      ok: false,
+      error: "unknown command: .vars",
+    });
+  });
+});
+
+describe("parseDotCommand (theme)", () => {
+  it("routes '.theme high-contrast'", () => {
+    expect(parseDotCommand(".theme high-contrast")).toEqual({
+      ok: true,
+      command: { kind: "theme", name: "high-contrast" },
     });
   });
 });
