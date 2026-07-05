@@ -1,10 +1,11 @@
 import { Box, Static, useApp, useInput } from "ink";
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
 import { LoadHistory } from "../../application/history/LoadHistory.ts";
 import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
+import { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
 import type { Database } from "../../domain/database/Database.ts";
 import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
@@ -31,6 +32,7 @@ export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
   const executeQuery = useMemo(() => new ExecuteQuery(db), [db]);
   const exportCsv = useMemo(() => new ExportCsv(), []);
+  const schemaPrettyPrint = useMemo(() => new SchemaPrettyPrint(db), [db]);
   const historyRepo = useMemo(
     () => new XdgHistoryRepository(resolveXdgHistoryPath()),
     [],
@@ -49,6 +51,12 @@ export function App({ db, schema, dbPath }: Props) {
   );
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
+
+  const quit = useCallback(() => {
+    db.close();
+    dispatch({ type: "exit" });
+    exit();
+  }, [db, exit]);
 
   useEffect(() => {
     schema.refresh();
@@ -77,9 +85,7 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.ctrl && input === "c") {
-      db.close();
-      dispatch({ type: "exit" });
-      exit();
+      quit();
       return;
     }
     if (key.ctrl && input === "u") {
@@ -116,12 +122,13 @@ export function App({ db, schema, dbPath }: Props) {
       const sql = state.prompt.trim();
       if (sql === "") return;
       if (sql.startsWith(".")) {
-        void handleDotCommand(
-          sql,
-          dispatch as Parameters<typeof handleDotCommand>[1],
+        void handleDotCommand(sql, {
+          dispatch,
           exportCsv,
-          state.lastRowsOutcome,
-        );
+          schema: schemaPrettyPrint,
+          lastRowsOutcome: state.lastRowsOutcome,
+          onQuit: quit,
+        });
         dispatch({ type: "command", line: sql });
         return;
       }
