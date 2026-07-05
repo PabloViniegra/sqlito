@@ -3,6 +3,9 @@ export type ParseResult =
 
 type NoArgResult = { ok: true } | { ok: false; error: string };
 type SchemaResult = { ok: true; table?: string } | { ok: false; error: string };
+type SetResult =
+  { ok: true; name: string; raw: string } | { ok: false; error: string };
+type UnsetResult = { ok: true; name: string } | { ok: false; error: string };
 
 export type DotCommand =
   | { kind: "export"; path: string }
@@ -10,7 +13,10 @@ export type DotCommand =
   | { kind: "schema"; table?: string }
   | { kind: "indexes" }
   | { kind: "help" }
-  | { kind: "quit" };
+  | { kind: "quit" }
+  | { kind: "set"; name: string; raw: string }
+  | { kind: "unset"; name: string }
+  | { kind: "vars" };
 
 export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
@@ -73,6 +79,34 @@ export function parseSchemaCommand(line: string): SchemaResult {
     : { ok: true, table: parsed.args[0] };
 }
 
+export function parseVarsCommand(line: string): NoArgResult {
+  return parseNoArg(line, "vars");
+}
+
+export function parseSetCommand(line: string): SetResult {
+  const parsed = tokenize(line);
+  if (parsed === null || parsed.name !== "set") return unknown(line);
+  if (parsed.args.length < 1) return { ok: false, error: "set: missing name" };
+  if (parsed.args.length < 2) return { ok: false, error: "set: missing value" };
+  return {
+    ok: true,
+    name: parsed.args[0],
+    raw: parsed.args.slice(1).join(" "),
+  };
+}
+
+export function parseUnsetCommand(line: string): UnsetResult {
+  const parsed = tokenize(line);
+  if (parsed === null || parsed.name !== "unset") return unknown(line);
+  if (parsed.args.length < 1) {
+    return { ok: false, error: "unset: missing name" };
+  }
+  if (parsed.args.length > 1) {
+    return { ok: false, error: "unset: too many arguments" };
+  }
+  return { ok: true, name: parsed.args[0] };
+}
+
 function parseNoArg(line: string, name: string): NoArgResult {
   const parsed = tokenize(line);
   if (parsed === null || parsed.name !== name) return unknown(line);
@@ -113,6 +147,20 @@ export function parseDotCommand(line: string): DotCommandResult {
     case "exit": {
       const r = parseQuitCommand(line);
       return r.ok ? { ok: true, command: { kind: "quit" } } : r;
+    }
+    case "set": {
+      const r = parseSetCommand(line);
+      return r.ok
+        ? { ok: true, command: { kind: "set", name: r.name, raw: r.raw } }
+        : r;
+    }
+    case "unset": {
+      const r = parseUnsetCommand(line);
+      return r.ok ? { ok: true, command: { kind: "unset", name: r.name } } : r;
+    }
+    case "vars": {
+      const r = parseVarsCommand(line);
+      return r.ok ? { ok: true, command: { kind: "vars" } } : r;
     }
     default:
       return unknown(line);

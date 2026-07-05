@@ -6,6 +6,7 @@ import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
+import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import type { Database } from "../../domain/database/Database.ts";
 import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
@@ -30,7 +31,11 @@ type Props = {
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
-  const executeQuery = useMemo(() => new ExecuteQuery(db), [db]);
+  const sessionVars = useMemo(() => new SessionVariables(), []);
+  const executeQuery = useMemo(
+    () => new ExecuteQuery(db, () => sessionVars.entries()),
+    [db, sessionVars],
+  );
   const exportCsv = useMemo(() => new ExportCsv(), []);
   const schemaPrettyPrint = useMemo(() => new SchemaPrettyPrint(db), [db]);
   const historyRepo = useMemo(
@@ -128,6 +133,8 @@ export function App({ db, schema, dbPath }: Props) {
           schema: schemaPrettyPrint,
           lastRowsOutcome: state.lastRowsOutcome,
           onQuit: quit,
+          sessionVars,
+          variables: state.variables,
         });
         dispatch({ type: "command", line: sql });
         return;

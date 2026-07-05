@@ -659,4 +659,57 @@ describe("appReducer", () => {
       expect(next.reverseSearch).toBeNull();
     });
   });
+
+  describe("setVariable", () => {
+    it("appends a new variable as a [name, raw] pair", () => {
+      const next = appReducer(initialState, {
+        type: "setVariable",
+        name: "threshold",
+        raw: "100",
+      });
+      expect(next.variables).toEqual([["threshold", "100"]]);
+    });
+
+    it("replaces an existing variable in place", () => {
+      const state = {
+        ...initialState,
+        variables: [
+          ["a", "1"],
+          ["b", "2"],
+        ] as readonly [string, string][],
+      };
+      const next = appReducer(state, {
+        type: "setVariable",
+        name: "a",
+        raw: "9",
+      });
+      expect(next.variables).toEqual([
+        ["a", "9"],
+        ["b", "2"],
+      ]);
+    });
+  });
+
+  describe("unsetVariable", () => {
+    it("removes the named variable", () => {
+      const state = {
+        ...initialState,
+        variables: [
+          ["a", "1"],
+          ["b", "2"],
+        ] as readonly [string, string][],
+      };
+      const next = appReducer(state, { type: "unsetVariable", name: "a" });
+      expect(next.variables).toEqual([["b", "2"]]);
+    });
+
+    it("is a no-op for a missing variable", () => {
+      const state = {
+        ...initialState,
+        variables: [["a", "1"]] as readonly [string, string][],
+      };
+      const next = appReducer(state, { type: "unsetVariable", name: "z" });
+      expect(next.variables).toEqual([["a", "1"]]);
+    });
+  });
 });
