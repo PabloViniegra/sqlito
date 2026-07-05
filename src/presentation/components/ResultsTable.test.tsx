@@ -1,31 +1,21 @@
-import { render } from "ink";
-import { PassThrough } from "node:stream";
+import chalk from "chalk";
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import {
+  DEFAULT_THEME,
+  HIGH_CONTRAST_THEME,
+} from "../../domain/theme/Theme.ts";
+import { renderInkFrame as captureRaw } from "./renderInkFrame.ts";
 import { ResultsTable } from "./ResultsTable.tsx";
+
+chalk.level = 1;
 
 async function capture(
   node: React.ReactElement,
   options: { columns?: number } = {},
 ): Promise<string> {
-  const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
-    columns: number;
-  };
-  let buffer = "";
-  stdout.columns = options.columns ?? 80;
-  stdout.write = (chunk: string | Uint8Array): boolean => {
-    buffer += chunk.toString();
-    return true;
-  };
-  const instance = render(node, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    exitOnCtrlC: false,
-    patchConsole: false,
-  });
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  instance.unmount();
-  return stripAnsi(buffer).replace(/\r/g, "");
+  return stripAnsi(await captureRaw(node, options)).replace(/\r/g, "");
 }
 
 describe("ResultsTable", () => {
@@ -43,7 +33,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="SELECT id, name FROM t" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT id, name FROM t"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("SELECT id, name FROM t");
@@ -64,7 +58,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="INSERT INTO t VALUES (1)" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1)"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("INSERT INTO t VALUES (1)");
@@ -80,7 +78,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="CREATE TABLE x (id INT)" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="CREATE TABLE x (id INT)"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("CREATE TABLE x (id INT)");
@@ -92,7 +94,7 @@ describe("ResultsTable", () => {
     const outcome: QueryOutcome = { kind: "side-effect" };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="VACUUM" />,
+      <ResultsTable outcome={outcome} sql="VACUUM" theme={DEFAULT_THEME} />,
     );
 
     expect(frame).toContain("VACUUM");
@@ -108,7 +110,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="SELECT syntax" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT syntax"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("SELECT syntax");
@@ -129,7 +135,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="SELECT id, name FROM t" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT id, name FROM t"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("NULL");
@@ -144,7 +154,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="SELECT rowid FROM t" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT rowid FROM t"
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(frame).toContain("42");
@@ -160,7 +174,11 @@ describe("ResultsTable", () => {
     };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="SELECT v FROM t" />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT v FROM t"
+        theme={DEFAULT_THEME}
+      />,
       { columns: 20 },
     );
 
@@ -194,6 +212,7 @@ describe("ResultsTable", () => {
       <ResultsTable
         outcome={outcome}
         sql="EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name"
+        theme={DEFAULT_THEME}
       />,
     );
 
@@ -210,5 +229,35 @@ describe("ResultsTable", () => {
     expect(childLine.indexOf("USE TEMP B-TREE")).toBeGreaterThan(
       rootLine.indexOf("SCAN users"),
     );
+  });
+
+  it("renders the sql line and side-effect body in the theme's dim color", async () => {
+    const outcome: QueryOutcome = { kind: "side-effect" };
+
+    const frame = await captureRaw(
+      <ResultsTable
+        outcome={outcome}
+        sql="VACUUM"
+        theme={HIGH_CONTRAST_THEME}
+      />,
+    );
+
+    expect(frame).toContain(chalk.white("VACUUM"));
+    expect(frame).toContain(chalk.white("done"));
+  });
+
+  it("renders error messages in the theme's error color instead of a hardcoded color", async () => {
+    const outcome: QueryOutcome = { kind: "error", message: "boom" };
+
+    const frame = await captureRaw(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={HIGH_CONTRAST_THEME}
+      />,
+    );
+
+    expect(frame).toContain(chalk.redBright("boom"));
+    expect(frame).not.toContain(chalk.red("boom"));
   });
 });
