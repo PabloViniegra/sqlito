@@ -6,6 +6,7 @@ type SchemaResult = { ok: true; table?: string } | { ok: false; error: string };
 type SetResult =
   { ok: true; name: string; raw: string } | { ok: false; error: string };
 type UnsetResult = { ok: true; name: string } | { ok: false; error: string };
+type NamedResult = { ok: true; name: string } | { ok: false; error: string };
 
 export type DotCommand =
   | { kind: "export"; path: string }
@@ -17,7 +18,11 @@ export type DotCommand =
   | { kind: "set"; name: string; raw: string }
   | { kind: "unset"; name: string }
   | { kind: "vars" }
-  | { kind: "explain" };
+  | { kind: "explain" }
+  | { kind: "save"; name: string }
+  | { kind: "favorites" }
+  | { kind: "run"; name: string }
+  | { kind: "forget"; name: string };
 
 export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
@@ -86,6 +91,34 @@ export function parseVarsCommand(line: string): NoArgResult {
 
 export function parseExplainCommand(line: string): NoArgResult {
   return parseNoArg(line, "explain");
+}
+
+export function parseFavoritesCommand(line: string): NoArgResult {
+  return parseNoArg(line, "favorites");
+}
+
+export function parseSaveCommand(line: string): NamedResult {
+  return parseSingleArg(line, "save");
+}
+
+export function parseRunCommand(line: string): NamedResult {
+  return parseSingleArg(line, "run");
+}
+
+export function parseForgetCommand(line: string): NamedResult {
+  return parseSingleArg(line, "forget");
+}
+
+function parseSingleArg(line: string, name: string): NamedResult {
+  const parsed = tokenize(line);
+  if (parsed === null || parsed.name !== name) return unknown(line);
+  if (parsed.args.length < 1) {
+    return { ok: false, error: `${name}: missing name` };
+  }
+  if (parsed.args.length > 1) {
+    return { ok: false, error: `${name}: too many arguments` };
+  }
+  return { ok: true, name: parsed.args[0] };
 }
 
 export function parseSetCommand(line: string): SetResult {
@@ -170,6 +203,22 @@ export function parseDotCommand(line: string): DotCommandResult {
     case "explain": {
       const r = parseExplainCommand(line);
       return r.ok ? { ok: true, command: { kind: "explain" } } : r;
+    }
+    case "save": {
+      const r = parseSaveCommand(line);
+      return r.ok ? { ok: true, command: { kind: "save", name: r.name } } : r;
+    }
+    case "favorites": {
+      const r = parseFavoritesCommand(line);
+      return r.ok ? { ok: true, command: { kind: "favorites" } } : r;
+    }
+    case "run": {
+      const r = parseRunCommand(line);
+      return r.ok ? { ok: true, command: { kind: "run", name: r.name } } : r;
+    }
+    case "forget": {
+      const r = parseForgetCommand(line);
+      return r.ok ? { ok: true, command: { kind: "forget", name: r.name } } : r;
     }
     default:
       return unknown(line);
