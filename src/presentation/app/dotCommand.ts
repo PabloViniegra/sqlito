@@ -1,6 +1,10 @@
 import type { ExportCsv } from "../../application/commands/ExportCsv.ts";
+import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
-import { parseDotCommand } from "../../application/commands/parseCommand.ts";
+import {
+  parseDotCommand,
+  type DotCommand,
+} from "../../application/commands/parseCommand.ts";
 import type { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
 import type { RunExplain } from "../../application/queries/RunExplain.ts";
 import type { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
@@ -36,6 +40,88 @@ export type DotCommandDeps = {
 
 const FAVORITE_SQL_WIDTH = 60;
 
+type CommandHandler<K extends DotCommand["kind"]> = (
+  command: Extract<DotCommand, { kind: K }>,
+  deps: DotCommandDeps,
+) => void | Promise<void>;
+
+type CommandEntry<K extends DotCommand["kind"]> =
+  (typeof COMMAND_DESCRIPTORS)[K] & { run: CommandHandler<K> };
+
+type CommandRegistry = { [K in DotCommand["kind"]]: CommandEntry<K> };
+
+export const COMMAND_REGISTRY: CommandRegistry = {
+  tables: {
+    ...COMMAND_DESCRIPTORS.tables,
+    run: (_command, deps) => setStatus(deps, deps.schema.tables(), "info"),
+  },
+  schema: {
+    ...COMMAND_DESCRIPTORS.schema,
+    run: (command, deps) => {
+      const result = deps.schema.schema(command.table);
+      if (result.ok) setStatus(deps, result.text, "info");
+      else setStatus(deps, result.error, "error");
+    },
+  },
+  indexes: {
+    ...COMMAND_DESCRIPTORS.indexes,
+    run: (_command, deps) => setStatus(deps, deps.schema.indexes(), "info"),
+  },
+  help: {
+    ...COMMAND_DESCRIPTORS.help,
+    run: (_command, deps) => setStatus(deps, HELP_TEXT, "info"),
+  },
+  quit: {
+    ...COMMAND_DESCRIPTORS.quit,
+    run: (_command, deps) => deps.onQuit(),
+  },
+  set: {
+    ...COMMAND_DESCRIPTORS.set,
+    run: (command, deps) => runSet(deps, command.name, command.raw),
+  },
+  unset: {
+    ...COMMAND_DESCRIPTORS.unset,
+    run: (command, deps) => runUnset(deps, command.name),
+  },
+  vars: {
+    ...COMMAND_DESCRIPTORS.vars,
+    run: (_command, deps) =>
+      setStatus(deps, formatVars(deps.variables), "info"),
+  },
+  explain: {
+    ...COMMAND_DESCRIPTORS.explain,
+    run: (_command, deps) => runExplain(deps),
+  },
+  save: {
+    ...COMMAND_DESCRIPTORS.save,
+    run: (command, deps) => runSave(deps, command.name),
+  },
+  favorites: {
+    ...COMMAND_DESCRIPTORS.favorites,
+    run: (_command, deps) =>
+      setStatus(deps, formatFavorites(deps.favorites), "info"),
+  },
+  run: {
+    ...COMMAND_DESCRIPTORS.run,
+    run: (command, deps) => runFavorite(deps, command.name),
+  },
+  forget: {
+    ...COMMAND_DESCRIPTORS.forget,
+    run: (command, deps) => forgetFavorite(deps, command.name),
+  },
+  export: {
+    ...COMMAND_DESCRIPTORS.export,
+    run: (command, deps) => runExport(deps, command.path),
+  },
+};
+
+function dispatchCommand<K extends DotCommand["kind"]>(
+  command: Extract<DotCommand, { kind: K }>,
+  deps: DotCommandDeps,
+): void | Promise<void> {
+  return COMMAND_REGISTRY[command.kind].run(command, deps);
+}
+
 export async function handleDotCommand(
   line: string,
   deps: DotCommandDeps,
@@ -45,54 +131,7 @@ export async function handleDotCommand(
     setStatus(deps, parsed.error, "error");
     return;
   }
-  const command = parsed.command;
-  switch (command.kind) {
-    case "export":
-      await runExport(deps, command.path);
-      return;
-    case "tables":
-      setStatus(deps, deps.schema.tables(), "info");
-      return;
-    case "indexes":
-      setStatus(deps, deps.schema.indexes(), "info");
-      return;
-    case "schema": {
-      const result = deps.schema.schema(command.table);
-      if (result.ok) setStatus(deps, result.text, "info");
-      else setStatus(deps, result.error, "error");
-      return;
-    }
-    case "help":
-      setStatus(deps, HELP_TEXT, "info");
-      return;
-    case "quit":
-      deps.onQuit();
-      return;
-    case "set":
-      runSet(deps, command.name, command.raw);
-      return;
-    case "unset":
-      runUnset(deps, command.name);
-      return;
-    case "vars":
-      setStatus(deps, formatVars(deps.variables), "info");
-      return;
-    case "explain":
-      runExplain(deps);
-      return;
-    case "save":
-      await runSave(deps, command.name);
-      return;
-    case "favorites":
-      setStatus(deps, formatFavorites(deps.favorites), "info");
-      return;
-    case "run":
-      await runFavorite(deps, command.name);
-      return;
-    case "forget":
-      await forgetFavorite(deps, command.name);
-      return;
-  }
+  await dispatchCommand(parsed.command, deps);
 }
 
 async function runSave(deps: DotCommandDeps, name: string): Promise<void> {

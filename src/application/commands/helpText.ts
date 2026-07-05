@@ -1,17 +1,14 @@
+import { COMMAND_DESCRIPTORS } from "./commandRegistry.ts";
+
+const NAME_COLUMN_WIDTH = 21;
+
+function formatCommandLine(name: string, description: string): string {
+  return `  ${name}`.padEnd(NAME_COLUMN_WIDTH) + description;
+}
+
 export const HELP_TEXT = [
   "Commands:",
-  "  .tables            List user tables",
-  "  .schema [table]    Show CREATE statements (all tables, or one + its indexes)",
-  "  .indexes           List indexes with their table",
-  "  .set <name> <val>  Define a session variable (use :name in queries)",
-  "  .unset <name>      Remove a session variable",
-  "  .vars              List active session variables",
-  "  .explain           Re-run the last query with EXPLAIN QUERY PLAN",
-  "  .save <name>       Save the last query as a favorite",
-  "  .favorites         List saved favorites",
-  "  .run <name>        Load a favorite's SQL into the prompt",
-  "  .forget <name>     Delete a favorite",
-  "  .export <path>     Export the last result to CSV",
-  "  .help              Show this reference",
-  "  .quit              Close the database and exit (alias: .exit)",
+  ...Object.values(COMMAND_DESCRIPTORS).map((descriptor) =>
+    formatCommandLine(descriptor.name, descriptor.description),
+  ),
 ].join("\n");

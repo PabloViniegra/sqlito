@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
-import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
+import {
+  COMMAND_REGISTRY,
+  handleDotCommand,
+  type DotCommandDeps,
+} from "./dotCommand.ts";
 import type { StatusMessage } from "./appReducer.ts";
 
 type Captured = { status: StatusMessage | null }[];
@@ -451,5 +456,38 @@ describe("handleDotCommand — favorites", () => {
         status: { text: "no favorite named ghost", kind: "error" },
       },
     ]);
+  });
+});
+
+describe("COMMAND_REGISTRY", () => {
+  const KNOWN_COMMAND_KINDS = [
+    "tables",
+    "schema",
+    "indexes",
+    "help",
+    "quit",
+    "set",
+    "unset",
+    "vars",
+    "explain",
+    "save",
+    "favorites",
+    "run",
+    "forget",
+    "export",
+  ].sort();
+
+  it("keeps the dispatch and the registry in sync — same set of kinds on both sides", () => {
+    expect(Object.keys(COMMAND_REGISTRY).sort()).toEqual(KNOWN_COMMAND_KINDS);
+  });
+
+  it("takes its name and description from the shared COMMAND_DESCRIPTORS (single source of truth)", () => {
+    for (const kind of KNOWN_COMMAND_KINDS) {
+      const descriptor =
+        COMMAND_DESCRIPTORS[kind as keyof typeof COMMAND_DESCRIPTORS];
+      const entry = COMMAND_REGISTRY[kind as keyof typeof COMMAND_REGISTRY];
+      expect(entry.name).toBe(descriptor.name);
+      expect(entry.description).toBe(descriptor.description);
+    }
   });
 });
