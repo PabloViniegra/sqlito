@@ -29,6 +29,11 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
     onQuit: vi.fn(),
     sessionVars: new SessionVariables(),
     variables: [],
+    runExplain: {
+      explainLast: vi.fn(),
+    } as unknown as DotCommandDeps["runExplain"],
+    lastSql: "",
+    showResult: vi.fn(),
     ...overrides,
   };
   return { deps, events };
@@ -134,6 +139,11 @@ describe("handleDotCommand — variables", () => {
       onQuit: vi.fn(),
       sessionVars: vars,
       variables,
+      runExplain: {
+        explainLast: vi.fn(),
+      } as unknown as DotCommandDeps["runExplain"],
+      lastSql: "",
+      showResult: vi.fn(),
     };
     return { deps, events, vars };
   }
@@ -207,6 +217,78 @@ describe("handleDotCommand — variables", () => {
     await handleDotCommand(".vars", deps);
     expect(events).toEqual([
       { type: "setStatus", status: { text: "No variables set", kind: "info" } },
+    ]);
+  });
+});
+
+describe("handleDotCommand — explain", () => {
+  function makeExplainDeps(
+    result: QueryOutcome,
+    lastSql = "SELECT 1",
+  ): {
+    deps: DotCommandDeps;
+    statuses: (StatusMessage | null)[];
+    shown: { sql: string; outcome: QueryOutcome }[];
+    explainLast: ReturnType<typeof vi.fn>;
+  } {
+    const statuses: (StatusMessage | null)[] = [];
+    const shown: { sql: string; outcome: QueryOutcome }[] = [];
+    const explainLast = vi.fn().mockReturnValue(result);
+    const deps: DotCommandDeps = {
+      dispatch: (event) => {
+        if (event.type === "setStatus") statuses.push(event.status);
+      },
+      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      schema: {} as unknown as DotCommandDeps["schema"],
+      lastRowsOutcome: null,
+      onQuit: vi.fn(),
+      sessionVars: new SessionVariables(),
+      variables: [],
+      runExplain: { explainLast } as unknown as DotCommandDeps["runExplain"],
+      lastSql,
+      showResult: (sql, outcome) => shown.push({ sql, outcome }),
+    };
+    return { deps, statuses, shown, explainLast };
+  }
+
+  it("renders the plan and reports the node count", async () => {
+    const plan: QueryOutcome = {
+      kind: "plan",
+      nodes: [
+        {
+          id: 1,
+          parent: 0,
+          detail: "SCAN t",
+          depth: 0,
+          children: [
+            { id: 2, parent: 1, detail: "USE INDEX", depth: 1, children: [] },
+          ],
+        },
+        { id: 3, parent: 0, detail: "SCAN u", depth: 0, children: [] },
+      ],
+    };
+    const { deps, statuses, shown, explainLast } = makeExplainDeps(
+      plan,
+      "SELECT * FROM t",
+    );
+    await handleDotCommand(".explain", deps);
+    expect(explainLast).toHaveBeenCalledWith("SELECT * FROM t");
+    expect(shown).toEqual([
+      { sql: "EXPLAIN QUERY PLAN SELECT * FROM t", outcome: plan },
+    ]);
+    expect(statuses).toEqual([{ text: "explained: 3 nodes", kind: "info" }]);
+  });
+
+  it("reports an error and renders nothing when explain fails", async () => {
+    const err: QueryOutcome = {
+      kind: "error",
+      message: "no previous query to explain",
+    };
+    const { deps, statuses, shown } = makeExplainDeps(err, "");
+    await handleDotCommand(".explain", deps);
+    expect(shown).toEqual([]);
+    expect(statuses).toEqual([
+      { text: "no previous query to explain", kind: "error" },
     ]);
   });
 });
