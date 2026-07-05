@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
+import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import type { StatusMessage } from "./appReducer.ts";
@@ -12,7 +13,9 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
 } {
   const events: Captured = [];
   const deps: DotCommandDeps = {
-    dispatch: (event) => events.push({ status: event.status }),
+    dispatch: (event) => {
+      if (event.type === "setStatus") events.push({ status: event.status });
+    },
     exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
     schema: {
       tables: () => "posts\nusers",
@@ -24,6 +27,8 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
     } as unknown as DotCommandDeps["schema"],
     lastRowsOutcome: null,
     onQuit: vi.fn(),
+    sessionVars: new SessionVariables(),
+    variables: [],
     ...overrides,
   };
   return { deps, events };
@@ -109,6 +114,99 @@ describe("handleDotCommand", () => {
     expect(run).toHaveBeenCalledWith(outcome, "/tmp/x.csv");
     expect(events).toEqual([
       { status: { text: "Exported 1 rows to /tmp/x.csv", kind: "info" } },
+    ]);
+  });
+});
+
+describe("handleDotCommand — variables", () => {
+  function makeVarDeps(variables: readonly [string, string][] = []): {
+    deps: DotCommandDeps;
+    events: unknown[];
+    vars: SessionVariables;
+  } {
+    const events: unknown[] = [];
+    const vars = new SessionVariables();
+    const deps: DotCommandDeps = {
+      dispatch: (event) => events.push(event),
+      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      schema: {} as unknown as DotCommandDeps["schema"],
+      lastRowsOutcome: null,
+      onQuit: vi.fn(),
+      sessionVars: vars,
+      variables,
+    };
+    return { deps, events, vars };
+  }
+
+  it(".set stores the variable and dispatches setVariable + info", async () => {
+    const { deps, events, vars } = makeVarDeps();
+    await handleDotCommand(".set threshold 100", deps);
+    expect(vars.entries()).toEqual({ threshold: 100 });
+    expect(events).toContainEqual({
+      type: "setVariable",
+      name: "threshold",
+      raw: "100",
+    });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "set :threshold = 100", kind: "info" },
+    });
+  });
+
+  it(".set with an invalid name reports an error and stores nothing", async () => {
+    const { deps, events, vars } = makeVarDeps();
+    await handleDotCommand(".set 1bad x", deps);
+    expect(vars.entries()).toEqual({});
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: "invalid variable name: 1bad", kind: "error" },
+      },
+    ]);
+  });
+
+  it(".unset removes an existing variable", async () => {
+    const { deps, events, vars } = makeVarDeps();
+    vars.set("n", "1");
+    await handleDotCommand(".unset n", deps);
+    expect(vars.entries()).toEqual({});
+    expect(events).toContainEqual({ type: "unsetVariable", name: "n" });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "unset :n", kind: "info" },
+    });
+  });
+
+  it(".unset on a missing variable reports an error", async () => {
+    const { deps, events } = makeVarDeps();
+    await handleDotCommand(".unset ghost", deps);
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: ":ghost is not set", kind: "error" },
+      },
+    ]);
+  });
+
+  it(".vars lists variables from state in insertion order", async () => {
+    const { deps, events } = makeVarDeps([
+      ["b", "2"],
+      ["a", "hello"],
+    ]);
+    await handleDotCommand(".vars", deps);
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: ":b = 2\n:a = hello", kind: "info" },
+      },
+    ]);
+  });
+
+  it(".vars reports when there are no variables", async () => {
+    const { deps, events } = makeVarDeps([]);
+    await handleDotCommand(".vars", deps);
+    expect(events).toEqual([
+      { type: "setStatus", status: { text: "No variables set", kind: "info" } },
     ]);
   });
 });

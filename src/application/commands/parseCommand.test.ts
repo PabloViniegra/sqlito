@@ -6,7 +6,10 @@ import {
   parseIndexesCommand,
   parseQuitCommand,
   parseSchemaCommand,
+  parseSetCommand,
   parseTablesCommand,
+  parseUnsetCommand,
+  parseVarsCommand,
 } from "./parseCommand.ts";
 
 describe("parseExportCommand", () => {
@@ -272,6 +275,104 @@ describe("parseDotCommand (dispatcher)", () => {
     expect(parseDotCommand("SELECT 1")).toEqual({
       ok: false,
       error: "unknown command: SELECT 1",
+    });
+  });
+});
+
+describe("parseSetCommand", () => {
+  it("parses '.set threshold 100'", () => {
+    expect(parseSetCommand(".set threshold 100")).toEqual({
+      ok: true,
+      name: "threshold",
+      raw: "100",
+    });
+  });
+
+  it("keeps a multi-word value", () => {
+    expect(parseSetCommand(".set greeting hello world")).toEqual({
+      ok: true,
+      name: "greeting",
+      raw: "hello world",
+    });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseSetCommand(".set")).toEqual({
+      ok: false,
+      error: "set: missing name",
+    });
+  });
+
+  it("errors on a missing value", () => {
+    expect(parseSetCommand(".set threshold")).toEqual({
+      ok: false,
+      error: "set: missing value",
+    });
+  });
+
+  it("rejects a non-set command", () => {
+    expect(parseSetCommand(".vars")).toEqual({
+      ok: false,
+      error: "unknown command: .vars",
+    });
+  });
+});
+
+describe("parseUnsetCommand", () => {
+  it("parses '.unset threshold'", () => {
+    expect(parseUnsetCommand(".unset threshold")).toEqual({
+      ok: true,
+      name: "threshold",
+    });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseUnsetCommand(".unset")).toEqual({
+      ok: false,
+      error: "unset: missing name",
+    });
+  });
+
+  it("errors on too many arguments", () => {
+    expect(parseUnsetCommand(".unset a b")).toEqual({
+      ok: false,
+      error: "unset: too many arguments",
+    });
+  });
+});
+
+describe("parseVarsCommand", () => {
+  it("parses '.vars'", () => {
+    expect(parseVarsCommand(".vars")).toEqual({ ok: true });
+  });
+
+  it("errors on extra arguments", () => {
+    expect(parseVarsCommand(".vars x")).toEqual({
+      ok: false,
+      error: "vars: too many arguments",
+    });
+  });
+});
+
+describe("parseDotCommand (variables)", () => {
+  it("routes '.set threshold 100'", () => {
+    expect(parseDotCommand(".set threshold 100")).toEqual({
+      ok: true,
+      command: { kind: "set", name: "threshold", raw: "100" },
+    });
+  });
+
+  it("routes '.unset threshold'", () => {
+    expect(parseDotCommand(".unset threshold")).toEqual({
+      ok: true,
+      command: { kind: "unset", name: "threshold" },
+    });
+  });
+
+  it("routes '.vars'", () => {
+    expect(parseDotCommand(".vars")).toEqual({
+      ok: true,
+      command: { kind: "vars" },
     });
   });
 });

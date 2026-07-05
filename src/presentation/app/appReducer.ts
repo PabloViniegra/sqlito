@@ -36,6 +36,7 @@ export type AppState = {
   lastRowsOutcome: QueryOutcome | null;
   statusMessage: StatusMessage | null;
   reverseSearch: ReverseSearchState | null;
+  variables: readonly [string, string][];
 };
 
 export type AppEvent =
@@ -63,6 +64,8 @@ export type AppEvent =
   | { type: "reverseSearchCancel" }
   | { type: "exportTo"; path: string }
   | { type: "command"; line: string }
+  | { type: "setVariable"; name: string; raw: string }
+  | { type: "unsetVariable"; name: string }
   | { type: "setStatus"; status: StatusMessage | null };
 
 export const initialState: AppState = {
@@ -73,6 +76,7 @@ export const initialState: AppState = {
   lastRowsOutcome: null,
   statusMessage: null,
   reverseSearch: null,
+  variables: [],
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -179,6 +183,20 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       return state;
     case "command":
       return state;
+    case "setVariable": {
+      const pair: [string, string] = [event.name, event.raw];
+      const index = state.variables.findIndex(([n]) => n === event.name);
+      const variables =
+        index === -1
+          ? [...state.variables, pair]
+          : state.variables.map((v, i) => (i === index ? pair : v));
+      return { ...state, variables };
+    }
+    case "unsetVariable":
+      return {
+        ...state,
+        variables: state.variables.filter(([n]) => n !== event.name),
+      };
     default: {
       const _exhaustive: never = event;
       return _exhaustive;
