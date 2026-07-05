@@ -167,4 +167,48 @@ describe("ResultsTable", () => {
     expect(frame).toContain("…");
     expect(frame).not.toContain(longValue);
   });
+
+  it("renders plan outcome as an indented tree", async () => {
+    const outcome: QueryOutcome = {
+      kind: "plan",
+      nodes: [
+        {
+          id: 1,
+          parent: 0,
+          detail: "SCAN users",
+          depth: 0,
+          children: [
+            {
+              id: 2,
+              parent: 1,
+              detail: "USE TEMP B-TREE FOR ORDER BY",
+              depth: 1,
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name"
+      />,
+    );
+
+    expect(frame).toContain(
+      "EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name",
+    );
+    expect(frame).toContain("SCAN users");
+    expect(frame).toContain("USE TEMP B-TREE FOR ORDER BY");
+    const lines = frame.split("\n");
+    const rootLine = lines.find((l) => l.includes("SCAN users"))!;
+    const childLine = lines.find((l) =>
+      l.includes("USE TEMP B-TREE FOR ORDER BY"),
+    )!;
+    expect(childLine.indexOf("USE TEMP B-TREE")).toBeGreaterThan(
+      rootLine.indexOf("SCAN users"),
+    );
+  });
 });

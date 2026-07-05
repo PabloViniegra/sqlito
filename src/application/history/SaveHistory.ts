@@ -31,6 +31,8 @@ function outcomeKindToHistoryOutcome(
       return "affected";
     case "side-effect":
       return "side-effect";
+    case "plan":
+      return "ok";
     case "error":
       return null;
   }

@@ -11,6 +11,8 @@ export function outcomeToHistoryKind(
       return "affected";
     case "side-effect":
       return "side-effect";
+    case "plan":
+      return "ok";
     case "error":
       return "ok";
   }

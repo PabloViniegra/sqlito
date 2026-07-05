@@ -1,5 +1,6 @@
 import { Box, Text, useStdout } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
 import { formatRows } from "../../shared/utils/formatRows.ts";
 
 type Props = { outcome: QueryOutcome; sql: string };
@@ -33,6 +34,10 @@ function renderBody(outcome: QueryOutcome, terminalWidth: number) {
     }
     case "side-effect":
       return <Text dimColor>done</Text>;
+    case "plan":
+      return formatPlanTree(outcome.nodes, terminalWidth).map((line, i) => (
+        <Text key={i}>{line}</Text>
+      ));
     case "error":
       return <Text color="red">{outcome.message}</Text>;
   }
