@@ -783,4 +783,131 @@ describe("appReducer", () => {
       expect(next.theme).toEqual(HIGH_CONTRAST_THEME);
     });
   });
+
+  describe("openCommandPalette", () => {
+    it("opens with an empty query and index 0", () => {
+      const next = appReducer(initialState, { type: "openCommandPalette" });
+
+      expect(next.commandPalette).toEqual({ query: "", index: 0 });
+    });
+
+    it("replaces a previously open palette and resets it", () => {
+      const state = {
+        ...initialState,
+        commandPalette: { query: "old", index: 3 },
+      };
+      const next = appReducer(state, { type: "openCommandPalette" });
+
+      expect(next.commandPalette).toEqual({ query: "", index: 0 });
+    });
+  });
+
+  describe("closeCommandPalette", () => {
+    it("sets commandPalette to null", () => {
+      const state = {
+        ...initialState,
+        commandPalette: { query: "sav", index: 1 },
+      };
+      const next = appReducer(state, { type: "closeCommandPalette" });
+
+      expect(next.commandPalette).toBeNull();
+    });
+
+    it("is a no-op when already null", () => {
+      const next = appReducer(initialState, { type: "closeCommandPalette" });
+
+      expect(next.commandPalette).toBeNull();
+    });
+  });
+
+  describe("setCommandPaletteQuery", () => {
+    it("updates the query and resets index to 0", () => {
+      const state = {
+        ...initialState,
+        commandPalette: { query: "", index: 3 },
+      };
+      const next = appReducer(state, {
+        type: "setCommandPaletteQuery",
+        query: "sav",
+      });
+
+      expect(next.commandPalette).toEqual({ query: "sav", index: 0 });
+    });
+
+    it("is a no-op when the palette is closed", () => {
+      const next = appReducer(initialState, {
+        type: "setCommandPaletteQuery",
+        query: "sav",
+      });
+
+      expect(next.commandPalette).toBeNull();
+    });
+  });
+
+  describe("moveCommandPalette", () => {
+    const openAt = (index: number) => ({
+      ...initialState,
+      commandPalette: { query: "", index },
+    });
+
+    it("moves index down by delta -1", () => {
+      const next = appReducer(openAt(3), {
+        type: "moveCommandPalette",
+        delta: -1,
+        count: 10,
+      });
+
+      expect(next.commandPalette?.index).toBe(2);
+    });
+
+    it("moves index up by delta 1", () => {
+      const next = appReducer(openAt(3), {
+        type: "moveCommandPalette",
+        delta: 1,
+        count: 10,
+      });
+
+      expect(next.commandPalette?.index).toBe(4);
+    });
+
+    it("wraps from index 0 with delta -1 to count - 1", () => {
+      const next = appReducer(openAt(0), {
+        type: "moveCommandPalette",
+        delta: -1,
+        count: 5,
+      });
+
+      expect(next.commandPalette?.index).toBe(4);
+    });
+
+    it("wraps from the last index with delta 1 to 0", () => {
+      const next = appReducer(openAt(4), {
+        type: "moveCommandPalette",
+        delta: 1,
+        count: 5,
+      });
+
+      expect(next.commandPalette?.index).toBe(0);
+    });
+
+    it("is a no-op when the palette is closed", () => {
+      const next = appReducer(initialState, {
+        type: "moveCommandPalette",
+        delta: 1,
+        count: 5,
+      });
+
+      expect(next.commandPalette).toBeNull();
+    });
+
+    it("is a no-op when count is 0 (no matches)", () => {
+      const next = appReducer(openAt(2), {
+        type: "moveCommandPalette",
+        delta: 1,
+        count: 0,
+      });
+
+      expect(next.commandPalette?.index).toBe(2);
+    });
+  });
 });

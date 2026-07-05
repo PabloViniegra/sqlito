@@ -29,6 +29,11 @@ export type ReverseSearchState = {
   query: string;
 };
 
+export type CommandPaletteState = {
+  query: string;
+  index: number;
+};
+
 export type AppState = {
   prompt: string;
   history: { entries: readonly HistoryEntry[]; cursor: number };
@@ -40,6 +45,7 @@ export type AppState = {
   variables: readonly [string, string][];
   favorites: readonly [string, string][];
   theme: Theme;
+  commandPalette: CommandPaletteState | null;
 };
 
 export type AppEvent =
@@ -73,7 +79,11 @@ export type AppEvent =
   | { type: "commitFavorite"; name: string; sql: string }
   | { type: "removeFavorite"; name: string }
   | { type: "setStatus"; status: StatusMessage | null }
-  | { type: "setTheme"; theme: Theme };
+  | { type: "setTheme"; theme: Theme }
+  | { type: "openCommandPalette" }
+  | { type: "closeCommandPalette" }
+  | { type: "setCommandPaletteQuery"; query: string }
+  | { type: "moveCommandPalette"; delta: -1 | 1; count: number };
 
 export const initialState: AppState = {
   prompt: "",
@@ -86,10 +96,15 @@ export const initialState: AppState = {
   variables: [],
   favorites: [],
   theme: DEFAULT_THEME,
+  commandPalette: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function wrapIndex(raw: number, count: number): number {
+  return ((raw % count) + count) % count;
 }
 
 export function appReducer(state: AppState, event: AppEvent): AppState {
@@ -130,8 +145,10 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "moveAutocomplete": {
       if (state.autocomplete === null) return state;
       if (event.count <= 0) return state;
-      const raw = state.autocomplete.index + event.delta;
-      const wrapped = ((raw % event.count) + event.count) % event.count;
+      const wrapped = wrapIndex(
+        state.autocomplete.index + event.delta,
+        event.count,
+      );
       return {
         ...state,
         autocomplete: { ...state.autocomplete, index: wrapped },
@@ -224,6 +241,28 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       };
     case "setTheme":
       return { ...state, theme: event.theme };
+    case "openCommandPalette":
+      return { ...state, commandPalette: { query: "", index: 0 } };
+    case "closeCommandPalette":
+      return { ...state, commandPalette: null };
+    case "setCommandPaletteQuery":
+      if (state.commandPalette === null) return state;
+      return {
+        ...state,
+        commandPalette: { query: event.query, index: 0 },
+      };
+    case "moveCommandPalette": {
+      if (state.commandPalette === null) return state;
+      if (event.count <= 0) return state;
+      const wrapped = wrapIndex(
+        state.commandPalette.index + event.delta,
+        event.count,
+      );
+      return {
+        ...state,
+        commandPalette: { ...state.commandPalette, index: wrapped },
+      };
+    }
     default: {
       const _exhaustive: never = event;
       return _exhaustive;

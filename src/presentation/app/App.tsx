@@ -24,6 +24,7 @@ import { resolveXdgFavoritesPath } from "../../infrastructure/filesystem/resolve
 import { XdgThemeRepository } from "../../infrastructure/filesystem/XdgThemeRepository.ts";
 import { resolveXdgConfigPath } from "../../infrastructure/filesystem/resolveXdgConfigPath.ts";
 import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
+import { CommandPalette } from "../components/CommandPalette.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
@@ -31,7 +32,11 @@ import { StatusBar } from "../components/StatusBar.tsx";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
-import { handleDotCommand } from "./dotCommand.ts";
+import {
+  filterCommands,
+  handleCommandPaletteInput,
+} from "./commandPaletteInput.ts";
+import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
@@ -140,6 +145,33 @@ export function App({ db, schema, dbPath }: Props) {
     };
   }, [loadTheme]);
 
+  const dotCommandDeps: DotCommandDeps = {
+    dispatch,
+    exportCsv,
+    schema: schemaPrettyPrint,
+    lastRowsOutcome: state.lastRowsOutcome,
+    onQuit: quit,
+    sessionVars,
+    variables: state.variables,
+    runExplain,
+    lastSql: lastSuccessfulSqlRef.current,
+    showResult: (resultSql, outcome) =>
+      dispatch({
+        type: "recordQuery",
+        entry: {
+          sql: resultSql,
+          outcome: outcomeToHistoryKind(outcome),
+          timestamp: Date.now(),
+        },
+        outcome,
+      }),
+    saveFavorite,
+    runFavorite,
+    forgetFavorite,
+    favorites: state.favorites,
+    switchTheme,
+  };
+
   useInput((input, key) => {
     if (state.reverseSearch !== null) {
       handleReverseSearchInput({
@@ -163,6 +195,20 @@ export function App({ db, schema, dbPath }: Props) {
     if (key.ctrl && input === "r") {
       promptBeforeReverseRef.current = state.prompt;
       dispatch({ type: "reverseSearchOpen" });
+      return;
+    }
+    if (key.ctrl && input === "p") {
+      dispatch({ type: "openCommandPalette" });
+      return;
+    }
+    if (state.commandPalette !== null) {
+      handleCommandPaletteInput({
+        input,
+        key,
+        palette: state.commandPalette,
+        dispatch,
+        deps: dotCommandDeps,
+      });
       return;
     }
     if (state.autocomplete !== null) {
@@ -190,32 +236,7 @@ export function App({ db, schema, dbPath }: Props) {
       const sql = state.prompt.trim();
       if (sql === "") return;
       if (sql.startsWith(".")) {
-        void handleDotCommand(sql, {
-          dispatch,
-          exportCsv,
-          schema: schemaPrettyPrint,
-          lastRowsOutcome: state.lastRowsOutcome,
-          onQuit: quit,
-          sessionVars,
-          variables: state.variables,
-          runExplain,
-          lastSql: lastSuccessfulSqlRef.current,
-          showResult: (resultSql, outcome) =>
-            dispatch({
-              type: "recordQuery",
-              entry: {
-                sql: resultSql,
-                outcome: outcomeToHistoryKind(outcome),
-                timestamp: Date.now(),
-              },
-              outcome,
-            }),
-          saveFavorite,
-          runFavorite,
-          forgetFavorite,
-          favorites: state.favorites,
-          switchTheme,
-        });
+        void handleDotCommand(sql, dotCommandDeps);
         dispatch({ type: "command", line: sql });
         return;
       }
@@ -267,6 +288,9 @@ export function App({ db, schema, dbPath }: Props) {
   const suggestions =
     popup === null ? [] : autocomplete.suggest(popup.prefix, popup.context);
 
+  const palette = state.commandPalette;
+  const paletteMatches = palette === null ? [] : filterCommands(palette.query);
+
   return (
     <Box flexDirection="column">
       <Header dbPath={dbPath} theme={state.theme} />
@@ -287,6 +311,14 @@ export function App({ db, schema, dbPath }: Props) {
         <AutocompletePopup
           suggestions={suggestions}
           index={popup.index}
+          theme={state.theme}
+        />
+      )}
+      {palette !== null && (
+        <CommandPalette
+          commands={paletteMatches}
+          query={palette.query}
+          index={palette.index}
           theme={state.theme}
         />
       )}
