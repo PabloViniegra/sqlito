@@ -1,3 +1,5 @@
+import { render } from "ink";
+import { PassThrough } from "node:stream";
 import chalk from "chalk";
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
@@ -12,6 +14,10 @@ chalk.level = 1;
 
 function plain(frame: string): string {
   return stripAnsi(frame).replace(/\r/g, "");
+}
+
+async function settle(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 describe("Prompt", () => {
@@ -51,5 +57,38 @@ describe("Prompt", () => {
     );
 
     expect(frame).not.toContain(chalk.yellow("SELECT 1"));
+  });
+
+  it("repaints when a trailing space is typed (regression)", async () => {
+    // Ink trims trailing whitespace per line before diffing against the
+    // previous frame (build/output.js) and skips the write entirely when
+    // the result is unchanged (build/ink.js). A trailing space with no
+    // visible cursor after it collapses to the same line, so the keystroke
+    // was silently dropped on screen. A trailing cursor glyph after `value`
+    // guarantees the line always ends in non-whitespace content.
+    const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
+      columns: number;
+    };
+    stdout.columns = 80;
+    (stdout as unknown as { isTTY: boolean }).isTTY = true;
+    const writes: string[] = [];
+    stdout.write = ((chunk: string | Uint8Array): boolean => {
+      writes.push(chunk.toString());
+      return true;
+    }) as typeof stdout.write;
+
+    const instance = render(<Prompt value="SELECT" theme={DEFAULT_THEME} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      exitOnCtrlC: false,
+      patchConsole: false,
+    });
+    await settle();
+    writes.length = 0;
+
+    instance.rerender(<Prompt value="SELECT " theme={DEFAULT_THEME} />);
+    await settle();
+    instance.unmount();
+
+    expect(writes.some((w) => w.includes("SELECT"))).toBe(true);
   });
 });

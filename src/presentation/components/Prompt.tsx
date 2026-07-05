@@ -8,6 +8,7 @@ export function Prompt({ value, prefix, theme }: Props) {
     <Text>
       <Text color={theme.tokens.accent}>{prefix ?? "> "}</Text>
       {value}
+      <Text inverse> </Text>
     </Text>
   );
 }

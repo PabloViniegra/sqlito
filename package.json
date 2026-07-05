@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.tsx",
+    "dev": "tsx src/main.tsx",
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "lint": "oxlint",

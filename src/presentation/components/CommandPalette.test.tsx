@@ -110,6 +110,47 @@ describe("CommandPalette", () => {
     expect(second).toContain(".vars");
   });
 
+  it("caps rendered rows so a large command list can't overflow the terminal (regression)", async () => {
+    // A palette that renders every match unconditionally grows the live
+    // region past the terminal's row count as soon as there are enough
+    // registered commands. Ink then falls back to a full clearTerminal +
+    // repaint on every keystroke (ink.js's shouldClearTerminalForFrame),
+    // which is the "se rompe, se refresca, parpadea" flicker — reproducible
+    // on any terminal, since it's pure row arithmetic.
+    const commands = Array.from({ length: 30 }, (_, i) =>
+      CMD(`.cmd${i}`, `Command number ${i}`),
+    );
+
+    const frame = await capture(
+      <CommandPalette
+        commands={commands}
+        query=""
+        index={0}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const rowCount = frame.split("\n").length;
+    expect(rowCount).toBeLessThan(15);
+  });
+
+  it("keeps the selected command visible when its index is scrolled past the visible window (regression)", async () => {
+    const commands = Array.from({ length: 30 }, (_, i) =>
+      CMD(`.cmd${i}`, `Command number ${i}`),
+    );
+
+    const frame = await capture(
+      <CommandPalette
+        commands={commands}
+        query=""
+        index={29}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    expect(frame).toContain(".cmd29");
+  });
+
   it("renders the help hint in the theme's dim color", async () => {
     const frame = await captureRaw(
       <CommandPalette
