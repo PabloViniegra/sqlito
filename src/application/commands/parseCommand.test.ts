@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseExportCommand } from "./parseCommand.ts";
+import {
+  parseDotCommand,
+  parseExportCommand,
+  parseHelpCommand,
+  parseIndexesCommand,
+  parseQuitCommand,
+  parseSchemaCommand,
+  parseTablesCommand,
+} from "./parseCommand.ts";
 
 describe("parseExportCommand", () => {
   it("parses '.export /tmp/users.csv'", () => {
@@ -84,5 +92,186 @@ describe("parseExportCommand", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected error");
     expect(result.error).toBe("export: too many arguments");
+  });
+});
+
+describe("parseTablesCommand", () => {
+  it("parses '.tables'", () => {
+    expect(parseTablesCommand(".tables")).toEqual({ ok: true });
+  });
+
+  it("tolerates surrounding whitespace", () => {
+    expect(parseTablesCommand("  .tables  ")).toEqual({ ok: true });
+  });
+
+  it("rejects extra arguments", () => {
+    const r = parseTablesCommand(".tables users");
+    expect(r).toEqual({ ok: false, error: "tables: too many arguments" });
+  });
+
+  it("rejects a non-tables command", () => {
+    const r = parseTablesCommand(".schema");
+    expect(r).toEqual({ ok: false, error: "unknown command: .schema" });
+  });
+});
+
+describe("parseSchemaCommand", () => {
+  it("parses '.schema' with no table", () => {
+    expect(parseSchemaCommand(".schema")).toEqual({ ok: true });
+  });
+
+  it("parses '.schema users'", () => {
+    expect(parseSchemaCommand(".schema users")).toEqual({
+      ok: true,
+      table: "users",
+    });
+  });
+
+  it("tolerates multiple spaces before the table", () => {
+    expect(parseSchemaCommand(".schema   users")).toEqual({
+      ok: true,
+      table: "users",
+    });
+  });
+
+  it("rejects more than one argument", () => {
+    const r = parseSchemaCommand(".schema a b");
+    expect(r).toEqual({ ok: false, error: "schema: too many arguments" });
+  });
+
+  it("rejects a non-schema command", () => {
+    const r = parseSchemaCommand(".tables");
+    expect(r).toEqual({ ok: false, error: "unknown command: .tables" });
+  });
+});
+
+describe("parseIndexesCommand", () => {
+  it("parses '.indexes'", () => {
+    expect(parseIndexesCommand(".indexes")).toEqual({ ok: true });
+  });
+
+  it("rejects extra arguments", () => {
+    const r = parseIndexesCommand(".indexes t");
+    expect(r).toEqual({ ok: false, error: "indexes: too many arguments" });
+  });
+
+  it("rejects a non-indexes command", () => {
+    expect(parseIndexesCommand(".help")).toEqual({
+      ok: false,
+      error: "unknown command: .help",
+    });
+  });
+});
+
+describe("parseHelpCommand", () => {
+  it("parses '.help'", () => {
+    expect(parseHelpCommand(".help")).toEqual({ ok: true });
+  });
+
+  it("rejects extra arguments", () => {
+    expect(parseHelpCommand(".help me")).toEqual({
+      ok: false,
+      error: "help: too many arguments",
+    });
+  });
+});
+
+describe("parseQuitCommand", () => {
+  it("parses '.quit'", () => {
+    expect(parseQuitCommand(".quit")).toEqual({ ok: true });
+  });
+
+  it("parses '.exit' as an alias", () => {
+    expect(parseQuitCommand(".exit")).toEqual({ ok: true });
+  });
+
+  it("rejects extra arguments", () => {
+    expect(parseQuitCommand(".quit now")).toEqual({
+      ok: false,
+      error: "quit: too many arguments",
+    });
+  });
+
+  it("rejects a non-quit command", () => {
+    expect(parseQuitCommand(".tables")).toEqual({
+      ok: false,
+      error: "unknown command: .tables",
+    });
+  });
+});
+
+describe("parseDotCommand (dispatcher)", () => {
+  it("routes '.export /tmp/x.csv' to an export command", () => {
+    expect(parseDotCommand(".export /tmp/x.csv")).toEqual({
+      ok: true,
+      command: { kind: "export", path: "/tmp/x.csv" },
+    });
+  });
+
+  it("propagates export parse errors", () => {
+    expect(parseDotCommand(".export")).toEqual({
+      ok: false,
+      error: "export: missing path",
+    });
+  });
+
+  it("routes '.tables'", () => {
+    expect(parseDotCommand(".tables")).toEqual({
+      ok: true,
+      command: { kind: "tables" },
+    });
+  });
+
+  it("routes '.schema users'", () => {
+    expect(parseDotCommand(".schema users")).toEqual({
+      ok: true,
+      command: { kind: "schema", table: "users" },
+    });
+  });
+
+  it("routes '.schema' with no table", () => {
+    expect(parseDotCommand(".schema")).toEqual({
+      ok: true,
+      command: { kind: "schema" },
+    });
+  });
+
+  it("routes '.indexes'", () => {
+    expect(parseDotCommand(".indexes")).toEqual({
+      ok: true,
+      command: { kind: "indexes" },
+    });
+  });
+
+  it("routes '.help'", () => {
+    expect(parseDotCommand(".help")).toEqual({
+      ok: true,
+      command: { kind: "help" },
+    });
+  });
+
+  it("routes '.quit' and '.exit' to quit", () => {
+    expect(parseDotCommand(".quit")).toEqual({
+      ok: true,
+      command: { kind: "quit" },
+    });
+    expect(parseDotCommand(".exit")).toEqual({
+      ok: true,
+      command: { kind: "quit" },
+    });
+  });
+
+  it("errors on an unknown dot-command", () => {
+    expect(parseDotCommand(".nope")).toEqual({
+      ok: false,
+      error: "unknown command: .nope",
+    });
+  });
+
+  it("errors on non-dot input", () => {
+    expect(parseDotCommand("SELECT 1")).toEqual({
+      ok: false,
+      error: "unknown command: SELECT 1",
+    });
   });
 });
