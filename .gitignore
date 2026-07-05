@@ -40,3 +40,6 @@ node_modules/.tmp/
 
 # Vitest cache
 .vitest-cache/
+
+# Generated fixtures
+fixtures/*.db

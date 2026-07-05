@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "bench": "node scripts/bench-cold-start.mjs",
+    "db:seed": "node scripts/seed-sample-db.mjs",
     "prepare": "husky"
   },
   "lint-staged": {
