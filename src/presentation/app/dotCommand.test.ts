@@ -34,6 +34,14 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
     } as unknown as DotCommandDeps["runExplain"],
     lastSql: "",
     showResult: vi.fn(),
+    saveFavorite: {
+      save: vi.fn(),
+    } as unknown as DotCommandDeps["saveFavorite"],
+    runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
+    forgetFavorite: {
+      forget: vi.fn(),
+    } as unknown as DotCommandDeps["forgetFavorite"],
+    favorites: [],
     ...overrides,
   };
   return { deps, events };
@@ -144,6 +152,14 @@ describe("handleDotCommand — variables", () => {
       } as unknown as DotCommandDeps["runExplain"],
       lastSql: "",
       showResult: vi.fn(),
+      saveFavorite: {
+        save: vi.fn(),
+      } as unknown as DotCommandDeps["saveFavorite"],
+      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
+      forgetFavorite: {
+        forget: vi.fn(),
+      } as unknown as DotCommandDeps["forgetFavorite"],
+      favorites: [],
     };
     return { deps, events, vars };
   }
@@ -247,6 +263,14 @@ describe("handleDotCommand — explain", () => {
       runExplain: { explainLast } as unknown as DotCommandDeps["runExplain"],
       lastSql,
       showResult: (sql, outcome) => shown.push({ sql, outcome }),
+      saveFavorite: {
+        save: vi.fn(),
+      } as unknown as DotCommandDeps["saveFavorite"],
+      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
+      forgetFavorite: {
+        forget: vi.fn(),
+      } as unknown as DotCommandDeps["forgetFavorite"],
+      favorites: [],
     };
     return { deps, statuses, shown, explainLast };
   }
@@ -289,6 +313,143 @@ describe("handleDotCommand — explain", () => {
     expect(shown).toEqual([]);
     expect(statuses).toEqual([
       { text: "no previous query to explain", kind: "error" },
+    ]);
+  });
+});
+
+describe("handleDotCommand — favorites", () => {
+  function makeFavDeps(
+    over: {
+      lastSql?: string;
+      favorites?: readonly [string, string][];
+      getResult?: string | undefined;
+      forgetResult?: boolean;
+    } = {},
+  ): {
+    deps: DotCommandDeps;
+    events: unknown[];
+    save: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    forget: ReturnType<typeof vi.fn>;
+  } {
+    const events: unknown[] = [];
+    const save = vi.fn().mockResolvedValue(undefined);
+    const get = vi.fn().mockResolvedValue(over.getResult);
+    const forget = vi.fn().mockResolvedValue(over.forgetResult ?? false);
+    const deps: DotCommandDeps = {
+      dispatch: (event) => events.push(event),
+      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      schema: {} as unknown as DotCommandDeps["schema"],
+      lastRowsOutcome: null,
+      onQuit: vi.fn(),
+      sessionVars: new SessionVariables(),
+      variables: [],
+      runExplain: {
+        explainLast: vi.fn(),
+      } as unknown as DotCommandDeps["runExplain"],
+      lastSql: over.lastSql ?? "",
+      showResult: vi.fn(),
+      saveFavorite: { save } as unknown as DotCommandDeps["saveFavorite"],
+      runFavorite: { get } as unknown as DotCommandDeps["runFavorite"],
+      forgetFavorite: { forget } as unknown as DotCommandDeps["forgetFavorite"],
+      favorites: over.favorites ?? [],
+    };
+    return { deps, events, save, get, forget };
+  }
+
+  it(".save persists the last query and commits it", async () => {
+    const { deps, events, save } = makeFavDeps({ lastSql: "SELECT 1" });
+    await handleDotCommand(".save top", deps);
+    expect(save).toHaveBeenCalledWith("top", "SELECT 1");
+    expect(events).toContainEqual({
+      type: "commitFavorite",
+      name: "top",
+      sql: "SELECT 1",
+    });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "saved top", kind: "info" },
+    });
+  });
+
+  it(".save errors when there is no last query", async () => {
+    const { deps, events, save } = makeFavDeps({ lastSql: "" });
+    await handleDotCommand(".save top", deps);
+    expect(save).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: "nothing to save (run a query first)", kind: "error" },
+      },
+    ]);
+  });
+
+  it(".favorites lists entries sorted and truncated", async () => {
+    const longSql = "SELECT " + "x".repeat(80) + " FROM t";
+    const { deps, events } = makeFavDeps({
+      favorites: [
+        ["zeta", "SELECT 2"],
+        ["alpha", longSql],
+      ],
+    });
+    await handleDotCommand(".favorites", deps);
+    const status = events[0] as { status: StatusMessage };
+    const lines = status.status.text.split("\n");
+    expect(lines[0].startsWith("alpha:")).toBe(true);
+    expect(lines[1].startsWith("zeta:")).toBe(true);
+    expect(lines[0]).toContain("…");
+    expect(lines[0].length).toBeLessThan(80);
+  });
+
+  it(".favorites reports when empty", async () => {
+    const { deps, events } = makeFavDeps({ favorites: [] });
+    await handleDotCommand(".favorites", deps);
+    expect(events).toEqual([
+      { type: "setStatus", status: { text: "No favorites", kind: "info" } },
+    ]);
+  });
+
+  it(".run loads the SQL into the prompt without executing", async () => {
+    const { deps, events, get } = makeFavDeps({ getResult: "SELECT 42" });
+    await handleDotCommand(".run top", deps);
+    expect(get).toHaveBeenCalledWith("top");
+    expect(events).toContainEqual({ type: "setPrompt", value: "SELECT 42" });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "loaded top", kind: "info" },
+    });
+  });
+
+  it(".run errors for an unknown favorite", async () => {
+    const { deps, events } = makeFavDeps({ getResult: undefined });
+    await handleDotCommand(".run ghost", deps);
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: "no favorite named ghost", kind: "error" },
+      },
+    ]);
+  });
+
+  it(".forget removes an existing favorite", async () => {
+    const { deps, events, forget } = makeFavDeps({ forgetResult: true });
+    await handleDotCommand(".forget top", deps);
+    expect(forget).toHaveBeenCalledWith("top");
+    expect(events).toContainEqual({ type: "removeFavorite", name: "top" });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "forgot top", kind: "info" },
+    });
+  });
+
+  it(".forget errors for an unknown favorite", async () => {
+    const { deps, events } = makeFavDeps({ forgetResult: false });
+    await handleDotCommand(".forget ghost", deps);
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: "no favorite named ghost", kind: "error" },
+      },
     ]);
   });
 });

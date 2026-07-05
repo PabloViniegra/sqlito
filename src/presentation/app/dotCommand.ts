@@ -3,12 +3,16 @@ import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import { parseDotCommand } from "../../application/commands/parseCommand.ts";
 import type { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
 import type { RunExplain } from "../../application/queries/RunExplain.ts";
+import type { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
+import type { RunFavorite } from "../../application/favorites/RunFavorite.ts";
+import type { ForgetFavorite } from "../../application/favorites/ForgetFavorite.ts";
 import {
   InvalidVariableName,
   type SessionVariables,
 } from "../../application/variables/SessionVariables.ts";
 import type { PlanNode } from "../../domain/sql/PlanNode.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import cliTruncate from "cli-truncate";
 import type { AppEvent, StatusMessage } from "./appReducer.ts";
 
 export type AppDispatch = (event: AppEvent) => void;
@@ -24,7 +28,13 @@ export type DotCommandDeps = {
   runExplain: RunExplain;
   lastSql: string;
   showResult: (sql: string, outcome: QueryOutcome) => void;
+  saveFavorite: SaveFavorite;
+  runFavorite: RunFavorite;
+  forgetFavorite: ForgetFavorite;
+  favorites: readonly [string, string][];
 };
+
+const FAVORITE_SQL_WIDTH = 60;
 
 export async function handleDotCommand(
   line: string,
@@ -70,7 +80,78 @@ export async function handleDotCommand(
     case "explain":
       runExplain(deps);
       return;
+    case "save":
+      await runSave(deps, command.name);
+      return;
+    case "favorites":
+      setStatus(deps, formatFavorites(deps.favorites), "info");
+      return;
+    case "run":
+      await runFavorite(deps, command.name);
+      return;
+    case "forget":
+      await forgetFavorite(deps, command.name);
+      return;
   }
+}
+
+async function runSave(deps: DotCommandDeps, name: string): Promise<void> {
+  const sql = deps.lastSql.trim();
+  if (sql === "") {
+    setStatus(deps, "nothing to save (run a query first)", "error");
+    return;
+  }
+  try {
+    await deps.saveFavorite.save(name, sql);
+  } catch (err) {
+    setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+    return;
+  }
+  deps.dispatch({ type: "commitFavorite", name, sql });
+  setStatus(deps, `saved ${name}`, "info");
+}
+
+async function runFavorite(deps: DotCommandDeps, name: string): Promise<void> {
+  let sql: string | undefined;
+  try {
+    sql = await deps.runFavorite.get(name);
+  } catch (err) {
+    setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+    return;
+  }
+  if (sql === undefined) {
+    setStatus(deps, `no favorite named ${name}`, "error");
+    return;
+  }
+  deps.dispatch({ type: "setPrompt", value: sql });
+  setStatus(deps, `loaded ${name}`, "info");
+}
+
+async function forgetFavorite(
+  deps: DotCommandDeps,
+  name: string,
+): Promise<void> {
+  let existed: boolean;
+  try {
+    existed = await deps.forgetFavorite.forget(name);
+  } catch (err) {
+    setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+    return;
+  }
+  if (!existed) {
+    setStatus(deps, `no favorite named ${name}`, "error");
+    return;
+  }
+  deps.dispatch({ type: "removeFavorite", name });
+  setStatus(deps, `forgot ${name}`, "info");
+}
+
+function formatFavorites(favorites: readonly [string, string][]): string {
+  if (favorites.length === 0) return "No favorites";
+  return [...favorites]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, sql]) => `${name}: ${cliTruncate(sql, FAVORITE_SQL_WIDTH)}`)
+    .join("\n");
 }
 
 function runExplain(deps: DotCommandDeps): void {

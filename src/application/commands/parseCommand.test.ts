@@ -3,9 +3,13 @@ import {
   parseDotCommand,
   parseExplainCommand,
   parseExportCommand,
+  parseFavoritesCommand,
+  parseForgetCommand,
   parseHelpCommand,
   parseIndexesCommand,
   parseQuitCommand,
+  parseRunCommand,
+  parseSaveCommand,
   parseSchemaCommand,
   parseSetCommand,
   parseTablesCommand,
@@ -403,6 +407,105 @@ describe("parseDotCommand (explain)", () => {
     expect(parseDotCommand(".explain")).toEqual({
       ok: true,
       command: { kind: "explain" },
+    });
+  });
+});
+
+describe("parseSaveCommand", () => {
+  it("parses '.save top'", () => {
+    expect(parseSaveCommand(".save top")).toEqual({ ok: true, name: "top" });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseSaveCommand(".save")).toEqual({
+      ok: false,
+      error: "save: missing name",
+    });
+  });
+
+  it("errors on too many arguments", () => {
+    expect(parseSaveCommand(".save a b")).toEqual({
+      ok: false,
+      error: "save: too many arguments",
+    });
+  });
+
+  it("rejects a non-save command", () => {
+    expect(parseSaveCommand(".run x")).toEqual({
+      ok: false,
+      error: "unknown command: .run x",
+    });
+  });
+});
+
+describe("parseFavoritesCommand", () => {
+  it("parses '.favorites'", () => {
+    expect(parseFavoritesCommand(".favorites")).toEqual({ ok: true });
+  });
+
+  it("errors on extra arguments", () => {
+    expect(parseFavoritesCommand(".favorites x")).toEqual({
+      ok: false,
+      error: "favorites: too many arguments",
+    });
+  });
+});
+
+describe("parseRunCommand", () => {
+  it("parses '.run top'", () => {
+    expect(parseRunCommand(".run top")).toEqual({ ok: true, name: "top" });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseRunCommand(".run")).toEqual({
+      ok: false,
+      error: "run: missing name",
+    });
+  });
+});
+
+describe("parseForgetCommand", () => {
+  it("parses '.forget top'", () => {
+    expect(parseForgetCommand(".forget top")).toEqual({
+      ok: true,
+      name: "top",
+    });
+  });
+
+  it("errors on a missing name", () => {
+    expect(parseForgetCommand(".forget")).toEqual({
+      ok: false,
+      error: "forget: missing name",
+    });
+  });
+});
+
+describe("parseDotCommand (favorites)", () => {
+  it("routes '.save top'", () => {
+    expect(parseDotCommand(".save top")).toEqual({
+      ok: true,
+      command: { kind: "save", name: "top" },
+    });
+  });
+
+  it("routes '.favorites'", () => {
+    expect(parseDotCommand(".favorites")).toEqual({
+      ok: true,
+      command: { kind: "favorites" },
+    });
+  });
+
+  it("routes '.run top'", () => {
+    expect(parseDotCommand(".run top")).toEqual({
+      ok: true,
+      command: { kind: "run", name: "top" },
+    });
+  });
+
+  it("routes '.forget top'", () => {
+    expect(parseDotCommand(".forget top")).toEqual({
+      ok: true,
+      command: { kind: "forget", name: "top" },
     });
   });
 });

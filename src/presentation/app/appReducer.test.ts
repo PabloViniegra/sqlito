@@ -712,4 +712,64 @@ describe("appReducer", () => {
       expect(next.variables).toEqual([["a", "1"]]);
     });
   });
+
+  describe("loadFavorites", () => {
+    it("stores favorites as [name, sql] pairs", () => {
+      const next = appReducer(initialState, {
+        type: "loadFavorites",
+        favorites: [
+          ["b", "SELECT 2"],
+          ["a", "SELECT 1"],
+        ],
+      });
+      expect(next.favorites).toEqual([
+        ["b", "SELECT 2"],
+        ["a", "SELECT 1"],
+      ]);
+    });
+  });
+
+  describe("commitFavorite", () => {
+    it("appends a new favorite", () => {
+      const next = appReducer(initialState, {
+        type: "commitFavorite",
+        name: "top",
+        sql: "SELECT 1",
+      });
+      expect(next.favorites).toEqual([["top", "SELECT 1"]]);
+    });
+
+    it("overwrites an existing favorite in place", () => {
+      const state = {
+        ...initialState,
+        favorites: [
+          ["a", "SELECT 1"],
+          ["b", "SELECT 2"],
+        ] as readonly [string, string][],
+      };
+      const next = appReducer(state, {
+        type: "commitFavorite",
+        name: "a",
+        sql: "SELECT 9",
+      });
+      expect(next.favorites).toEqual([
+        ["a", "SELECT 9"],
+        ["b", "SELECT 2"],
+      ]);
+    });
+  });
+
+  describe("removeFavorite", () => {
+    it("removes the named favorite", () => {
+      const state = {
+        ...initialState,
+        favorites: [
+          ["a", "SELECT 1"],
+          ["b", "SELECT 2"],
+        ] as readonly [string, string][],
+      };
+      const next = appReducer(state, { type: "removeFavorite", name: "a" });
+      expect(next.favorites).toEqual([["b", "SELECT 2"]]);
+    });
+  });
 });

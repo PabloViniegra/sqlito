@@ -1,6 +1,10 @@
 import { Box, Static, useApp, useInput } from "ink";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
+import { ListFavorites } from "../../application/favorites/ListFavorites.ts";
+import { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
+import { RunFavorite } from "../../application/favorites/RunFavorite.ts";
+import { ForgetFavorite } from "../../application/favorites/ForgetFavorite.ts";
 import { LoadHistory } from "../../application/history/LoadHistory.ts";
 import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
@@ -13,6 +17,8 @@ import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
 import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
 import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
+import { XdgFavoritesRepository } from "../../infrastructure/filesystem/XdgFavoritesRepository.ts";
+import { resolveXdgFavoritesPath } from "../../infrastructure/filesystem/resolveXdgFavoritesPath.ts";
 import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
@@ -59,6 +65,26 @@ export function App({ db, schema, dbPath }: Props) {
     () => new GetAutocompleteSuggestions(schema),
     [schema],
   );
+  const favoritesRepo = useMemo(
+    () => new XdgFavoritesRepository(resolveXdgFavoritesPath()),
+    [],
+  );
+  const saveFavorite = useMemo(
+    () => new SaveFavorite(favoritesRepo),
+    [favoritesRepo],
+  );
+  const listFavorites = useMemo(
+    () => new ListFavorites(favoritesRepo),
+    [favoritesRepo],
+  );
+  const runFavorite = useMemo(
+    () => new RunFavorite(favoritesRepo),
+    [favoritesRepo],
+  );
+  const forgetFavorite = useMemo(
+    () => new ForgetFavorite(favoritesRepo),
+    [favoritesRepo],
+  );
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
@@ -82,6 +108,16 @@ export function App({ db, schema, dbPath }: Props) {
       cancelled = true;
     };
   }, [loadHistory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listFavorites.list().then((favorites) => {
+      if (!cancelled) dispatch({ type: "loadFavorites", favorites });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [listFavorites]);
 
   useInput((input, key) => {
     if (state.reverseSearch !== null) {
@@ -153,6 +189,10 @@ export function App({ db, schema, dbPath }: Props) {
               },
               outcome,
             }),
+          saveFavorite,
+          runFavorite,
+          forgetFavorite,
+          favorites: state.favorites,
         });
         dispatch({ type: "command", line: sql });
         return;

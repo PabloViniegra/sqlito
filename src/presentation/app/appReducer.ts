@@ -37,6 +37,7 @@ export type AppState = {
   statusMessage: StatusMessage | null;
   reverseSearch: ReverseSearchState | null;
   variables: readonly [string, string][];
+  favorites: readonly [string, string][];
 };
 
 export type AppEvent =
@@ -66,6 +67,9 @@ export type AppEvent =
   | { type: "command"; line: string }
   | { type: "setVariable"; name: string; raw: string }
   | { type: "unsetVariable"; name: string }
+  | { type: "loadFavorites"; favorites: readonly [string, string][] }
+  | { type: "commitFavorite"; name: string; sql: string }
+  | { type: "removeFavorite"; name: string }
   | { type: "setStatus"; status: StatusMessage | null };
 
 export const initialState: AppState = {
@@ -77,6 +81,7 @@ export const initialState: AppState = {
   statusMessage: null,
   reverseSearch: null,
   variables: [],
+  favorites: [],
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -196,6 +201,22 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       return {
         ...state,
         variables: state.variables.filter(([n]) => n !== event.name),
+      };
+    case "loadFavorites":
+      return { ...state, favorites: event.favorites };
+    case "commitFavorite": {
+      const pair: [string, string] = [event.name, event.sql];
+      const index = state.favorites.findIndex(([n]) => n === event.name);
+      const favorites =
+        index === -1
+          ? [...state.favorites, pair]
+          : state.favorites.map((f, i) => (i === index ? pair : f));
+      return { ...state, favorites };
+    }
+    case "removeFavorite":
+      return {
+        ...state,
+        favorites: state.favorites.filter(([n]) => n !== event.name),
       };
     default: {
       const _exhaustive: never = event;
