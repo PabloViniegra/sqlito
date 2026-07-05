@@ -208,7 +208,7 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "exportTo":
       return state;
     case "command":
-      return state;
+      return { ...state, prompt: "" };
     case "setVariable": {
       const pair: [string, string] = [event.name, event.raw];
       const index = state.variables.findIndex(([n]) => n === event.name);

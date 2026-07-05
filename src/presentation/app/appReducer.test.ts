@@ -476,11 +476,11 @@ describe("appReducer", () => {
   });
 
   describe("command", () => {
-    it("returns state unchanged (driver owns dot-command dispatch)", () => {
-      const state = { ...initialState, prompt: "SELECT 1" };
+    it("clears the prompt after a dot-command is dispatched", () => {
+      const state = { ...initialState, prompt: ".tables" };
       const next = appReducer(state, { type: "command", line: ".tables" });
 
-      expect(next).toBe(state);
+      expect(next.prompt).toBe("");
     });
   });
 
