@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseDotCommand,
+  parseExplainCommand,
   parseExportCommand,
   parseHelpCommand,
   parseIndexesCommand,
@@ -373,6 +374,35 @@ describe("parseDotCommand (variables)", () => {
     expect(parseDotCommand(".vars")).toEqual({
       ok: true,
       command: { kind: "vars" },
+    });
+  });
+});
+
+describe("parseExplainCommand", () => {
+  it("parses '.explain'", () => {
+    expect(parseExplainCommand(".explain")).toEqual({ ok: true });
+  });
+
+  it("errors on extra arguments", () => {
+    expect(parseExplainCommand(".explain x")).toEqual({
+      ok: false,
+      error: "explain: too many arguments",
+    });
+  });
+
+  it("rejects a non-explain command", () => {
+    expect(parseExplainCommand(".vars")).toEqual({
+      ok: false,
+      error: "unknown command: .vars",
+    });
+  });
+});
+
+describe("parseDotCommand (explain)", () => {
+  it("routes '.explain'", () => {
+    expect(parseDotCommand(".explain")).toEqual({
+      ok: true,
+      command: { kind: "explain" },
     });
   });
 });

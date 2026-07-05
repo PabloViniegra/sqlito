@@ -5,6 +5,7 @@ import { LoadHistory } from "../../application/history/LoadHistory.ts";
 import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
+import { RunExplain } from "../../application/queries/RunExplain.ts";
 import { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import type { Database } from "../../domain/database/Database.ts";
@@ -36,6 +37,10 @@ export function App({ db, schema, dbPath }: Props) {
     () => new ExecuteQuery(db, () => sessionVars.entries()),
     [db, sessionVars],
   );
+  const runExplain = useMemo(
+    () => new RunExplain(executeQuery),
+    [executeQuery],
+  );
   const exportCsv = useMemo(() => new ExportCsv(), []);
   const schemaPrettyPrint = useMemo(() => new SchemaPrettyPrint(db), [db]);
   const historyRepo = useMemo(
@@ -56,6 +61,7 @@ export function App({ db, schema, dbPath }: Props) {
   );
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
+  const lastSuccessfulSqlRef = useRef<string>("");
 
   const quit = useCallback(() => {
     db.close();
@@ -135,6 +141,18 @@ export function App({ db, schema, dbPath }: Props) {
           onQuit: quit,
           sessionVars,
           variables: state.variables,
+          runExplain,
+          lastSql: lastSuccessfulSqlRef.current,
+          showResult: (resultSql, outcome) =>
+            dispatch({
+              type: "recordQuery",
+              entry: {
+                sql: resultSql,
+                outcome: outcomeToHistoryKind(outcome),
+                timestamp: Date.now(),
+              },
+              outcome,
+            }),
         });
         dispatch({ type: "command", line: sql });
         return;
@@ -146,6 +164,7 @@ export function App({ db, schema, dbPath }: Props) {
       }
       if (outcome.kind !== "error") {
         const timestamp = Date.now();
+        lastSuccessfulSqlRef.current = sql;
         dispatch({
           type: "recordQuery",
           entry: { sql, outcome: outcomeToHistoryKind(outcome), timestamp },

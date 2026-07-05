@@ -16,7 +16,8 @@ export type DotCommand =
   | { kind: "quit" }
   | { kind: "set"; name: string; raw: string }
   | { kind: "unset"; name: string }
-  | { kind: "vars" };
+  | { kind: "vars" }
+  | { kind: "explain" };
 
 export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
@@ -81,6 +82,10 @@ export function parseSchemaCommand(line: string): SchemaResult {
 
 export function parseVarsCommand(line: string): NoArgResult {
   return parseNoArg(line, "vars");
+}
+
+export function parseExplainCommand(line: string): NoArgResult {
+  return parseNoArg(line, "explain");
 }
 
 export function parseSetCommand(line: string): SetResult {
@@ -161,6 +166,10 @@ export function parseDotCommand(line: string): DotCommandResult {
     case "vars": {
       const r = parseVarsCommand(line);
       return r.ok ? { ok: true, command: { kind: "vars" } } : r;
+    }
+    case "explain": {
+      const r = parseExplainCommand(line);
+      return r.ok ? { ok: true, command: { kind: "explain" } } : r;
     }
     default:
       return unknown(line);

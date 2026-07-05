@@ -2,10 +2,12 @@ import type { ExportCsv } from "../../application/commands/ExportCsv.ts";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import { parseDotCommand } from "../../application/commands/parseCommand.ts";
 import type { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
+import type { RunExplain } from "../../application/queries/RunExplain.ts";
 import {
   InvalidVariableName,
   type SessionVariables,
 } from "../../application/variables/SessionVariables.ts";
+import type { PlanNode } from "../../domain/sql/PlanNode.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { AppEvent, StatusMessage } from "./appReducer.ts";
 
@@ -19,6 +21,9 @@ export type DotCommandDeps = {
   onQuit: () => void;
   sessionVars: SessionVariables;
   variables: readonly [string, string][];
+  runExplain: RunExplain;
+  lastSql: string;
+  showResult: (sql: string, outcome: QueryOutcome) => void;
 };
 
 export async function handleDotCommand(
@@ -62,7 +67,28 @@ export async function handleDotCommand(
     case "vars":
       setStatus(deps, formatVars(deps.variables), "info");
       return;
+    case "explain":
+      runExplain(deps);
+      return;
   }
+}
+
+function runExplain(deps: DotCommandDeps): void {
+  const outcome = deps.runExplain.explainLast(deps.lastSql);
+  if (outcome.kind === "error") {
+    setStatus(deps, outcome.message, "error");
+    return;
+  }
+  deps.showResult(`EXPLAIN QUERY PLAN ${deps.lastSql}`, outcome);
+  const count = outcome.kind === "plan" ? countPlanNodes(outcome.nodes) : 0;
+  setStatus(deps, `explained: ${count} nodes`, "info");
+}
+
+function countPlanNodes(nodes: readonly PlanNode[]): number {
+  return nodes.reduce(
+    (total, node) => total + 1 + countPlanNodes(node.children),
+    0,
+  );
 }
 
 function runSet(deps: DotCommandDeps, name: string, raw: string): void {
