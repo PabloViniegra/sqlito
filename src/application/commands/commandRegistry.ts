@@ -34,6 +34,10 @@ export const COMMAND_DESCRIPTORS: {
     description: "Load a favorite's SQL into the prompt",
   },
   forget: { name: ".forget <name>", description: "Delete a favorite" },
+  theme: {
+    name: ".theme <name>",
+    description: "Switch the active theme (default, high-contrast)",
+  },
   export: {
     name: ".export <path>",
     description: "Export the last result to CSV",

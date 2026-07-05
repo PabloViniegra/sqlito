@@ -1,5 +1,6 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { DEFAULT_THEME, type Theme } from "../../domain/theme/Theme.ts";
 
 export type PastQuery = {
   sql: string;
@@ -38,6 +39,7 @@ export type AppState = {
   reverseSearch: ReverseSearchState | null;
   variables: readonly [string, string][];
   favorites: readonly [string, string][];
+  theme: Theme;
 };
 
 export type AppEvent =
@@ -70,7 +72,8 @@ export type AppEvent =
   | { type: "loadFavorites"; favorites: readonly [string, string][] }
   | { type: "commitFavorite"; name: string; sql: string }
   | { type: "removeFavorite"; name: string }
-  | { type: "setStatus"; status: StatusMessage | null };
+  | { type: "setStatus"; status: StatusMessage | null }
+  | { type: "setTheme"; theme: Theme };
 
 export const initialState: AppState = {
   prompt: "",
@@ -82,6 +85,7 @@ export const initialState: AppState = {
   reverseSearch: null,
   variables: [],
   favorites: [],
+  theme: DEFAULT_THEME,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -218,6 +222,8 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
         ...state,
         favorites: state.favorites.filter(([n]) => n !== event.name),
       };
+    case "setTheme":
+      return { ...state, theme: event.theme };
     default: {
       const _exhaustive: never = event;
       return _exhaustive;

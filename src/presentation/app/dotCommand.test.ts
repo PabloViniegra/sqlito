@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
+import { HIGH_CONTRAST_THEME } from "../../domain/theme/Theme.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import {
   COMMAND_REGISTRY,
@@ -47,6 +48,9 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
       forget: vi.fn(),
     } as unknown as DotCommandDeps["forgetFavorite"],
     favorites: [],
+    switchTheme: {
+      switch: vi.fn(),
+    } as unknown as DotCommandDeps["switchTheme"],
     ...overrides,
   };
   return { deps, events };
@@ -165,6 +169,9 @@ describe("handleDotCommand — variables", () => {
         forget: vi.fn(),
       } as unknown as DotCommandDeps["forgetFavorite"],
       favorites: [],
+      switchTheme: {
+        switch: vi.fn(),
+      } as unknown as DotCommandDeps["switchTheme"],
     };
     return { deps, events, vars };
   }
@@ -276,6 +283,9 @@ describe("handleDotCommand — explain", () => {
         forget: vi.fn(),
       } as unknown as DotCommandDeps["forgetFavorite"],
       favorites: [],
+      switchTheme: {
+        switch: vi.fn(),
+      } as unknown as DotCommandDeps["switchTheme"],
     };
     return { deps, statuses, shown, explainLast };
   }
@@ -358,6 +368,9 @@ describe("handleDotCommand — favorites", () => {
       runFavorite: { get } as unknown as DotCommandDeps["runFavorite"],
       forgetFavorite: { forget } as unknown as DotCommandDeps["forgetFavorite"],
       favorites: over.favorites ?? [],
+      switchTheme: {
+        switch: vi.fn(),
+      } as unknown as DotCommandDeps["switchTheme"],
     };
     return { deps, events, save, get, forget };
   }
@@ -459,6 +472,76 @@ describe("handleDotCommand — favorites", () => {
   });
 });
 
+describe("handleDotCommand — theme", () => {
+  function makeThemeDeps(switchTheme: DotCommandDeps["switchTheme"]): {
+    deps: DotCommandDeps;
+    events: unknown[];
+  } {
+    const events: unknown[] = [];
+    const deps: DotCommandDeps = {
+      dispatch: (event) => events.push(event),
+      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      schema: {} as unknown as DotCommandDeps["schema"],
+      lastRowsOutcome: null,
+      onQuit: vi.fn(),
+      sessionVars: new SessionVariables(),
+      variables: [],
+      runExplain: {
+        explainLast: vi.fn(),
+      } as unknown as DotCommandDeps["runExplain"],
+      lastSql: "",
+      showResult: vi.fn(),
+      saveFavorite: {
+        save: vi.fn(),
+      } as unknown as DotCommandDeps["saveFavorite"],
+      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
+      forgetFavorite: {
+        forget: vi.fn(),
+      } as unknown as DotCommandDeps["forgetFavorite"],
+      favorites: [],
+      switchTheme,
+    };
+    return { deps, events };
+  }
+
+  it(".theme high-contrast switches the theme and confirms via status", async () => {
+    const doSwitch = vi.fn().mockResolvedValue(HIGH_CONTRAST_THEME);
+    const { deps, events } = makeThemeDeps({
+      switch: doSwitch,
+    } as unknown as DotCommandDeps["switchTheme"]);
+
+    await handleDotCommand(".theme high-contrast", deps);
+
+    expect(doSwitch).toHaveBeenCalledWith("high-contrast");
+    expect(events).toContainEqual({
+      type: "setTheme",
+      theme: HIGH_CONTRAST_THEME,
+    });
+    expect(events).toContainEqual({
+      type: "setStatus",
+      status: { text: "theme set to high-contrast", kind: "info" },
+    });
+  });
+
+  it(".theme with an unknown name reports an error and does not dispatch setTheme", async () => {
+    const doSwitch = vi
+      .fn()
+      .mockRejectedValue(new Error("unknown theme: nope"));
+    const { deps, events } = makeThemeDeps({
+      switch: doSwitch,
+    } as unknown as DotCommandDeps["switchTheme"]);
+
+    await handleDotCommand(".theme nope", deps);
+
+    expect(events).toEqual([
+      {
+        type: "setStatus",
+        status: { text: "unknown theme: nope", kind: "error" },
+      },
+    ]);
+  });
+});
+
 describe("COMMAND_REGISTRY", () => {
   const KNOWN_COMMAND_KINDS = [
     "tables",
@@ -475,6 +558,7 @@ describe("COMMAND_REGISTRY", () => {
     "run",
     "forget",
     "export",
+    "theme",
   ].sort();
 
   it("keeps the dispatch and the registry in sync — same set of kinds on both sides", () => {

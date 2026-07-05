@@ -22,7 +22,8 @@ export type DotCommand =
   | { kind: "save"; name: string }
   | { kind: "favorites" }
   | { kind: "run"; name: string }
-  | { kind: "forget"; name: string };
+  | { kind: "forget"; name: string }
+  | { kind: "theme"; name: string };
 
 export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
@@ -107,6 +108,10 @@ export function parseRunCommand(line: string): NamedResult {
 
 export function parseForgetCommand(line: string): NamedResult {
   return parseSingleArg(line, "forget");
+}
+
+export function parseThemeCommand(line: string): NamedResult {
+  return parseSingleArg(line, "theme");
 }
 
 function parseSingleArg(line: string, name: string): NamedResult {
@@ -219,6 +224,10 @@ export function parseDotCommand(line: string): DotCommandResult {
     case "forget": {
       const r = parseForgetCommand(line);
       return r.ok ? { ok: true, command: { kind: "forget", name: r.name } } : r;
+    }
+    case "theme": {
+      const r = parseThemeCommand(line);
+      return r.ok ? { ok: true, command: { kind: "theme", name: r.name } } : r;
     }
     default:
       return unknown(line);

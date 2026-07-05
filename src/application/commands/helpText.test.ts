@@ -14,6 +14,7 @@ const EXPECTED_HELP_TEXT = [
   "  .favorites         List saved favorites",
   "  .run <name>        Load a favorite's SQL into the prompt",
   "  .forget <name>     Delete a favorite",
+  "  .theme <name>      Switch the active theme (default, high-contrast)",
   "  .export <path>     Export the last result to CSV",
   "  .help              Show this reference",
   "  .quit              Close the database and exit (alias: .exit)",

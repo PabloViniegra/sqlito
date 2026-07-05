@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { HIGH_CONTRAST_THEME } from "../../domain/theme/Theme.ts";
 import { appReducer, initialState } from "./appReducer.ts";
 
 describe("appReducer", () => {
@@ -770,6 +771,16 @@ describe("appReducer", () => {
       };
       const next = appReducer(state, { type: "removeFavorite", name: "a" });
       expect(next.favorites).toEqual([["b", "SELECT 2"]]);
+    });
+  });
+
+  describe("setTheme", () => {
+    it("replaces the active theme", () => {
+      const next = appReducer(initialState, {
+        type: "setTheme",
+        theme: HIGH_CONTRAST_THEME,
+      });
+      expect(next.theme).toEqual(HIGH_CONTRAST_THEME);
     });
   });
 });
