@@ -27,6 +27,7 @@ import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
+import { StatusBar } from "../components/StatusBar.tsx";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
@@ -268,11 +269,7 @@ export function App({ db, schema, dbPath }: Props) {
 
   return (
     <Box flexDirection="column">
-      <Header
-        dbPath={dbPath}
-        statusMessage={state.statusMessage}
-        theme={state.theme}
-      />
+      <Header dbPath={dbPath} theme={state.theme} />
       {state.pastQueries.length > 0 && (
         <Static items={[...state.pastQueries]}>
           {(item, index) => (
@@ -293,6 +290,11 @@ export function App({ db, schema, dbPath }: Props) {
           theme={state.theme}
         />
       )}
+      <StatusBar
+        dbPath={dbPath}
+        theme={state.theme}
+        statusMessage={state.statusMessage}
+      />
     </Box>
   );
 }
