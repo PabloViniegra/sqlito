@@ -1,23 +1,33 @@
 import { Box, Text } from "ink";
-import chalk from "chalk";
 import type { StatusMessage } from "../app/appReducer.ts";
+import type { Theme } from "../../domain/theme/Theme.ts";
 
 type Props = {
   dbPath: string;
   statusMessage: StatusMessage | null;
+  theme: Theme;
 };
 
-export function Header({ dbPath, statusMessage }: Props) {
+export function Header({ dbPath, statusMessage, theme }: Props) {
   return (
     <Box flexDirection="column">
-      <Text color="cyan">SQLito • {dbPath}</Text>
-      {statusMessage !== null ? <StatusLine message={statusMessage} /> : null}
+      <Text color={theme.tokens.accent}>SQLito • {dbPath}</Text>
+      {statusMessage !== null ? (
+        <StatusLine message={statusMessage} theme={theme} />
+      ) : null}
     </Box>
   );
 }
 
-function StatusLine({ message }: { message: StatusMessage }) {
-  const text =
-    message.kind === "error" ? chalk.red(message.text) : message.text;
-  return <Text>{text}</Text>;
+function StatusLine({
+  message,
+  theme,
+}: {
+  message: StatusMessage;
+  theme: Theme;
+}) {
+  if (message.kind === "error") {
+    return <Text color={theme.tokens.error}>{message.text}</Text>;
+  }
+  return <Text>{message.text}</Text>;
 }

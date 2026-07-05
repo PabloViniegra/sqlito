@@ -268,17 +268,30 @@ export function App({ db, schema, dbPath }: Props) {
 
   return (
     <Box flexDirection="column">
-      <Header dbPath={dbPath} statusMessage={state.statusMessage} />
+      <Header
+        dbPath={dbPath}
+        statusMessage={state.statusMessage}
+        theme={state.theme}
+      />
       {state.pastQueries.length > 0 && (
         <Static items={[...state.pastQueries]}>
           {(item, index) => (
-            <ResultsTable key={index} outcome={item.outcome} sql={item.sql} />
+            <ResultsTable
+              key={index}
+              outcome={item.outcome}
+              sql={item.sql}
+              theme={state.theme}
+            />
           )}
         </Static>
       )}
-      <Prompt value={displayedPrompt} prefix={prefix} />
+      <Prompt value={displayedPrompt} prefix={prefix} theme={state.theme} />
       {popup !== null && (
-        <AutocompletePopup suggestions={suggestions} index={popup.index} />
+        <AutocompletePopup
+          suggestions={suggestions}
+          index={popup.index}
+          theme={state.theme}
+        />
       )}
     </Box>
   );

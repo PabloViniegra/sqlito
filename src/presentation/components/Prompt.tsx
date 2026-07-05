@@ -1,19 +1,12 @@
 import { Text } from "ink";
+import type { Theme } from "../../domain/theme/Theme.ts";
 
-type Props = { value: string; prefix?: string };
+type Props = { value: string; prefix?: string; theme: Theme };
 
-export function Prompt({ value, prefix }: Props) {
-  if (prefix === undefined) {
-    return (
-      <Text>
-        {"> "}
-        {value}
-      </Text>
-    );
-  }
+export function Prompt({ value, prefix, theme }: Props) {
   return (
     <Text>
-      {prefix}
+      <Text color={theme.tokens.accent}>{prefix ?? "> "}</Text>
       {value}
     </Text>
   );

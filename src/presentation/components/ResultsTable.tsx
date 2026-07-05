@@ -1,23 +1,28 @@
 import { Box, Text, useStdout } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
 import { formatRows } from "../../shared/utils/formatRows.ts";
 
-type Props = { outcome: QueryOutcome; sql: string };
+type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
 
-export function ResultsTable({ outcome, sql }: Props) {
+export function ResultsTable({ outcome, sql, theme }: Props) {
   const { stdout } = useStdout();
   const terminalWidth = stdout.columns ?? 80;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text dimColor>{sql}</Text>
-      {renderBody(outcome, terminalWidth)}
+      <Text color={theme.tokens.dim}>{sql}</Text>
+      {renderBody(outcome, terminalWidth, theme)}
     </Box>
   );
 }
 
-function renderBody(outcome: QueryOutcome, terminalWidth: number) {
+function renderBody(
+  outcome: QueryOutcome,
+  terminalWidth: number,
+  theme: Theme,
+) {
   switch (outcome.kind) {
     case "rows":
       return formatRows(outcome.columns, outcome.rows, terminalWidth).map(
@@ -33,12 +38,12 @@ function renderBody(outcome: QueryOutcome, terminalWidth: number) {
       );
     }
     case "side-effect":
-      return <Text dimColor>done</Text>;
+      return <Text color={theme.tokens.dim}>done</Text>;
     case "plan":
       return formatPlanTree(outcome.nodes, terminalWidth).map((line, i) => (
         <Text key={i}>{line}</Text>
       ));
     case "error":
-      return <Text color="red">{outcome.message}</Text>;
+      return <Text color={theme.tokens.error}>{outcome.message}</Text>;
   }
 }
