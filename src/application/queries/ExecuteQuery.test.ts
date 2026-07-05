@@ -223,3 +223,100 @@ describe("ExecuteQuery", () => {
     expect(outcome.kind).toBe("side-effect");
   });
 });
+
+describe("ExecuteQuery with bind params", () => {
+  let db: BetterSqliteDatabase;
+
+  afterEach(() => db?.close());
+
+  it("binds a numeric :vars parameter through ExecuteQuery", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({ foo: 5 }));
+
+    const outcome = exec.execute("SELECT :foo AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([[5]]);
+  });
+
+  it("errors when a :vars parameter has no binding", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({}));
+
+    const outcome = exec.execute("SELECT :foo AS x");
+
+    expect(outcome.kind).toBe("error");
+    if (outcome.kind !== "error") throw new Error("expected error");
+    expect(outcome.message).toMatch(/:foo/);
+  });
+
+  it("leaves :foo literal when it appears inside a single-quoted string", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({}));
+
+    const outcome = exec.execute("SELECT 'value :foo' AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([["value :foo"]]);
+  });
+
+  it("binds numeric params and lets SQL coerce them", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({ n: 41 }));
+
+    const outcome = exec.execute("SELECT :n + 1 AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([[42]]);
+  });
+
+  it("binds string params", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({ s: "hello" }));
+
+    const outcome = exec.execute("SELECT :s AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([["hello"]]);
+  });
+
+  it("binds numeric params coerced from boolean at the call site (SessionVariables' job upstream)", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({ b: 1 }));
+
+    const outcome = exec.execute("SELECT :b AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([[1]]);
+  });
+
+  it("binds null params", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    const exec = new ExecuteQuery(db, () => ({ x: null }));
+
+    const outcome = exec.execute("SELECT :x AS x");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.rows).toEqual([[null]]);
+  });
+
+  it("binds params into the run() path (INSERT)", () => {
+    db = new BetterSqliteDatabase(":memory:");
+    db.prepare("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)").run();
+    const exec = new ExecuteQuery(db, () => ({ name: "Ada" }));
+
+    const outcome = exec.execute("INSERT INTO t (name) VALUES (:name)");
+
+    expect(outcome.kind).toBe("affected");
+    if (outcome.kind !== "affected") throw new Error("expected affected");
+    expect(outcome.changes).toBe(1);
+    const verify = db.prepare("SELECT name FROM t").all();
+    expect(verify).toEqual([["Ada"]]);
+  });
+});

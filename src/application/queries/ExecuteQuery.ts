@@ -1,4 +1,5 @@
 import type {
+  BindParams,
   Database,
   PreparedStatement,
 } from "../../domain/database/Database.ts";
@@ -8,9 +9,11 @@ import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 
 export class ExecuteQuery {
   private readonly db: Database;
+  private readonly bindParams: () => BindParams;
 
-  constructor(db: Database) {
+  constructor(db: Database, bindParams: () => BindParams = () => ({})) {
     this.db = db;
+    this.bindParams = bindParams;
   }
 
   execute(sql: string): QueryOutcome {
@@ -24,13 +27,14 @@ export class ExecuteQuery {
       return this.toError(err);
     }
 
+    const params = this.bindParams();
     try {
       if (isReadOnly(trimmed)) {
         const columns = stmt.columns();
-        const rows = stmt.all();
+        const rows = stmt.all(params);
         return { kind: "rows", columns, rows };
       }
-      const info = stmt.run();
+      const info = stmt.run(params);
       if (classifySideEffect(trimmed)) {
         return { kind: "side-effect" };
       }
@@ -50,10 +54,18 @@ export class ExecuteQuery {
         "code" in err && typeof (err as { code: unknown }).code === "string"
           ? (err as { code: string }).code
           : undefined;
+      const message = rewriteBindError(err.message);
       return code !== undefined
-        ? { kind: "error", code, message: err.message }
-        : { kind: "error", message: err.message };
+        ? { kind: "error", code, message }
+        : { kind: "error", message };
     }
     return { kind: "error", message: String(err) };
   }
+}
+
+function rewriteBindError(message: string): string {
+  const match = message.match(/Missing named parameter "([^"]+)"/);
+  if (match === null) return message;
+  const name = match[1];
+  return `variable :${name} is not defined (.set ${name} <value>)`;
 }
