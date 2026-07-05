@@ -1,5 +1,6 @@
 import BetterSqlite3 from "better-sqlite3";
 import type {
+  BindParams,
   Database,
   PreparedStatement,
 } from "../../domain/database/Database.ts";
@@ -32,15 +33,17 @@ export class BetterSqliteDatabase implements Database {
   prepare(sql: string): PreparedStatement {
     const stmt = this.driver.prepare(sql);
     return {
-      all: () => {
+      all: (params?: BindParams) => {
         const columnNames = stmt.columns().map((c) => c.name);
-        const rows = stmt.all() as Record<string, unknown>[];
+        const rows = (
+          params !== undefined ? stmt.all(params) : stmt.all()
+        ) as Record<string, unknown>[];
         return rows.map((row) =>
           columnNames.map((name) => row[name]),
         ) as readonly unknown[][];
       },
-      run: (): RunInfo => {
-        const info = stmt.run();
+      run: (params?: BindParams): RunInfo => {
+        const info = params !== undefined ? stmt.run(params) : stmt.run();
         return { changes: info.changes, lastInsertRowid: info.lastInsertRowid };
       },
       columns: () =>
