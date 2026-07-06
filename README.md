@@ -61,6 +61,9 @@ is a layer on top of that one command.
 - Dot-commands for schema introspection: `.tables`, `.schema`, `.indexes`.
 - Command palette (Ctrl+P) and mode switch (`.mode`).
 - Keyboard-only navigation across the whole interface.
+- Takes over the terminal on launch via the alternate screen buffer; the
+  previous content is restored when you exit (Ctrl+C, `.quit`, or
+  normal exit).
 - Cold start under 100 ms on small projects.
 
 ## Quick start

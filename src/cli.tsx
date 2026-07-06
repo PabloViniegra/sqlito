@@ -1,11 +1,38 @@
 import BetterSqlite3 from "better-sqlite3";
 import { Command } from "commander";
-import { render } from "ink";
+import { render, type Instance } from "ink";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import type { Database } from "./domain/database/Database.ts";
+import type { SchemaRepository } from "./domain/schema/SchemaRepository.ts";
 import { App } from "./presentation/app/App.tsx";
 import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
+
+export type MountOptions = {
+  stdout?: NodeJS.WriteStream;
+  patchConsole?: boolean;
+};
+
+export function mountApp(
+  handle: {
+    db: Database;
+    schema: SchemaRepository;
+    dbPath: string;
+  },
+  options: MountOptions = {},
+): Instance {
+  return render(
+    <App db={handle.db} schema={handle.schema} dbPath={handle.dbPath} />,
+    {
+      alternateScreen: true,
+      ...(options.stdout !== undefined && { stdout: options.stdout }),
+      ...(options.patchConsole !== undefined && {
+        patchConsole: options.patchConsole,
+      }),
+    },
+  );
+}
 
 export function run(argv: readonly string[]): void {
   const program = new Command();
@@ -21,7 +48,7 @@ export function run(argv: readonly string[]): void {
       const driver = new BetterSqlite3(dbPath);
       const db = BetterSqliteDatabase.withDriver(driver);
       const schema = new SqliteSchemaRepository(driver);
-      render(<App db={db} schema={schema} dbPath={dbPath} />);
+      mountApp({ db, schema, dbPath });
     });
 
   program.parse(argv);
