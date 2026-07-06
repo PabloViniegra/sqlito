@@ -1,14 +1,14 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
 
 export function ResultsTable({ outcome, sql, theme }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
+  const { columns: terminalWidth } = useViewportSize();
   const rule = "─".repeat(terminalWidth);
   const kind = classify(sql, outcome);
   const metadata = metadataFor(outcome);

@@ -29,6 +29,7 @@ import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
 import { StatusBar } from "../components/StatusBar.tsx";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
@@ -48,6 +49,7 @@ type Props = {
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
+  const { rows } = useViewportSize();
   const sessionVars = useMemo(() => new SessionVariables(), []);
   const executeQuery = useMemo(
     () => new ExecuteQuery(db, () => sessionVars.entries()),
@@ -292,7 +294,7 @@ export function App({ db, schema, dbPath }: Props) {
   const paletteMatches = palette === null ? [] : filterCommands(palette.query);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Header dbPath={dbPath} theme={state.theme} />
       {state.pastQueries.length > 0 && (
         <Static items={[...state.pastQueries]}>
@@ -306,6 +308,7 @@ export function App({ db, schema, dbPath }: Props) {
           )}
         </Static>
       )}
+      <Box flexGrow={1} />
       <Prompt value={displayedPrompt} prefix={prefix} theme={state.theme} />
       {popup !== null && (
         <AutocompletePopup

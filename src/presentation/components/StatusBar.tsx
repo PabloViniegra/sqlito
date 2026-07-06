@@ -1,6 +1,7 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
 import type { StatusMessage } from "../app/appReducer.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = {
   dbPath: string;
@@ -17,8 +18,7 @@ export function StatusBar({
   historyCount,
   favoritesCount,
 }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
+  const { columns: terminalWidth } = useViewportSize();
   const rule = "─".repeat(terminalWidth);
 
   return (

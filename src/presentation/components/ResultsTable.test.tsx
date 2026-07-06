@@ -1,6 +1,8 @@
 import chalk from "chalk";
+import { PassThrough } from "node:stream";
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
+import { render } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import {
   DEFAULT_THEME,
@@ -257,5 +259,59 @@ describe("ResultsTable", () => {
 
     expect(frame).toContain(chalk.redBright("boom"));
     expect(frame).not.toContain(chalk.red("boom"));
+  });
+
+  it("reflows the table width when stdout emits a resize event", async () => {
+    type ResizableTty = NodeJS.WriteStream & {
+      columns: number;
+      rows: number;
+      isTTY: boolean;
+      buffer: string;
+    };
+    const tty = new PassThrough() as unknown as ResizableTty;
+    tty.columns = 20;
+    tty.rows = 24;
+    tty.isTTY = true;
+    tty.buffer = "";
+    tty.write = (chunk: string | Uint8Array): boolean => {
+      tty.buffer += chunk.toString();
+      return true;
+    };
+
+    const longValue =
+      "this string is intentionally much longer than the column width";
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "v", type: null }],
+      rows: [[longValue]],
+    };
+
+    const instance = render(
+      <ResultsTable outcome={outcome} sql="SELECT v" theme={DEFAULT_THEME} />,
+      {
+        stdout: tty as NodeJS.WriteStream,
+        exitOnCtrlC: false,
+        patchConsole: false,
+      },
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const narrowFrame = stripAnsi(tty.buffer).replace(/\r/g, "");
+    expect(narrowFrame).toContain("…");
+    expect(narrowFrame).not.toContain(longValue);
+
+    tty.columns = 120;
+    tty.emit("resize");
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const wideFrame = stripAnsi(tty.buffer).replace(/\r/g, "");
+    expect(wideFrame).not.toContain("SELECT v…");
+
+    const narrowRules = (narrowFrame.match(/─/g) ?? []).length;
+    const wideRules = (wideFrame.match(/─/g) ?? []).length;
+    expect(wideRules).toBeGreaterThan(narrowRules);
+
+    instance.unmount();
   });
 });

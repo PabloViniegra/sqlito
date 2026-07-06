@@ -1,6 +1,7 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
 import type { CommandDescriptor } from "../../application/commands/commandRegistry.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = {
   commands: readonly CommandDescriptor[];
@@ -26,8 +27,7 @@ function visibleWindow<T>(
 }
 
 export function CommandPalette({ commands, query, index, theme }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
+  const { columns: terminalWidth } = useViewportSize();
   const rule = "─".repeat(terminalWidth);
   const { start, items } = visibleWindow(commands, index);
 

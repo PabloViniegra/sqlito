@@ -1,6 +1,7 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
 import type { Suggestion } from "../../application/autocomplete/Suggestion.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = {
   suggestions: readonly Suggestion[];
@@ -17,8 +18,7 @@ const KIND_LABEL: Record<Suggestion["kind"], string> = {
 };
 
 export function AutocompletePopup({ suggestions, index, theme }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
+  const { columns: terminalWidth } = useViewportSize();
   const rule = "─".repeat(terminalWidth);
 
   return (
