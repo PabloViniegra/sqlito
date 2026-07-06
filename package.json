@@ -13,7 +13,8 @@
     "test:run": "vitest run",
     "bench": "node scripts/bench-cold-start.mjs",
     "db:seed": "node scripts/seed-sample-db.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "doctor": "npx react-doctor@latest"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -43,6 +44,7 @@
     "lint-staged": "^17.0.8",
     "oxlint": "^1.71.0",
     "prettier": "^3.6.2",
+    "react-doctor": "^0.7.1",
     "tsx": "^4.22.5",
     "typescript": "~6.0.2",
     "vitest": "^4.1.9"

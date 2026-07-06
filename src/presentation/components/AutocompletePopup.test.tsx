@@ -87,7 +87,7 @@ describe("AutocompletePopup", () => {
       />,
     );
 
-    expect(frame).toContain("\u2191\u2193");
+    expect(frame).toContain("↑↓");
     expect(frame).toContain("Enter");
     expect(frame).toContain("Esc");
   });
@@ -131,7 +131,7 @@ describe("AutocompletePopup", () => {
     expect(frame).toContain("TEXT");
   });
 
-  it("renders the help hint in the theme's dim color instead of the dimColor modifier", async () => {
+  it("renders the help hint with muted color tokens and bold key labels", async () => {
     const frame = await captureRaw(
       <AutocompletePopup
         suggestions={[KW("SELECT")]}
@@ -139,20 +139,16 @@ describe("AutocompletePopup", () => {
         theme={HIGH_CONTRAST_THEME}
       />,
     );
-    const hint =
-      "↑↓" +
-      " move " +
-      "   " +
-      "Enter/Tab" +
-      " commit " +
-      "   " +
-      "Esc" +
-      " close";
 
-    expect(frame).toContain(chalk.white(hint));
+    expect(frame).toContain("↑↓");
+    expect(frame).toContain("move");
+    expect(frame).toContain("Enter");
+    expect(frame).toContain("Esc");
+    expect(frame).toMatch(/\u001b\[90m/);
+    expect(frame).toMatch(/\u001b\[1m/);
   });
 
-  it("renders non-selected table suggestions in the theme's dim color", async () => {
+  it("renders non-selected table suggestions in the theme's muted color", async () => {
     const frame = await captureRaw(
       <AutocompletePopup
         suggestions={[TBL("users"), KW("SELECT")]}
@@ -161,10 +157,10 @@ describe("AutocompletePopup", () => {
       />,
     );
 
-    expect(frame).toContain(chalk.white("users  table"));
+    expect(frame).toMatch(/\u001b\[90m.*users/);
   });
 
-  it("renders the empty state hint in the theme's dim color", async () => {
+  it("renders the empty state hint in the theme's muted color", async () => {
     const frame = await captureRaw(
       <AutocompletePopup
         suggestions={[]}
@@ -173,6 +169,6 @@ describe("AutocompletePopup", () => {
       />,
     );
 
-    expect(frame).toContain(chalk.white("(no matches)"));
+    expect(frame).toMatch(/\u001b\[90m.*\(no matches\)/);
   });
 });

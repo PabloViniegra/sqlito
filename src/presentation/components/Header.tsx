@@ -1,7 +1,6 @@
 import { Box, Text } from "ink";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
-// ponytail: 11x8-pixel sprite, half-block encoded (2 px per row) — two rounded cheeks, split by a center seam
 const MASCOT = [
   " ▄█▄   ▄█▄ ",
   "█████ █████",
@@ -25,7 +24,15 @@ export function Header({ dbPath, theme }: Props) {
       gap={1}
     >
       <Text color={theme.tokens.accent}>{MASCOT}</Text>
-      <Text color={theme.tokens.accent}>SQLito • {dbPath}</Text>
+      <Box>
+        <Text color={theme.tokens.primary} bold>
+          SQLITO
+        </Text>
+        <Text color={theme.tokens.muted}> ── </Text>
+        <Text color={theme.tokens.dim}>{dbPath}</Text>
+        <Text color={theme.tokens.muted}> ── </Text>
+        <Text color={theme.tokens.muted}>{theme.name}</Text>
+      </Box>
     </Box>
   );
 }

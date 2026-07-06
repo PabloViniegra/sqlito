@@ -1,21 +1,95 @@
 import { Box, Text, useStdout } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
-import { formatRows } from "../../shared/utils/formatRows.ts";
 
 type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
 
 export function ResultsTable({ outcome, sql, theme }: Props) {
   const { stdout } = useStdout();
   const terminalWidth = stdout.columns ?? 80;
+  const rule = "─".repeat(terminalWidth);
+  const kind = classify(sql, outcome);
+  const metadata = metadataFor(outcome);
+  const sqlLabel = truncateSql(sql, sqlBudget(terminalWidth, kind, metadata));
+  const footerText = footerFor(outcome);
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={theme.tokens.dim}>{sql}</Text>
+      <Box>
+        <Text color={theme.tokens.primary}>▎ </Text>
+        <Text color={theme.tokens.primary}>{kind}</Text>
+        <Text color={theme.tokens.muted}> · {metadata}</Text>
+        {sqlLabel === "" ? null : (
+          <Text color={theme.tokens.dim}> · {sqlLabel}</Text>
+        )}
+      </Box>
+      <Text color={theme.tokens.muted}>{rule}</Text>
       {renderBody(outcome, terminalWidth, theme)}
+      {footerText === null ? null : (
+        <Box marginTop={1}>
+          <Text color={theme.tokens.success}>▎ </Text>
+          <Text color={theme.tokens.success}>{footerText}</Text>
+        </Box>
+      )}
+      <Text color={theme.tokens.muted}>{rule}</Text>
     </Box>
   );
+}
+
+function sqlBudget(
+  terminalWidth: number,
+  kind: string,
+  metadata: string,
+): number {
+  const fixedBeforeSql = `▎ ${kind} · ${metadata} · `;
+  return Math.max(8, terminalWidth - fixedBeforeSql.length);
+}
+
+function truncateSql(sql: string, max: number): string {
+  if (max <= 0) return "";
+  if (sql.length <= max) return sql;
+  if (max <= 1) return "…";
+  return `${sql.slice(0, max - 1)}…`;
+}
+
+function classify(sql: string, outcome: QueryOutcome): string {
+  if (outcome.kind === "error") return "ERROR";
+  if (outcome.kind === "plan") return "PLAN";
+  const trimmed = sql.trim();
+  if (trimmed.startsWith(".")) {
+    return trimmed.split(/\s+/)[0]!.slice(1).toUpperCase() || "COMMAND";
+  }
+  const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase();
+  if (firstWord === undefined || firstWord === "") return "QUERY";
+  return firstWord.toUpperCase();
+}
+
+function metadataFor(outcome: QueryOutcome): string {
+  switch (outcome.kind) {
+    case "rows":
+      return `${outcome.rows.length} rows`;
+    case "affected":
+      return `${outcome.changes} rows affected`;
+    case "side-effect":
+      return "side effect";
+    case "plan":
+      return `${outcome.nodes.length} node${outcome.nodes.length === 1 ? "" : "s"}`;
+    case "error":
+      return "aborted";
+  }
+}
+
+function footerFor(outcome: QueryOutcome): string | null {
+  if (outcome.kind === "affected" && Number(outcome.lastInsertRowid) > 0) {
+    return `OK · last insert rowid: ${outcome.lastInsertRowid.toString()}`;
+  }
+  if (outcome.kind === "side-effect") return "OK";
+  if (outcome.kind === "rows" && outcome.rows.length > 0) return "OK";
+  if (outcome.kind === "plan") return "OK";
+  if (outcome.kind === "error") return null;
+  return null;
 }
 
 function renderBody(
@@ -25,46 +99,41 @@ function renderBody(
 ) {
   switch (outcome.kind) {
     case "rows":
-      return formatRows(outcome.columns, outcome.rows, terminalWidth).map(
-        (line, i) => {
-          if (i === 0) {
-            return (
-              <Text key={i} bold color={theme.tokens.accent}>
-                {line}
-              </Text>
-            );
-          }
-          if (i === 1) {
-            return (
-              <Text key={i} color={theme.tokens.dim}>
-                {line}
-              </Text>
-            );
-          }
-          const isAlternate = (i - 2) % 2 === 1;
-          return (
-            <Text key={i} color={isAlternate ? theme.tokens.dim : undefined}>
-              {line}
-            </Text>
-          );
-        },
-      );
-    case "affected": {
-      const showRowid = Number(outcome.lastInsertRowid) > 0;
-      return (
-        <Text>
-          {outcome.changes} rows affected
-          {showRowid ? ` (last insert rowid: ${outcome.lastInsertRowid})` : ""}
+      return formatBorderedTable(
+        outcome.columns,
+        outcome.rows,
+        terminalWidth,
+      ).map((line, i) => (
+        <Text
+          key={i}
+          color={i === 1 ? theme.tokens.primary : undefined}
+          bold={i === 1}
+        >
+          {line}
         </Text>
-      );
-    }
+      ));
+    case "affected":
+      return null;
     case "side-effect":
-      return <Text color={theme.tokens.dim}>done</Text>;
+      return (
+        <Box marginTop={1}>
+          <Text color={theme.tokens.muted} italic>
+            done
+          </Text>
+        </Box>
+      );
     case "plan":
       return formatPlanTree(outcome.nodes, terminalWidth).map((line, i) => (
-        <Text key={i}>{line}</Text>
+        <Text key={i} color={theme.tokens.muted}>
+          {line}
+        </Text>
       ));
     case "error":
-      return <Text color={theme.tokens.error}>{outcome.message}</Text>;
+      return (
+        <Box marginTop={1}>
+          <Text color={theme.tokens.muted}>! </Text>
+          <Text color={theme.tokens.error}>{outcome.message}</Text>
+        </Box>
+      );
   }
 }

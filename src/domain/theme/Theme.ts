@@ -2,6 +2,9 @@ export type ThemeName = "default" | "high-contrast";
 
 export type ThemeTokens = {
   accent: string;
+  primary: string;
+  muted: string;
+  highlight: string;
   error: string;
   success: string;
   dim: string;
@@ -17,6 +20,9 @@ export const DEFAULT_THEME: Theme = {
   name: "default",
   tokens: {
     accent: "cyan",
+    primary: "cyanBright",
+    muted: "gray",
+    highlight: "cyan",
     error: "red",
     success: "green",
     dim: "gray",
@@ -28,6 +34,9 @@ export const HIGH_CONTRAST_THEME: Theme = {
   name: "high-contrast",
   tokens: {
     accent: "yellow",
+    primary: "yellowBright",
+    muted: "gray",
+    highlight: "yellow",
     error: "redBright",
     success: "greenBright",
     dim: "white",

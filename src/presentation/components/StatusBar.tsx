@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 import type { StatusMessage } from "../app/appReducer.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
@@ -6,27 +6,66 @@ type Props = {
   dbPath: string;
   theme: Theme;
   statusMessage: StatusMessage | null;
+  historyCount: number;
+  favoritesCount: number;
 };
 
-export function StatusBar({ dbPath, theme, statusMessage }: Props) {
+export function StatusBar({
+  dbPath,
+  theme,
+  statusMessage,
+  historyCount,
+  favoritesCount,
+}: Props) {
+  const { stdout } = useStdout();
+  const terminalWidth = stdout.columns ?? 80;
+  const rule = "─".repeat(terminalWidth);
+
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={theme.tokens.border}
-      borderBottom={false}
-      borderLeft={false}
-      borderRight={false}
-    >
-      <Text>
-        <Text color={theme.tokens.success}>{"● "}</Text>
-        <Text color={theme.tokens.dim}>
-          {dbPath} • {theme.name} • ^R search • ^P palette • ^C quit
-        </Text>
-      </Text>
+    <Box flexDirection="column">
+      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Box paddingX={1}>
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.success}>● </Text>
+          <Text color={theme.tokens.dim}>{dbPath}</Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.muted}> · </Text>
+          <Text color={theme.tokens.muted}>
+            {historyCount} history · {favoritesCount} favorites
+          </Text>
+        </Box>
+        <Box flexGrow={1} />
+        <Hint label="^R" token="search" theme={theme} />
+        <Hint label="^P" token="palette" theme={theme} />
+        <Hint label="^C" token="quit" theme={theme} />
+      </Box>
       {statusMessage !== null ? (
-        <StatusLine message={statusMessage} theme={theme} />
+        <Box paddingX={1}>
+          <StatusLine message={statusMessage} theme={theme} />
+        </Box>
       ) : null}
+    </Box>
+  );
+}
+
+function Hint({
+  label,
+  token,
+  theme,
+}: {
+  label: string;
+  token: string;
+  theme: Theme;
+}) {
+  return (
+    <Box flexShrink={0}>
+      <Text>
+        <Text color={theme.tokens.primary} bold>
+          {label}
+        </Text>
+        <Text color={theme.tokens.muted}> {token} </Text>
+      </Text>
     </Box>
   );
 }
@@ -39,7 +78,12 @@ function StatusLine({
   theme: Theme;
 }) {
   if (message.kind === "error") {
-    return <Text color={theme.tokens.error}>{message.text}</Text>;
+    return (
+      <Text>
+        <Text color={theme.tokens.muted}>! </Text>
+        <Text color={theme.tokens.error}>{message.text}</Text>
+      </Text>
+    );
   }
-  return <Text>{message.text}</Text>;
+  return <Text color={theme.tokens.muted}>{message.text}</Text>;
 }

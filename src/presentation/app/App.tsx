@@ -326,6 +326,8 @@ export function App({ db, schema, dbPath }: Props) {
         dbPath={dbPath}
         theme={state.theme}
         statusMessage={state.statusMessage}
+        historyCount={state.history.entries.length}
+        favoritesCount={state.favorites.length}
       />
     </Box>
   );

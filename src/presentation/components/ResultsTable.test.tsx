@@ -19,7 +19,7 @@ async function capture(
 }
 
 describe("ResultsTable", () => {
-  it("renders rows outcome with header, separator, and rows", async () => {
+  it("renders rows outcome with a framed table that includes header and rows", async () => {
     const outcome: QueryOutcome = {
       kind: "rows",
       columns: [
@@ -40,17 +40,21 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain("SELECT id, name FROM t");
     expect(frame).toContain("id");
     expect(frame).toContain("name");
     expect(frame).toContain("Ada");
     expect(frame).toContain("Lin");
+    expect(frame).toContain("SELECT");
+    expect(frame).toContain("2 rows");
+    expect(frame).toContain("╭");
+    expect(frame).toContain("╰");
+    expect(frame).toContain("│");
     expect(
       frame.split("\n").filter((l) => l.length > 0).length,
-    ).toBeGreaterThanOrEqual(4);
+    ).toBeGreaterThanOrEqual(5);
   });
 
-  it("renders affected outcome with row count and last insert rowid", async () => {
+  it("renders affected outcome with row count and last insert rowid in the footer", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 1,
@@ -65,12 +69,11 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain("INSERT INTO t VALUES (1)");
     expect(frame).toContain("1 rows affected");
     expect(frame).toContain("last insert rowid: 42");
   });
 
-  it("renders affected outcome without rowid parenthetical when lastInsertRowid is zero", async () => {
+  it("omits the rowid parenthetical from the footer when lastInsertRowid is zero", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -85,7 +88,6 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain("CREATE TABLE x (id INT)");
     expect(frame).toContain("0 rows affected");
     expect(frame).not.toContain("last insert rowid");
   });
@@ -117,7 +119,6 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain("SELECT syntax");
     expect(frame).toContain('near "syntax": syntax error');
   });
 
@@ -216,9 +217,7 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain(
-      "EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name",
-    );
+    expect(frame).toContain("PLAN");
     expect(frame).toContain("SCAN users");
     expect(frame).toContain("USE TEMP B-TREE FOR ORDER BY");
     const lines = frame.split("\n");
@@ -231,7 +230,7 @@ describe("ResultsTable", () => {
     );
   });
 
-  it("renders the sql line and side-effect body in the theme's dim color", async () => {
+  it("renders the side-effect body in the theme's muted color", async () => {
     const outcome: QueryOutcome = { kind: "side-effect" };
 
     const frame = await captureRaw(
@@ -242,11 +241,10 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain(chalk.white("VACUUM"));
-    expect(frame).toContain(chalk.white("done"));
+    expect(frame).toContain(chalk.gray("done"));
   });
 
-  it("renders error messages in the theme's error color instead of a hardcoded color", async () => {
+  it("renders error messages in the theme's error color", async () => {
     const outcome: QueryOutcome = { kind: "error", message: "boom" };
 
     const frame = await captureRaw(

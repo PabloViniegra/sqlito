@@ -33,6 +33,7 @@ PRD.md
 AGENTS.md
 .agents/**
 graphify-out/
+.claude/**
 
 # Build / tsbuildinfo
 *.tsbuildinfo

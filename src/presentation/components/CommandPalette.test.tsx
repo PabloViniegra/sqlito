@@ -130,8 +130,10 @@ describe("CommandPalette", () => {
       />,
     );
 
+    // 5 framework lines (header / rule / query / rule / hint) plus the
+    // bounded visible window must stay well below a typical 24-row terminal.
     const rowCount = frame.split("\n").length;
-    expect(rowCount).toBeLessThan(15);
+    expect(rowCount).toBeLessThan(20);
   });
 
   it("keeps the selected command visible when its index is scrolled past the visible window (regression)", async () => {
@@ -151,7 +153,7 @@ describe("CommandPalette", () => {
     expect(frame).toContain(".cmd29");
   });
 
-  it("renders the help hint in the theme's dim color", async () => {
+  it("renders the help hint with muted color tokens and bold key labels", async () => {
     const frame = await captureRaw(
       <CommandPalette
         commands={[CMD(".tables", "List user tables")]}
@@ -160,9 +162,12 @@ describe("CommandPalette", () => {
         theme={HIGH_CONTRAST_THEME}
       />,
     );
-    const hint =
-      "↑↓" + " move " + "   " + "Enter" + " run " + "   " + "Esc" + " close";
 
-    expect(frame).toContain(chalk.white(hint));
+    expect(frame).toContain("↑↓");
+    expect(frame).toContain("move");
+    expect(frame).toContain("Enter");
+    expect(frame).toContain("Esc");
+    expect(frame).toMatch(/\u001b\[90m/);
+    expect(frame).toMatch(/\u001b\[1m/);
   });
 });

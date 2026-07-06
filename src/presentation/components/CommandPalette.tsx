@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
 import type { CommandDescriptor } from "../../application/commands/commandRegistry.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
@@ -9,11 +9,6 @@ type Props = {
   theme: Theme;
 };
 
-// Rendering every match unconditionally lets the live region grow past the
-// terminal's row count, which makes Ink fall back to a full clearTerminal +
-// repaint on every keystroke instead of a small diff (ink.js's
-// shouldClearTerminalForFrame). Cap how many rows we ever emit, and scroll
-// the window so the selected command stays reachable via arrow keys.
 const MAX_VISIBLE = 10;
 
 function visibleWindow<T>(
@@ -31,27 +26,65 @@ function visibleWindow<T>(
 }
 
 export function CommandPalette({ commands, query, index, theme }: Props) {
+  const { stdout } = useStdout();
+  const terminalWidth = stdout.columns ?? 80;
+  const rule = "─".repeat(terminalWidth);
   const { start, items } = visibleWindow(commands, index);
+
   return (
     <Box flexDirection="column">
-      <Text color={theme.tokens.accent}>
-        {"> "}
-        {query}
-      </Text>
+      <Box>
+        <Text color={theme.tokens.primary}>▎ </Text>
+        <Text color={theme.tokens.primary} bold>
+          COMMAND
+        </Text>
+        <Text color={theme.tokens.muted}> · {commands.length} match</Text>
+      </Box>
+      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Box>
+        <Text color={theme.tokens.accent} bold>
+          {"> "}
+        </Text>
+        <Text>{query}</Text>
+        <Text color={theme.tokens.primary}>▌</Text>
+      </Box>
       {commands.length === 0 ? (
-        <Text color={theme.tokens.dim}>(no matches)</Text>
+        <Text color={theme.tokens.muted}>(no matches)</Text>
       ) : (
-        items.map((command, i) => (
-          <Text key={command.name} inverse={start + i === index}>
-            {command.name}
-            {`   ${command.description}`}
-          </Text>
-        ))
+        items.map((command, i) => {
+          const isSelected = start + i === index;
+          return (
+            <Box key={command.name} justifyContent="space-between">
+              <Box>
+                <Text
+                  color={
+                    isSelected ? theme.tokens.primary : theme.tokens.accent
+                  }
+                  bold={isSelected}
+                  inverse={isSelected}
+                >
+                  {command.name}
+                </Text>
+              </Box>
+              <Text color={theme.tokens.muted}>{command.description}</Text>
+            </Box>
+          );
+        })
       )}
-      <Text color={theme.tokens.dim}>
-        {"↑↓"} move {"   "}
-        {"Enter"} run {"   "}
-        {"Esc"} close
+      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Text color={theme.tokens.muted}>
+        <Text color={theme.tokens.muted} bold>
+          ↑↓
+        </Text>
+        {" move   "}
+        <Text color={theme.tokens.muted} bold>
+          Enter
+        </Text>
+        {" run   "}
+        <Text color={theme.tokens.muted} bold>
+          Esc
+        </Text>
+        {" close"}
       </Text>
     </Box>
   );
