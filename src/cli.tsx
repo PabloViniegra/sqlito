@@ -22,6 +22,11 @@ export function mountApp(
   },
   options: MountOptions = {},
 ): Instance {
+  // Ink 7 has no <FullScreen> component (public exports are Box, Text, Static,
+  // Transform, Newline, Spacer only). The `alternateScreen` render option is
+  // the canonical alternate-screen entry; it emits \x1b[?1049h on mount and
+  // \x1b[?1049l + \x1b[?25h on unmount. PRD §Modules `useFullscreenApp.ts`
+  // was authored against a non-existent API; this flag replaces it.
   return render(
     <App db={handle.db} schema={handle.schema} dbPath={handle.dbPath} />,
     {
