@@ -58,7 +58,6 @@ export type AppEvent =
   | { type: "setPrompt"; value: string }
   | { type: "submit"; outcome: QueryOutcome }
   | { type: "backspace" }
-  | { type: "clearPrompt" }
   | { type: "exit" }
   | {
       type: "openAutocomplete";
@@ -131,11 +130,6 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       return {
         ...state,
         prompt: readlineReducer(state.prompt, { type: "Backspace" }),
-      };
-    case "clearPrompt":
-      return {
-        ...state,
-        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
       };
     case "submit": {
       const next: AppState = {

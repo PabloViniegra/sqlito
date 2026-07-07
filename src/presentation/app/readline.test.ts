@@ -226,4 +226,131 @@ describe("readlineReducer", () => {
 
     expect(next).toEqual({ text: "", cursor: 0 });
   });
+
+  it("KillWord removes the word behind the cursor and parks the cursor at the boundary", () => {
+    const state: ReadlineState = { text: "SELECT * FROM", cursor: 13 };
+    const next = readlineReducer(state, { type: "KillWord" });
+
+    expect(next).toEqual({ text: "SELECT * ", cursor: 9 });
+  });
+
+  it("KillWord at the start of text is a no-op", () => {
+    const state: ReadlineState = { text: "abc def", cursor: 0 };
+    const next = readlineReducer(state, { type: "KillWord" });
+
+    expect(next).toEqual({ text: "abc def", cursor: 0 });
+  });
+
+  it("KillWord on an empty prompt is a no-op", () => {
+    const state: ReadlineState = { text: "", cursor: 0 };
+    const next = readlineReducer(state, { type: "KillWord" });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("KillWord at the start of a word kills the previous word and parks the cursor at its start", () => {
+    const state: ReadlineState = { text: "abc def", cursor: 4 };
+    const next = readlineReducer(state, { type: "KillWord" });
+
+    expect(next).toEqual({ text: "def", cursor: 0 });
+  });
+
+  it("KillToStart drops everything before the cursor and parks it at 0", () => {
+    const state: ReadlineState = { text: "SELECT * FROM", cursor: 9 };
+    const next = readlineReducer(state, { type: "KillToStart" });
+
+    expect(next).toEqual({ text: "FROM", cursor: 0 });
+  });
+
+  it("KillToStart at the start of text is a no-op", () => {
+    const state: ReadlineState = { text: "abc", cursor: 0 };
+    const next = readlineReducer(state, { type: "KillToStart" });
+
+    expect(next).toEqual({ text: "abc", cursor: 0 });
+  });
+
+  it("KillToStart at the end of text clears the prompt", () => {
+    const state: ReadlineState = { text: "abc", cursor: 3 };
+    const next = readlineReducer(state, { type: "KillToStart" });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("KillToEnd drops everything after the cursor and leaves the cursor in place", () => {
+    const state: ReadlineState = { text: "SELECT * FROM", cursor: 9 };
+    const next = readlineReducer(state, { type: "KillToEnd" });
+
+    expect(next).toEqual({ text: "SELECT * ", cursor: 9 });
+  });
+
+  it("KillToEnd at the end of text is a no-op", () => {
+    const state: ReadlineState = { text: "abc", cursor: 3 };
+    const next = readlineReducer(state, { type: "KillToEnd" });
+
+    expect(next).toEqual({ text: "abc", cursor: 3 });
+  });
+
+  it("KillToEnd at the start of text clears the prompt", () => {
+    const state: ReadlineState = { text: "abc", cursor: 0 };
+    const next = readlineReducer(state, { type: "KillToEnd" });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("WordLeft jumps the cursor to the start of the previous word", () => {
+    const state: ReadlineState = { text: "SELECT * FROM users", cursor: 18 };
+    const next = readlineReducer(state, { type: "WordLeft" });
+
+    expect(next).toEqual({ text: "SELECT * FROM users", cursor: 14 });
+  });
+
+  it("WordLeft at the start of text is a no-op", () => {
+    const state: ReadlineState = { text: "abc def", cursor: 0 };
+    const next = readlineReducer(state, { type: "WordLeft" });
+
+    expect(next).toEqual({ text: "abc def", cursor: 0 });
+  });
+
+  it("WordLeft on an empty prompt is a no-op", () => {
+    const state: ReadlineState = { text: "", cursor: 0 };
+    const next = readlineReducer(state, { type: "WordLeft" });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("WordRight jumps the cursor to the end of the next word", () => {
+    const state: ReadlineState = { text: "SELECT * FROM users", cursor: 0 };
+    const next = readlineReducer(state, { type: "WordRight" });
+
+    expect(next).toEqual({ text: "SELECT * FROM users", cursor: 6 });
+  });
+
+  it("WordRight at the end of text is a no-op", () => {
+    const state: ReadlineState = { text: "abc def", cursor: 7 };
+    const next = readlineReducer(state, { type: "WordRight" });
+
+    expect(next).toEqual({ text: "abc def", cursor: 7 });
+  });
+
+  it("WordRight on an empty prompt is a no-op", () => {
+    const state: ReadlineState = { text: "", cursor: 0 };
+    const next = readlineReducer(state, { type: "WordRight" });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("does not mutate the input state across the new intents", () => {
+    const snapshot: ReadlineState = { text: "abc def", cursor: 4 };
+    const state: ReadlineState = {
+      text: snapshot.text,
+      cursor: snapshot.cursor,
+    };
+    readlineReducer(state, { type: "KillToStart" });
+    readlineReducer(state, { type: "KillToEnd" });
+    readlineReducer(state, { type: "KillWord" });
+    readlineReducer(state, { type: "WordLeft" });
+    readlineReducer(state, { type: "WordRight" });
+
+    expect(state).toEqual(snapshot);
+  });
 });

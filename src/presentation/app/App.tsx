@@ -39,6 +39,7 @@ import {
 } from "./commandPaletteInput.ts";
 import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
+import { promptKeymapReadlineIntent } from "./promptKeymap.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
 type Props = {
@@ -190,10 +191,6 @@ export function App({ db, schema, dbPath }: Props) {
       quit();
       return;
     }
-    if (key.ctrl && input === "u") {
-      dispatch({ type: "clearPrompt" });
-      return;
-    }
     if (key.ctrl && input === "r") {
       promptBeforeReverseRef.current = state.prompt.text;
       dispatch({ type: "reverseSearchOpen" });
@@ -222,6 +219,11 @@ export function App({ db, schema, dbPath }: Props) {
         popup: state.autocomplete,
         dispatch,
       });
+      return;
+    }
+    const promptIntent = promptKeymapReadlineIntent(input, key);
+    if (promptIntent !== null) {
+      dispatch({ type: "readline", intent: promptIntent });
       return;
     }
     if (key.tab) {

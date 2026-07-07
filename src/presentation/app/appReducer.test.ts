@@ -36,15 +36,6 @@ describe("appReducer", () => {
     });
   });
 
-  describe("clearPrompt", () => {
-    it("empties the prompt", () => {
-      const state = { ...initialState, prompt: rl("SELECT 1") };
-      const next = appReducer(state, { type: "clearPrompt" });
-
-      expect(next.prompt.text).toBe("");
-    });
-  });
-
   describe("submit", () => {
     const rowsOutcome: QueryOutcome = {
       kind: "rows",

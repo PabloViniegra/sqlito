@@ -1,4 +1,5 @@
 import { wrapPrompt } from "../../shared/utils/wrapPrompt.ts";
+import { findWordLeft, findWordRight } from "./readline/wordBoundary.ts";
 
 export type ReadlineState = {
   text: string;
@@ -15,6 +16,11 @@ export type ReadlineIntent =
   | { type: "MoveEnd" }
   | { type: "MoveUp"; viewportColumns: number }
   | { type: "MoveDown"; viewportColumns: number }
+  | { type: "WordLeft" }
+  | { type: "WordRight" }
+  | { type: "KillToStart" }
+  | { type: "KillToEnd" }
+  | { type: "KillWord" }
   | { type: "Reset"; text: string }
   | { type: "Paste"; text: string };
 
@@ -83,6 +89,30 @@ export function readlineReducer(
       const destRowLen = wrap.rows[destRow]?.length ?? 0;
       const clampedCol = Math.min(col, destRowLen);
       return { ...state, cursor: wrap.positionToCursor(destRow, clampedCol) };
+    }
+    case "WordLeft":
+      return { ...state, cursor: findWordLeft(state.text, state.cursor) };
+    case "WordRight":
+      return { ...state, cursor: findWordRight(state.text, state.cursor) };
+    case "KillToStart":
+      if (state.cursor === 0) return state;
+      return {
+        text: state.text.slice(state.cursor),
+        cursor: 0,
+      };
+    case "KillToEnd":
+      if (state.cursor >= state.text.length) return state;
+      return {
+        text: state.text.slice(0, state.cursor),
+        cursor: state.cursor,
+      };
+    case "KillWord": {
+      const boundary = findWordLeft(state.text, state.cursor);
+      if (boundary === state.cursor) return state;
+      return {
+        text: state.text.slice(0, boundary) + state.text.slice(state.cursor),
+        cursor: boundary,
+      };
     }
     case "Reset":
       return { text: intent.text, cursor: intent.text.length };
