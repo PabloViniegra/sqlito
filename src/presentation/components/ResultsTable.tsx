@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
@@ -7,7 +8,7 @@ import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
 
-export function ResultsTable({ outcome, sql, theme }: Props) {
+function ResultsTableImpl({ outcome, sql, theme }: Props) {
   const { columns: terminalWidth } = useViewportSize();
   const rule = "─".repeat(terminalWidth);
   const kind = classify(sql, outcome);
@@ -137,3 +138,5 @@ function renderBody(
       );
   }
 }
+
+export const ResultsTable = memo(ResultsTableImpl);

@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { memo } from "react";
 import type { StatusMessage } from "../app/appReducer.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { useViewportSize } from "../hooks/useViewportSize.ts";
@@ -11,7 +12,7 @@ type Props = {
   favoritesCount: number;
 };
 
-export function StatusBar({
+function StatusBarImpl({
   dbPath,
   theme,
   statusMessage,
@@ -87,3 +88,5 @@ function StatusLine({
   }
   return <Text color={theme.tokens.muted}>{message.text}</Text>;
 }
+
+export const StatusBar = memo(StatusBarImpl);
