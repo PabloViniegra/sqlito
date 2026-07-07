@@ -49,7 +49,7 @@ type Props = {
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
-  const { rows } = useViewportSize();
+  const { rows, columns } = useViewportSize();
   const sessionVars = useMemo(() => new SessionVariables(), []);
   const executeQuery = useMemo(
     () => new ExecuteQuery(db, () => sessionVars.entries()),
@@ -195,7 +195,7 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.ctrl && input === "r") {
-      promptBeforeReverseRef.current = state.prompt;
+      promptBeforeReverseRef.current = state.prompt.text;
       dispatch({ type: "reverseSearchOpen" });
       return;
     }
@@ -218,14 +218,14 @@ export function App({ db, schema, dbPath }: Props) {
         input,
         key,
         autocomplete,
-        prompt: state.prompt,
+        prompt: state.prompt.text,
         popup: state.autocomplete,
         dispatch,
       });
       return;
     }
     if (key.tab) {
-      const ac = deriveAutocompleteContext(state.prompt);
+      const ac = deriveAutocompleteContext(state.prompt.text);
       dispatch({
         type: "openAutocomplete",
         prefix: ac.prefix,
@@ -235,7 +235,7 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.return) {
-      const sql = state.prompt.trim();
+      const sql = state.prompt.text.trim();
       if (sql === "") return;
       if (sql.startsWith(".")) {
         void handleDotCommand(sql, dotCommandDeps);
@@ -267,22 +267,48 @@ export function App({ db, schema, dbPath }: Props) {
       dispatch({ type: "historyDown" });
       return;
     }
-    if (key.backspace || key.delete) {
-      dispatch({ type: "backspace" });
+    if (key.leftArrow) {
+      dispatch({ type: "readline", intent: { type: "MoveLeft" } });
+      return;
+    }
+    if (key.rightArrow) {
+      dispatch({ type: "readline", intent: { type: "MoveRight" } });
+      return;
+    }
+    if (key.home) {
+      dispatch({ type: "readline", intent: { type: "MoveHome" } });
+      return;
+    }
+    if (key.end) {
+      dispatch({ type: "readline", intent: { type: "MoveEnd" } });
+      return;
+    }
+    if (key.backspace) {
+      dispatch({ type: "readline", intent: { type: "Backspace" } });
+      return;
+    }
+    if (key.delete) {
+      dispatch({ type: "readline", intent: { type: "Delete" } });
       return;
     }
     if (input && !key.ctrl && !key.meta) {
-      dispatch({ type: "setPrompt", value: state.prompt + input });
+      dispatch({
+        type: "readline",
+        intent:
+          input.length === 1
+            ? { type: "Insert", ch: input }
+            : { type: "Paste", text: input },
+      });
     }
   });
 
   const { cursor, entries } = state.history;
   const displayedPrompt =
     state.reverseSearch !== null
-      ? state.prompt
+      ? state.prompt.text
       : cursor === 0
-        ? state.prompt
-        : (entries[cursor - 1]?.sql ?? state.prompt);
+        ? state.prompt.text
+        : (entries[cursor - 1]?.sql ?? state.prompt.text);
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
@@ -309,7 +335,15 @@ export function App({ db, schema, dbPath }: Props) {
         </Static>
       )}
       <Box flexGrow={1} />
-      <Prompt value={displayedPrompt} prefix={prefix} theme={state.theme} />
+      <Prompt
+        readlineState={{
+          text: displayedPrompt,
+          cursor: displayedPrompt.length,
+        }}
+        viewportColumns={columns}
+        prefix={prefix}
+        theme={state.theme}
+      />
       {popup !== null && (
         <AutocompletePopup
           suggestions={suggestions}

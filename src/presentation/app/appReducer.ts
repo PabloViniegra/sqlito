@@ -1,6 +1,11 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { DEFAULT_THEME, type Theme } from "../../domain/theme/Theme.ts";
+import {
+  readlineReducer,
+  type ReadlineIntent,
+  type ReadlineState,
+} from "./readline.ts";
 
 export type PastQuery = {
   sql: string;
@@ -35,7 +40,7 @@ export type CommandPaletteState = {
 };
 
 export type AppState = {
-  prompt: string;
+  prompt: ReadlineState;
   history: { entries: readonly HistoryEntry[]; cursor: number };
   pastQueries: readonly PastQuery[];
   autocomplete: AutocompleteState | null;
@@ -49,6 +54,7 @@ export type AppState = {
 };
 
 export type AppEvent =
+  | { type: "readline"; intent: ReadlineIntent }
   | { type: "setPrompt"; value: string }
   | { type: "submit"; outcome: QueryOutcome }
   | { type: "backspace" }
@@ -86,7 +92,7 @@ export type AppEvent =
   | { type: "moveCommandPalette"; delta: -1 | 1; count: number };
 
 export const initialState: AppState = {
-  prompt: "",
+  prompt: { text: "", cursor: 0 },
   history: { entries: [], cursor: 0 },
   pastQueries: [],
   autocomplete: null,
@@ -107,18 +113,34 @@ function wrapIndex(raw: number, count: number): number {
   return ((raw % count) + count) % count;
 }
 
+const emptyReadline: ReadlineState = { text: "", cursor: 0 };
+
 export function appReducer(state: AppState, event: AppEvent): AppState {
   switch (event.type) {
+    case "readline":
+      return { ...state, prompt: readlineReducer(state.prompt, event.intent) };
     case "setPrompt":
-      return { ...state, prompt: event.value };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, {
+          type: "Reset",
+          text: event.value,
+        }),
+      };
     case "backspace":
-      return { ...state, prompt: state.prompt.slice(0, -1) };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, { type: "Backspace" }),
+      };
     case "clearPrompt":
-      return { ...state, prompt: "" };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
+      };
     case "submit": {
       const next: AppState = {
         ...state,
-        prompt: "",
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
         statusMessage: null,
         lastRowsOutcome: event.outcome.kind === "rows" ? event.outcome : null,
       };
@@ -155,7 +177,14 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       };
     }
     case "commitAutocomplete":
-      return { ...state, prompt: event.replacement, autocomplete: null };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, {
+          type: "Reset",
+          text: event.replacement,
+        }),
+        autocomplete: null,
+      };
     case "loadHistory":
       return {
         ...state,
@@ -208,7 +237,10 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "exportTo":
       return state;
     case "command":
-      return { ...state, prompt: "" };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
+      };
     case "setVariable": {
       const pair: [string, string] = [event.name, event.raw];
       const index = state.variables.findIndex(([n]) => n === event.name);
@@ -269,3 +301,6 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     }
   }
 }
+
+export type { ReadlineState };
+export { emptyReadline };
