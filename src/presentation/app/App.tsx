@@ -36,6 +36,7 @@ import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import { ResultsTable } from "../components/ResultsTable.tsx";
 import { StatusBar } from "../components/StatusBar.tsx";
+import { usePromptInput } from "../hooks/usePromptInput.ts";
 import { useViewportSize } from "../hooks/useViewportSize.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
@@ -231,6 +232,11 @@ export function App({ db, schema, dbPath }: Props) {
     ],
   );
 
+  const overlayActive =
+    state.autocomplete !== null ||
+    state.commandPalette !== null ||
+    state.reverseSearch !== null;
+
   useInput((input, key) => {
     if (key.ctrl && input === "l") {
       if (stdout !== undefined) clearScreen(stdout);
@@ -281,11 +287,6 @@ export function App({ db, schema, dbPath }: Props) {
       });
       return;
     }
-    const promptIntent = promptKeymapReadlineIntent(input, key);
-    if (promptIntent !== null) {
-      dispatch({ type: "readline", intent: promptIntent });
-      return;
-    }
     if (key.tab) {
       const ac = deriveAutocompleteContext(state.prompt.text);
       dispatch({
@@ -294,6 +295,13 @@ export function App({ db, schema, dbPath }: Props) {
         prefixBase: ac.prefixBase,
         context: ac.context,
       });
+    }
+  });
+
+  usePromptInput(overlayActive, (input, key) => {
+    const promptIntent = promptKeymapReadlineIntent(input, key);
+    if (promptIntent !== null) {
+      dispatch({ type: "readline", intent: promptIntent });
       return;
     }
     if (key.return) {
