@@ -1,3 +1,16 @@
+// Slice → user-story traceability (v1.1 "fluidity" chain, PRD #31).
+// Each wiring in this file exists to satisfy the user story listed below;
+// before deleting code that "looks unused", check the slice that owns it.
+//   #32 alternate-screen              → launch / exit feel like one app, no scrollback pollution
+//   #33 useViewportSize + responsive   → prompt stays reachable, results scroll independently
+//   #34 wrap prompt + ↑/↓ cursor rows  → long queries don't truncate; ↑/↓ navigate within the wrapped prompt
+//   #35 readline reducer + Prompt      → insert / delete / move are predictable across every key
+//   #36 history recall at boundary     → ↑ on the first visual row pulls prior SQL, not just the prior line
+//   #37 kill + word-skip               → editing a long query feels like a shell
+//   #38 Ctrl+L clear + re-anchor       → a cluttered session is one keystroke from a fresh slate
+//   #39 split useInput precedence      → Tab and Ctrl+P never collide; overlays own their own input
+//   #40 memoize + render-counter       → typing stays responsive on large result sets
+//   #41 e2e smoke + bench gate         → every key sequence has at least one automated proof; cold-start regressions are caught before merge
 import { Box, Static, useApp, useInput, useStdout } from "ink";
 import {
   useCallback,

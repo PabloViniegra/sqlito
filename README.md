@@ -96,15 +96,25 @@ HMR-style reloads on save without an extra bundling step.
 
 ### Keyboard shortcuts
 
-| Shortcut      | Action                                  |
-| ------------- | --------------------------------------- |
-| `Tab`         | Cycle focus between prompt and results. |
-| `Ctrl+R`      | Open command palette / history search.  |
-| `Ctrl+P`      | Open command palette.                   |
-| `Ctrl+L`      | Clear the screen.                       |
-| `Ctrl+C`      | Cancel the current input or exit.       |
-| `Up` / `Down` | Navigate history or result rows.        |
-| `Enter`       | Submit the current SQL statement.       |
+| Shortcut            | Action                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `Enter`             | Submit the current SQL statement.                                                                   |
+| `Tab` / `Esc`       | Open / close the autocomplete popup for the current prefix.                                         |
+| `↑` / `↓`           | Move the prompt cursor up/down across visual rows.                                                  |
+| `↑` / `↓`           | At the first / last visual row, recall previous / next entry from history.                          |
+| `←` / `→`           | Move the cursor one character.                                                                      |
+| `Home` / `End`      | Move the cursor to the start / end of the prompt.                                                   |
+| `Backspace`         | Delete the character before the cursor.                                                             |
+| `Alt+←` / `Alt+→`   | Skip to the previous / next word boundary.                                                          |
+| `Ctrl+U`            | Kill from the cursor to the start of the prompt.                                                    |
+| `Ctrl+K`            | Kill from the cursor to the end of the prompt.                                                      |
+| `Ctrl+W`            | Kill the word before the cursor.                                                                    |
+| `Ctrl+A` / `Ctrl+E` | Move the cursor to the start / end (readline aliases).                                              |
+| `Ctrl+L`            | Clear the screen and re-anchor the prompt.                                                          |
+| `Ctrl+P`            | Open the command palette.                                                                           |
+| `Ctrl+R`            | Open reverse-i-search over the history.                                                             |
+| `Ctrl+C`            | Cancel the current input or exit.                                                                   |
+| Bracketed paste     | Multi-line paste (`ESC[200~ … ESC[201~`) inserts newlines into the prompt without triggering Enter. |
 
 ### Dot-commands
 
@@ -176,18 +186,19 @@ src/
 
 Common scripts, run from the project root:
 
-| Command          | Description                                         |
-| ---------------- | --------------------------------------------------- |
-| `pnpm dev`       | Start the Ink entry via `tsx watch src/main.tsx`.   |
-| `pnpm build`     | Type-check the project with `tsc -b`.               |
-| `pnpm typecheck` | Same as `build`, split out for pre-commit hooks.    |
-| `pnpm lint`      | Run oxlint with the project rules.                  |
-| `pnpm test`      | Run Vitest in watch mode.                           |
-| `pnpm test:run`  | Run Vitest once (used by pre-commit).               |
-| `pnpm format`    | Format `src/**/*.{ts,tsx,json,md}` with Prettier.   |
-| `pnpm db:seed`   | Generate the sample SQLite database in `fixtures/`. |
-| `pnpm bench`     | Measure cold-start time of the CLI.                 |
-| `pnpm doctor`    | Run `react-doctor` against the presentation layer.  |
+| Command          | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `pnpm dev`       | Start the Ink entry via `tsx watch src/main.tsx`.                  |
+| `pnpm build`     | Type-check the project with `tsc -b`.                              |
+| `pnpm typecheck` | Same as `build`, split out for pre-commit hooks.                   |
+| `pnpm lint`      | Run oxlint with the project rules.                                 |
+| `pnpm test`      | Run Vitest in watch mode.                                          |
+| `pnpm test:run`  | Run Vitest once (used by pre-commit).                              |
+| `pnpm format`    | Format `src/**/*.{ts,tsx,json,md}` with Prettier.                  |
+| `pnpm db:seed`   | Generate the sample SQLite database in `fixtures/`.                |
+| `pnpm bench`     | Measure cold-start time of the CLI. Budget: 1500 ms (source-mode). |
+| `pnpm gate`      | Run `lint-staged` → `tsc -b` → `vitest run` → `pnpm bench`.        |
+| `pnpm doctor`    | Run `react-doctor` against the presentation layer.                 |
 
 A Husky pre-commit hook runs `lint-staged` (oxlint + Prettier on staged
 files), then `tsc -b`, then `vitest run`. The hook is installed by
@@ -215,6 +226,10 @@ pnpm test:run
 - **v0.2** — Persistent history, autocompletion, CSV export.
 - **v0.3** — Variables, `EXPLAIN` view, favourites.
 - **v1.0** — Command palette, plugins, themes, configuration file.
+- **v1.1** — Fluidity: alternate-screen, viewport-aware prompt, readline
+  reducer, multi-line wrap, kill / word-skip, history recall at edit
+  boundary, screen clear, autocomplete / palette precedence, memoised
+  frames, and a cold-start bench gate (`pnpm bench`).
 
 ## Contributing
 
