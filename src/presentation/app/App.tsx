@@ -1,4 +1,4 @@
-import { Box, Static, useApp, useInput } from "ink";
+import { Box, Static, useApp, useInput, useStdout } from "ink";
 import {
   useCallback,
   useEffect,
@@ -40,6 +40,7 @@ import { useViewportSize } from "../hooks/useViewportSize.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
+import { clearScreen } from "./clearScreen.ts";
 import {
   filterCommands,
   handleCommandPaletteInput,
@@ -59,6 +60,7 @@ type Props = {
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const { rows, columns } = useViewportSize();
   const sessionVars = useMemo(() => new SessionVariables(), []);
   const executeQuery = useMemo(
@@ -230,6 +232,10 @@ export function App({ db, schema, dbPath }: Props) {
   );
 
   useInput((input, key) => {
+    if (key.ctrl && input === "l") {
+      if (stdout !== undefined) clearScreen(stdout);
+      return;
+    }
     if (state.reverseSearch !== null) {
       handleReverseSearchInput({
         input,
