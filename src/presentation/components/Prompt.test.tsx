@@ -127,6 +127,57 @@ describe("Prompt", () => {
     expect(trimmed).toBe("> ▌abc");
   });
 
+  it("renders two visual rows when text wraps, with the cursor on the correct cell", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "SELECT 12345", cursor: 12 }}
+        viewportColumns={8}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("> SELECT");
+    expect(lines[1]).toBe(" 12345▌");
+  });
+
+  it("renders the cursor at the start of the second visual row when wrap places it there", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "SELECT 12345", cursor: 6 }}
+        viewportColumns={8}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("> SELECT");
+    expect(lines[1]).toBe("▌ 12345");
+  });
+
+  it("wraps a long SQL query so no row exceeds the viewport width (HITL sample)", async () => {
+    const sql =
+      "SELECT a_long_column_name FROM a_long_table_name WHERE a_long_predicate = 'x' OR another_long_predicate LIKE '%y%';";
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: sql, cursor: sql.length }}
+        viewportColumns={40}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(40);
+    }
+  });
+
   it("repaints when a trailing space is typed (regression)", async () => {
     // Ink trims trailing whitespace per line before diffing against the
     // previous frame (build/output.js) and skips the write entirely when

@@ -1,3 +1,5 @@
+import { wrapPrompt } from "../../shared/utils/wrapPrompt.ts";
+
 export type ReadlineState = {
   text: string;
   cursor: number;
@@ -11,6 +13,8 @@ export type ReadlineIntent =
   | { type: "MoveRight" }
   | { type: "MoveHome" }
   | { type: "MoveEnd" }
+  | { type: "MoveUp"; viewportColumns: number }
+  | { type: "MoveDown"; viewportColumns: number }
   | { type: "Reset"; text: string }
   | { type: "Paste"; text: string };
 
@@ -55,6 +59,31 @@ export function readlineReducer(
     case "MoveEnd":
       if (state.cursor === state.text.length) return state;
       return { ...state, cursor: state.text.length };
+    case "MoveUp": {
+      const wrap = wrapPrompt({
+        text: state.text,
+        viewportColumns: intent.viewportColumns,
+      });
+      const { row, col } = wrap.cursorToPosition(state.cursor);
+      if (row === 0) return state;
+      const destRow = row - 1;
+      const destRowLen = wrap.rows[destRow]?.length ?? 0;
+      const clampedCol = Math.min(col, destRowLen);
+      return { ...state, cursor: wrap.positionToCursor(destRow, clampedCol) };
+    }
+    case "MoveDown": {
+      const wrap = wrapPrompt({
+        text: state.text,
+        viewportColumns: intent.viewportColumns,
+      });
+      const { row, col } = wrap.cursorToPosition(state.cursor);
+      const lastRow = wrap.rows.length - 1;
+      if (row >= lastRow) return state;
+      const destRow = row + 1;
+      const destRowLen = wrap.rows[destRow]?.length ?? 0;
+      const clampedCol = Math.min(col, destRowLen);
+      return { ...state, cursor: wrap.positionToCursor(destRow, clampedCol) };
+    }
     case "Reset":
       return { text: intent.text, cursor: intent.text.length };
     case "Paste":

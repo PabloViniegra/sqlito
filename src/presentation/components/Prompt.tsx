@@ -1,4 +1,4 @@
-import { Text } from "ink";
+import { Box, Text } from "ink";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import type { ReadlineState } from "../app/readline.ts";
 import { derivePromptLayout } from "./derivePromptLayout.ts";
@@ -16,21 +16,32 @@ export function Prompt({
   prefix,
   theme,
 }: Props) {
-  const layout = derivePromptLayout(readlineState, viewportColumns);
-  const cursorRow = layout.rows[layout.cursor.row] ?? {
-    text: readlineState.text,
-  };
-  const before = cursorRow.text.slice(0, layout.cursor.col);
-  const after = cursorRow.text.slice(layout.cursor.col);
+  const promptPrefix = prefix ?? "> ";
+  const effectiveWidth = Math.max(1, viewportColumns - promptPrefix.length);
+  const layout = derivePromptLayout(readlineState, effectiveWidth);
+  const cursorRowIndex = layout.cursor.row;
+  const cursorCol = layout.cursor.col;
 
   return (
-    <Text>
-      <Text color={theme.tokens.accent} bold>
-        {prefix ?? "> "}
-      </Text>
-      <Text>{before}</Text>
-      <Text color={theme.tokens.primary}>▌</Text>
-      <Text>{after}</Text>
-    </Text>
+    <Box flexDirection="column">
+      {layout.rows.map((rowText, idx) => {
+        const isCursorRow = idx === cursorRowIndex;
+        const before = isCursorRow ? rowText.slice(0, cursorCol) : rowText;
+        const after = isCursorRow ? rowText.slice(cursorCol) : "";
+        const isFirst = idx === 0;
+        return (
+          <Text key={idx}>
+            {isFirst ? (
+              <Text color={theme.tokens.accent} bold>
+                {promptPrefix}
+              </Text>
+            ) : null}
+            <Text>{before}</Text>
+            {isCursorRow ? <Text color={theme.tokens.primary}>▌</Text> : null}
+            {isCursorRow ? <Text>{after}</Text> : null}
+          </Text>
+        );
+      })}
+    </Box>
   );
 }

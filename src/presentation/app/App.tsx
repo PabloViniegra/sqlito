@@ -260,11 +260,17 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.upArrow) {
-      dispatch({ type: "historyUp" });
+      dispatch({
+        type: "readline",
+        intent: { type: "MoveUp", viewportColumns: columns },
+      });
       return;
     }
     if (key.downArrow) {
-      dispatch({ type: "historyDown" });
+      dispatch({
+        type: "readline",
+        intent: { type: "MoveDown", viewportColumns: columns },
+      });
       return;
     }
     if (key.leftArrow) {

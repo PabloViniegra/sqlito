@@ -1,16 +1,21 @@
+import { wrapPrompt } from "../../shared/utils/wrapPrompt.ts";
 import type { ReadlineState } from "../app/readline.ts";
 
 export type PromptLayout = {
-  rows: readonly { text: string }[];
+  rows: readonly string[];
   cursor: { row: number; col: number };
 };
 
 export function derivePromptLayout(
   readline: ReadlineState,
-  _viewportColumns: number,
+  viewportColumns: number,
 ): PromptLayout {
+  const wrap = wrapPrompt({
+    text: readline.text,
+    viewportColumns,
+  });
   return {
-    rows: [{ text: readline.text }],
-    cursor: { row: 0, col: readline.cursor },
+    rows: wrap.rows,
+    cursor: wrap.cursorToPosition(readline.cursor),
   };
 }

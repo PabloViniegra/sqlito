@@ -156,4 +156,74 @@ describe("readlineReducer", () => {
 
     expect(state).toEqual(snapshot);
   });
+
+  it("MoveUp from a non-first row preserves the column on the destination row", () => {
+    const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 9 };
+    const next = readlineReducer(state, {
+      type: "MoveUp",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "ABCDEFGHIJ", cursor: 5 });
+  });
+
+  it("MoveUp at the first row is a no-op", () => {
+    const state: ReadlineState = { text: "ABCDE", cursor: 2 };
+    const next = readlineReducer(state, {
+      type: "MoveUp",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "ABCDE", cursor: 2 });
+  });
+
+  it("MoveUp on an empty prompt is a no-op", () => {
+    const state: ReadlineState = { text: "", cursor: 0 };
+    const next = readlineReducer(state, {
+      type: "MoveUp",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
+
+  it("MoveDown from a non-last row preserves the column on the destination row", () => {
+    const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 0 };
+    const next = readlineReducer(state, {
+      type: "MoveDown",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "ABCDEFGHIJ", cursor: 4 });
+  });
+
+  it("MoveDown clamps the column when the destination row is shorter", () => {
+    const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 7 };
+    const next = readlineReducer(state, {
+      type: "MoveDown",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "ABCDEFGHIJ", cursor: 10 });
+  });
+
+  it("MoveDown at the last row is a no-op", () => {
+    const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 10 };
+    const next = readlineReducer(state, {
+      type: "MoveDown",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "ABCDEFGHIJ", cursor: 10 });
+  });
+
+  it("MoveDown on an empty prompt is a no-op", () => {
+    const state: ReadlineState = { text: "", cursor: 0 };
+    const next = readlineReducer(state, {
+      type: "MoveDown",
+      viewportColumns: 4,
+    });
+
+    expect(next).toEqual({ text: "", cursor: 0 });
+  });
 });
