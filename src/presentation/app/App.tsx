@@ -1,5 +1,12 @@
 import { Box, Static, useApp, useInput } from "ink";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
 import { ListFavorites } from "../../application/favorites/ListFavorites.ts";
 import { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
@@ -40,6 +47,8 @@ import {
 import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
 import { promptKeymapReadlineIntent } from "./promptKeymap.ts";
+import { recallHistory } from "./recallHistory.ts";
+import type { ReadlineState } from "./readline.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
 type Props = {
@@ -107,6 +116,8 @@ export function App({ db, schema, dbPath }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
+  const stashedPromptRef = useRef<ReadlineState | null>(null);
+  const [historyCursor, setHistoryCursor] = useState(0);
 
   const quit = useCallback(() => {
     db.close();
@@ -174,6 +185,49 @@ export function App({ db, schema, dbPath }: Props) {
     favorites: state.favorites,
     switchTheme,
   };
+
+  const navigateHistory = useCallback(
+    (direction: "up" | "down") => {
+      const result = recallHistory({
+        text: state.prompt.text,
+        cursor: state.prompt.cursor,
+        viewportColumns: columns,
+        entries: state.history.entries,
+        historyCursor,
+        stashedPrompt: stashedPromptRef.current,
+        direction,
+      });
+      if (result.kind === "skip") {
+        dispatch({
+          type: "readline",
+          intent:
+            direction === "up"
+              ? { type: "MoveUp", viewportColumns: columns }
+              : { type: "MoveDown", viewportColumns: columns },
+        });
+        return;
+      }
+      if (result.kind === "apply") {
+        dispatch({
+          type: "readline",
+          intent: {
+            type: "Reset",
+            text: result.prompt.text,
+            cursor: result.prompt.cursor,
+          },
+        });
+        setHistoryCursor(result.nextHistoryCursor);
+        stashedPromptRef.current = result.nextStashedPrompt;
+      }
+    },
+    [
+      columns,
+      historyCursor,
+      state.history.entries,
+      state.prompt.cursor,
+      state.prompt.text,
+    ],
+  );
 
   useInput((input, key) => {
     if (state.reverseSearch !== null) {
@@ -262,17 +316,11 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.upArrow) {
-      dispatch({
-        type: "readline",
-        intent: { type: "MoveUp", viewportColumns: columns },
-      });
+      navigateHistory("up");
       return;
     }
     if (key.downArrow) {
-      dispatch({
-        type: "readline",
-        intent: { type: "MoveDown", viewportColumns: columns },
-      });
+      navigateHistory("down");
       return;
     }
     if (key.leftArrow) {
@@ -310,13 +358,10 @@ export function App({ db, schema, dbPath }: Props) {
     }
   });
 
-  const { cursor, entries } = state.history;
   const displayedPrompt =
-    state.reverseSearch !== null
+    state.reverseSearch !== null || historyCursor === 0
       ? state.prompt.text
-      : cursor === 0
-        ? state.prompt.text
-        : (entries[cursor - 1]?.sql ?? state.prompt.text);
+      : (state.history.entries[historyCursor - 1]?.sql ?? state.prompt.text);
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 

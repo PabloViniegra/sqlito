@@ -21,8 +21,10 @@ export type ReadlineIntent =
   | { type: "KillToStart" }
   | { type: "KillToEnd" }
   | { type: "KillWord" }
-  | { type: "Reset"; text: string }
-  | { type: "Paste"; text: string };
+  | { type: "Reset"; text: string; cursor?: number }
+  | { type: "Paste"; text: string }
+  | { type: "HistoryPrev" }
+  | { type: "HistoryNext" };
 
 export function readlineReducer(
   state: ReadlineState,
@@ -114,8 +116,11 @@ export function readlineReducer(
         cursor: boundary,
       };
     }
-    case "Reset":
-      return { text: intent.text, cursor: intent.text.length };
+    case "Reset": {
+      const raw = intent.cursor ?? intent.text.length;
+      const cursor = Math.min(Math.max(0, raw), intent.text.length);
+      return { text: intent.text, cursor };
+    }
     case "Paste":
       if (intent.text === "") return state;
       return {
@@ -125,6 +130,10 @@ export function readlineReducer(
           state.text.slice(state.cursor),
         cursor: state.cursor + intent.text.length,
       };
+    case "HistoryPrev":
+      return state;
+    case "HistoryNext":
+      return state;
     default: {
       const _exhaustive: never = intent;
       return _exhaustive;

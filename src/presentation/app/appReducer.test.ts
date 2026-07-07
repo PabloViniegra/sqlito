@@ -417,94 +417,6 @@ describe("appReducer", () => {
     });
   });
 
-  describe("historyUp", () => {
-    it("increments cursor toward older entries", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 0 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(1);
-    });
-
-    it("is a no-op on empty history (cursor stays at 0)", () => {
-      const next = appReducer(initialState, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-
-    it("clamps at entries.length once the cursor reaches the oldest entry", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: entries.length },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(entries.length);
-    });
-
-    it("shows the most-recent entry on the first ↑ from cursor 0", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 0 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.entries[next.history.cursor - 1]?.sql).toBe("a");
-    });
-  });
-
-  describe("historyDown", () => {
-    it("decrements cursor toward the typed prompt (0)", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 2 },
-      };
-      const next = appReducer(state, { type: "historyDown" });
-
-      expect(next.history.cursor).toBe(1);
-    });
-
-    it("clamps cursor at 0 (returns to the typed prompt)", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 1 },
-      };
-      const next = appReducer(state, { type: "historyDown" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-
-    it("is a no-op when the cursor is already at 0", () => {
-      const next = appReducer(
-        { ...initialState, history: { entries: [], cursor: 0 } },
-        { type: "historyDown" },
-      );
-
-      expect(next.history.cursor).toBe(0);
-    });
-  });
-
   describe("exportTo", () => {
     it("returns state unchanged (driver owns the CSV write)", () => {
       const lastRowsOutcome: QueryOutcome = {
@@ -536,7 +448,7 @@ describe("appReducer", () => {
   });
 
   describe("loadHistory", () => {
-    it("replaces history.entries and resets the cursor to 0", () => {
+    it("replaces history.entries", () => {
       const entries: readonly HistoryEntry[] = [
         { sql: "a", outcome: "ok", timestamp: 1 },
         { sql: "b", outcome: "ok", timestamp: 2 },
@@ -547,7 +459,6 @@ describe("appReducer", () => {
       });
 
       expect(next.history.entries).toEqual(entries);
-      expect(next.history.cursor).toBe(0);
     });
 
     it("overwrites any prior loaded entries", () => {
@@ -558,7 +469,7 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        history: { entries: [prior], cursor: 1 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, {
         type: "loadHistory",
@@ -566,7 +477,6 @@ describe("appReducer", () => {
       });
 
       expect(next.history.entries).toEqual([]);
-      expect(next.history.cursor).toBe(0);
     });
   });
 
@@ -610,7 +520,7 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        history: { entries: [prior], cursor: 1 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, {
         type: "recordQuery",
@@ -687,7 +597,7 @@ describe("appReducer", () => {
         ...initialState,
         prompt: rl("typed"),
         reverseSearch: { query: "sel" },
-        history: { entries: [prior], cursor: 0 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, { type: "reverseSearchCancel" });
 

@@ -128,6 +128,39 @@ describe("readlineReducer", () => {
     expect(next).toEqual({ text: "SELECT 1", cursor: 8 });
   });
 
+  it("Reset with an explicit cursor parks at that cursor (slice-6 stash restore)", () => {
+    const state: ReadlineState = { text: "old", cursor: 3 };
+    const next = readlineReducer(state, {
+      type: "Reset",
+      text: "SELECT typed",
+      cursor: 4,
+    });
+
+    expect(next).toEqual({ text: "SELECT typed", cursor: 4 });
+  });
+
+  it("Reset with an explicit cursor of 0 puts the caret at the start", () => {
+    const state: ReadlineState = { text: "old", cursor: 3 };
+    const next = readlineReducer(state, {
+      type: "Reset",
+      text: "SELECT typed",
+      cursor: 0,
+    });
+
+    expect(next).toEqual({ text: "SELECT typed", cursor: 0 });
+  });
+
+  it("Reset with an explicit cursor clamps out-of-range to text.length", () => {
+    const state: ReadlineState = { text: "old", cursor: 3 };
+    const next = readlineReducer(state, {
+      type: "Reset",
+      text: "abc",
+      cursor: 99,
+    });
+
+    expect(next).toEqual({ text: "abc", cursor: 3 });
+  });
+
   it("Paste inserts the payload at the cursor and advances past it", () => {
     const state: ReadlineState = { text: "ab", cursor: 1 };
     const next = readlineReducer(state, { type: "Paste", text: "XY" });
@@ -352,5 +385,38 @@ describe("readlineReducer", () => {
     readlineReducer(state, { type: "WordRight" });
 
     expect(state).toEqual(snapshot);
+  });
+
+  describe("HistoryPrev / HistoryNext (boundary-aware history recall lives in App.tsx)", () => {
+    it("HistoryPrev returns state unchanged (pure signal — the reducer has no history)", () => {
+      const state: ReadlineState = { text: "SELECT 1", cursor: 8 };
+      const next = readlineReducer(state, { type: "HistoryPrev" });
+
+      expect(next).toBe(state);
+    });
+
+    it("HistoryNext returns state unchanged (symmetric pure signal)", () => {
+      const state: ReadlineState = { text: "SELECT 1", cursor: 8 };
+      const next = readlineReducer(state, { type: "HistoryNext" });
+
+      expect(next).toBe(state);
+    });
+
+    it("HistoryPrev does not move the cursor even when at the first row of a multi-line prompt", () => {
+      const state: ReadlineState = {
+        text: "ABCDEFGHIJ",
+        cursor: 2,
+      };
+      const next = readlineReducer(state, { type: "HistoryPrev" });
+
+      expect(next).toBe(state);
+    });
+
+    it("HistoryNext does not move the cursor even when at the last row of a multi-line prompt", () => {
+      const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 9 };
+      const next = readlineReducer(state, { type: "HistoryNext" });
+
+      expect(next).toBe(state);
+    });
   });
 });

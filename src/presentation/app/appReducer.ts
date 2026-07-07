@@ -41,7 +41,7 @@ export type CommandPaletteState = {
 
 export type AppState = {
   prompt: ReadlineState;
-  history: { entries: readonly HistoryEntry[]; cursor: number };
+  history: { entries: readonly HistoryEntry[] };
   pastQueries: readonly PastQuery[];
   autocomplete: AutocompleteState | null;
   lastRowsOutcome: QueryOutcome | null;
@@ -70,8 +70,6 @@ export type AppEvent =
   | { type: "commitAutocomplete"; replacement: string }
   | { type: "loadHistory"; entries: readonly HistoryEntry[] }
   | { type: "recordQuery"; entry: HistoryEntry; outcome: QueryOutcome }
-  | { type: "historyUp" }
-  | { type: "historyDown" }
   | { type: "reverseSearchOpen" }
   | { type: "reverseSearchChange"; query: string }
   | { type: "reverseSearchCommit" }
@@ -92,7 +90,7 @@ export type AppEvent =
 
 export const initialState: AppState = {
   prompt: { text: "", cursor: 0 },
-  history: { entries: [], cursor: 0 },
+  history: { entries: [] },
   pastQueries: [],
   autocomplete: null,
   lastRowsOutcome: null,
@@ -103,10 +101,6 @@ export const initialState: AppState = {
   theme: DEFAULT_THEME,
   commandPalette: null,
 };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function wrapIndex(raw: number, count: number): number {
   return ((raw % count) + count) % count;
@@ -182,43 +176,19 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "loadHistory":
       return {
         ...state,
-        history: { entries: event.entries, cursor: 0 },
+        history: { entries: event.entries },
       };
     case "recordQuery": {
       const nextEntries = [...state.history.entries, event.entry];
       return {
         ...state,
-        history: { ...state.history, entries: nextEntries },
+        history: { entries: nextEntries },
         pastQueries: [
           ...state.pastQueries,
           { sql: event.entry.sql, outcome: event.outcome },
         ],
       };
     }
-    case "historyUp":
-      return {
-        ...state,
-        history: {
-          ...state.history,
-          cursor: clamp(
-            state.history.cursor + 1,
-            0,
-            state.history.entries.length,
-          ),
-        },
-      };
-    case "historyDown":
-      return {
-        ...state,
-        history: {
-          ...state.history,
-          cursor: clamp(
-            state.history.cursor - 1,
-            0,
-            state.history.entries.length,
-          ),
-        },
-      };
     case "reverseSearchOpen":
       return { ...state, reverseSearch: { query: "" } };
     case "reverseSearchChange":
