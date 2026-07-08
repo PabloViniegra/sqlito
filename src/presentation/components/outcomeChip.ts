@@ -1,3 +1,4 @@
+import { outcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 
 export type OutcomeChipText = {
@@ -6,25 +7,26 @@ export type OutcomeChipText = {
 };
 
 export function renderOutcomeChip(outcome: QueryOutcome): OutcomeChipText {
+  const tag = outcomeTag(outcome);
   switch (outcome.kind) {
     case "rows":
-      return { tag: "READ", detail: String(outcome.rows.length) };
+      return { tag, detail: String(outcome.rows.length) };
     case "affected":
       return {
-        tag: "WRITE",
+        tag,
         detail: outcome.changes === 0 ? "0 no-match" : String(outcome.changes),
       };
     case "side-effect":
-      return { tag: "DDL", detail: "" };
+      return { tag, detail: "" };
     case "plan":
-      return { tag: "PLAN", detail: String(outcome.nodes.length) };
+      return { tag, detail: String(outcome.nodes.length) };
     case "error": {
       const { code, message } = outcome;
-      if (code === undefined) return { tag: "ERROR", detail: "" };
+      if (code === undefined) return { tag, detail: "" };
       if (message.length < 30) {
-        return { tag: "ERROR", detail: `${code}: ${message}` };
+        return { tag, detail: `${code}: ${message}` };
       }
-      return { tag: "ERROR", detail: code };
+      return { tag, detail: code };
     }
   }
 }
