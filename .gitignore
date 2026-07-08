@@ -34,6 +34,7 @@ AGENTS.md
 .agents/**
 graphify-out/
 .claude/**
+.opencode/**
 
 # Build / tsbuildinfo
 *.tsbuildinfo
