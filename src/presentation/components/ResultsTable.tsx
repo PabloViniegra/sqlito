@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
-import { outcomeTag } from "../../domain/sql/outcomeTag.ts";
+import { outcomeTag, type OutcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
@@ -20,17 +20,24 @@ function ResultsTableImpl({
   columns: terminalWidth,
 }: Props) {
   const rule = "─".repeat(terminalWidth);
+  const tag = outcomeTag(outcome);
   const kind = classify(sql, outcome);
   const metadata = metadataFor(outcome);
-  const sqlLabel = truncateSql(sql, sqlBudget(terminalWidth, kind, metadata));
+  const keyword = tag === "ERROR" || tag === "PLAN" ? null : kind;
+  const sqlLabel = truncateSql(
+    sql,
+    sqlBudget(terminalWidth, tag, keyword, metadata),
+  );
   const footerText = footerFor(outcome);
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color={theme.tokens.primary}>▎ </Text>
-        <Text color={theme.tokens.primary}>{outcomeTag(outcome)} </Text>
-        <Text color={theme.tokens.primary}>{kind}</Text>
+        <Text color={tagColor(theme, tag)}>{tag}</Text>
+        {keyword === null ? null : (
+          <Text color={theme.tokens.primary}> {keyword}</Text>
+        )}
         <Text color={theme.tokens.muted}> · {metadata}</Text>
         {sqlLabel === "" ? null : (
           <Text color={theme.tokens.dim}> · {sqlLabel}</Text>
@@ -49,12 +56,28 @@ function ResultsTableImpl({
   );
 }
 
+function tagColor(theme: Theme, tag: OutcomeTag): string {
+  switch (tag) {
+    case "READ":
+      return theme.tokens.success;
+    case "WRITE":
+      return theme.tokens.writes;
+    case "DDL":
+      return theme.tokens.success;
+    case "ERROR":
+      return theme.tokens.error;
+    case "PLAN":
+      return theme.tokens.primary;
+  }
+}
+
 function sqlBudget(
   terminalWidth: number,
-  kind: string,
+  tag: OutcomeTag,
+  keyword: string | null,
   metadata: string,
 ): number {
-  const fixedBeforeSql = `▎ ${kind} · ${metadata} · `;
+  const fixedBeforeSql = `▎ ${tag}${keyword === null ? "" : ` ${keyword}`} · ${metadata} · `;
   return Math.max(8, terminalWidth - fixedBeforeSql.length);
 }
 
@@ -93,8 +116,17 @@ function metadataFor(outcome: QueryOutcome): string {
 }
 
 function footerFor(outcome: QueryOutcome): string | null {
-  if (outcome.kind === "affected" && Number(outcome.lastInsertRowid) > 0) {
-    return `OK · last insert rowid: ${outcome.lastInsertRowid.toString()}`;
+  if (outcome.kind === "affected") {
+    const rowidFooter =
+      Number(outcome.lastInsertRowid) > 0
+        ? `last insert rowid: ${outcome.lastInsertRowid.toString()}`
+        : null;
+    if (outcome.changes === 0) {
+      return rowidFooter === null
+        ? "OK · no rows matched"
+        : `OK · no rows matched · ${rowidFooter}`;
+    }
+    return rowidFooter === null ? null : `OK · ${rowidFooter}`;
   }
   if (outcome.kind === "side-effect") return "OK";
   if (outcome.kind === "rows" && outcome.rows.length > 0) return "OK";

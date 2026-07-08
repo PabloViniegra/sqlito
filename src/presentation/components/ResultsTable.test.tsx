@@ -75,8 +75,8 @@ describe("ResultsTable", () => {
     expect(frame).toContain("DDL VACUUM · side effect");
   });
 
-  it("prepends PLAN to plan headers", async () => {
-    const outcome: QueryOutcome = {
+  it("uses ERROR and PLAN tags as the header keyword", async () => {
+    const planOutcome: QueryOutcome = {
       kind: "plan",
       nodes: [
         {
@@ -88,36 +88,32 @@ describe("ResultsTable", () => {
         },
       ],
     };
+    const errorOutcome: QueryOutcome = {
+      kind: "error",
+      message: "boom",
+    };
 
-    const frame = await capture(
+    const planFrame = await capture(
       <ResultsTable
-        outcome={outcome}
+        outcome={planOutcome}
         sql="EXPLAIN QUERY PLAN SELECT * FROM users"
         theme={DEFAULT_THEME}
         columns={80}
       />,
     );
-
-    expect(frame).toContain("PLAN PLAN");
-  });
-
-  it("prepends ERROR to error headers", async () => {
-    const outcome: QueryOutcome = {
-      kind: "error",
-      message: "boom",
-    };
-
-    const frame = await capture(
+    const errorFrame = await capture(
       <ResultsTable
-        outcome={outcome}
+        outcome={errorOutcome}
         sql="SELECT 1"
         theme={DEFAULT_THEME}
         columns={80}
       />,
     );
 
-    expect(frame).toContain("ERROR ERROR");
-    expect(frame).toContain("ERROR ERROR · aborted");
+    expect(planFrame).toContain("PLAN · 1 node");
+    expect(planFrame).not.toMatch(/PLAN\s+PLAN/);
+    expect(errorFrame).toContain("ERROR · aborted");
+    expect(errorFrame).not.toMatch(/ERROR\s+ERROR/);
   });
 
   it("renders rows outcome with a framed table that includes header and rows", async () => {
@@ -176,24 +172,45 @@ describe("ResultsTable", () => {
     expect(frame).toContain("last insert rowid: 42");
   });
 
-  it("omits the rowid parenthetical from the footer when lastInsertRowid is zero", async () => {
+  it("renders no rows matched for affected outcomes with zero changes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
-      lastInsertRowid: 0n,
+      lastInsertRowid: 0,
     };
 
     const frame = await capture(
       <ResultsTable
         outcome={outcome}
-        sql="CREATE TABLE x (id INT)"
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
         theme={DEFAULT_THEME}
         columns={80}
       />,
     );
 
     expect(frame).toContain("0 rows affected");
+    expect(frame).toContain("no rows matched");
     expect(frame).not.toContain("last insert rowid");
+  });
+
+  it("keeps the rowid footer for affected outcomes with zero changes and a positive rowid", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 0,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("no rows matched");
+    expect(frame).toContain("last insert rowid: 42");
   });
 
   it("renders side-effect outcome as 'done' with no row count or rowid", async () => {
@@ -357,6 +374,27 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain(chalk.gray("done"));
+  });
+
+  it("renders WRITE tags in the high-contrast write color", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 0,
+      lastInsertRowid: 0,
+    };
+
+    const frame = await captureRaw(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        theme={HIGH_CONTRAST_THEME}
+        columns={80}
+      />,
+    );
+
+    const escape = "\u001B[";
+    expect(frame).toContain(`${escape}33mWRITE`);
+    expect(frame).not.toContain(`${escape}93mWRITE`);
   });
 
   it("renders error messages in the theme's error color", async () => {
