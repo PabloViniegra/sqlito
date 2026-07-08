@@ -2,7 +2,7 @@ import type { PastQuery } from "./appReducer.ts";
 
 export type PastQueriesViewport = {
   readonly visible: readonly PastQuery[];
-  readonly overflowBelow: number;
+  readonly overflowAbove: number;
   readonly canScrollUp: boolean;
   readonly canScrollDown: boolean;
 };
@@ -17,13 +17,13 @@ export function pastQueriesViewport(
   const end = queries.length - clampedOffset;
   const start = Math.max(0, end - maxVisible);
   const visible = queries.slice(start, end);
-  const overflowBelow = Math.max(
+  const overflowAbove = Math.max(
     0,
     queries.length - maxVisible - clampedOffset,
   );
   return {
     visible,
-    overflowBelow,
+    overflowAbove,
     canScrollUp: clampedOffset < maxOffset,
     canScrollDown: clampedOffset > 0,
   };

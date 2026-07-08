@@ -11,7 +11,7 @@
 //   #39 split useInput precedence      → Tab and Ctrl+P never collide; overlays own their own input
 //   #40 memoize + render-counter       → typing stays responsive on large result sets
 //   #41 e2e smoke + bench gate         → every key sequence has at least one automated proof; cold-start regressions are caught before merge
-import { Box, useApp, useInput, usePaste, useStdout } from "ink";
+import { Box, Text, useApp, useInput, usePaste, useStdout } from "ink";
 import {
   useCallback,
   useEffect,
@@ -70,6 +70,7 @@ import { recallError } from "./recallError.ts";
 import { recallHistory } from "./recallHistory.ts";
 import type { ReadlineState } from "./readline.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
+import { pastQueriesViewport } from "./pastQueriesViewport.ts";
 
 type Props = {
   db: Database;
@@ -274,6 +275,14 @@ export function App({ db, schema, dbPath }: Props) {
       dispatch({ type: "setStatus", status: null });
       return;
     }
+    if (key.pageUp && state.pastQueries.length > 0) {
+      dispatch({ type: "pastQueriesPageUp" });
+      return;
+    }
+    if (key.pageDown && state.pastQueries.length > 0) {
+      dispatch({ type: "pastQueriesPageDown" });
+      return;
+    }
     if (state.reverseSearch !== null) {
       handleReverseSearchInput({
         input,
@@ -438,6 +447,12 @@ export function App({ db, schema, dbPath }: Props) {
   const palette = state.commandPalette;
   const paletteMatches = palette === null ? [] : filterCommands(palette.query);
 
+  const pastQueriesView = pastQueriesViewport(
+    state.pastQueries,
+    MAX_VISIBLE_QUERIES,
+    state.pastQueriesScrollOffset,
+  );
+
   return (
     <Box flexDirection="column" height={rows}>
       <Header dbPath={dbPath} theme={state.theme} />
@@ -449,7 +464,14 @@ export function App({ db, schema, dbPath }: Props) {
           minHeight={0}
           height={Math.max(0, rows - HEADER_HEIGHT - PROMPT_AREA)}
         >
-          {state.pastQueries.slice(-MAX_VISIBLE_QUERIES).map((item) => (
+          {pastQueriesView.overflowAbove > 0 ? (
+            <Box marginBottom={1}>
+              <Text color={state.theme.tokens.muted}>
+                ↑ {pastQueriesView.overflowAbove} more · PgUp
+              </Text>
+            </Box>
+          ) : null}
+          {pastQueriesView.visible.map((item) => (
             <ResultsTable
               key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
               outcome={item.outcome}

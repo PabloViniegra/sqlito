@@ -15,7 +15,7 @@ describe("pastQueriesViewport", () => {
     const view = pastQueriesViewport([], 5, 0);
     expect(view).toEqual({
       visible: [],
-      overflowBelow: 0,
+      overflowAbove: 0,
       canScrollUp: false,
       canScrollDown: false,
     });
@@ -25,7 +25,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c");
     const view = pastQueriesViewport(qs, 5, 0);
     expect(view.visible).toEqual(qs);
-    expect(view.overflowBelow).toBe(0);
+    expect(view.overflowAbove).toBe(0);
     expect(view.canScrollUp).toBe(false);
     expect(view.canScrollDown).toBe(false);
   });
@@ -34,7 +34,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e");
     const view = pastQueriesViewport(qs, 5, 0);
     expect(view.visible).toEqual(qs);
-    expect(view.overflowBelow).toBe(0);
+    expect(view.overflowAbove).toBe(0);
     expect(view.canScrollUp).toBe(false);
     expect(view.canScrollDown).toBe(false);
   });
@@ -43,7 +43,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e", "f");
     const view = pastQueriesViewport(qs, 5, 0);
     expect(view.visible.map((q) => q.sql)).toEqual(["b", "c", "d", "e", "f"]);
-    expect(view.overflowBelow).toBe(1);
+    expect(view.overflowAbove).toBe(1);
     expect(view.canScrollUp).toBe(true);
     expect(view.canScrollDown).toBe(false);
   });
@@ -52,7 +52,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e", "f");
     const view = pastQueriesViewport(qs, 5, 1);
     expect(view.visible.map((q) => q.sql)).toEqual(["a", "b", "c", "d", "e"]);
-    expect(view.overflowBelow).toBe(0);
+    expect(view.overflowAbove).toBe(0);
     expect(view.canScrollUp).toBe(false);
     expect(view.canScrollDown).toBe(true);
   });
@@ -61,7 +61,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e", "f", "g", "h");
     const view = pastQueriesViewport(qs, 5, 2);
     expect(view.visible.map((q) => q.sql)).toEqual(["b", "c", "d", "e", "f"]);
-    expect(view.overflowBelow).toBe(1);
+    expect(view.overflowAbove).toBe(1);
     expect(view.canScrollUp).toBe(true);
     expect(view.canScrollDown).toBe(true);
   });
@@ -70,7 +70,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e", "f", "g", "h");
     const view = pastQueriesViewport(qs, 5, 5);
     expect(view.visible.map((q) => q.sql)).toEqual(["a", "b", "c", "d", "e"]);
-    expect(view.overflowBelow).toBe(0);
+    expect(view.overflowAbove).toBe(0);
     expect(view.canScrollUp).toBe(false);
     expect(view.canScrollDown).toBe(true);
   });
@@ -79,7 +79,7 @@ describe("pastQueriesViewport", () => {
     const qs = queries("a", "b", "c", "d", "e", "f", "g", "h");
     const view = pastQueriesViewport(qs, 5, 999);
     expect(view.visible.map((q) => q.sql)).toEqual(["a", "b", "c", "d", "e"]);
-    expect(view.overflowBelow).toBe(0);
+    expect(view.overflowAbove).toBe(0);
     expect(view.canScrollUp).toBe(false);
     expect(view.canScrollDown).toBe(true);
   });
