@@ -21,6 +21,105 @@ async function capture(
 }
 
 describe("ResultsTable", () => {
+  it("prepends READ to rows headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "1", type: null }],
+      rows: [[1]],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("READ SELECT · 1 rows · SELECT 1");
+  });
+
+  it("prepends WRITE to affected headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 1,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1)"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("WRITE INSERT");
+  });
+
+  it("prepends DDL to side-effect headers", async () => {
+    const outcome: QueryOutcome = { kind: "side-effect" };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="VACUUM"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("DDL VACUUM");
+    expect(frame).toContain("DDL VACUUM · side effect");
+  });
+
+  it("prepends PLAN to plan headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "plan",
+      nodes: [
+        {
+          id: 1,
+          parent: 0,
+          detail: "SCAN users",
+          depth: 0,
+          children: [],
+        },
+      ],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="EXPLAIN QUERY PLAN SELECT * FROM users"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("PLAN PLAN");
+  });
+
+  it("prepends ERROR to error headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      message: "boom",
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("ERROR ERROR");
+    expect(frame).toContain("ERROR ERROR · aborted");
+  });
+
   it("renders rows outcome with a framed table that includes header and rows", async () => {
     const outcome: QueryOutcome = {
       kind: "rows",

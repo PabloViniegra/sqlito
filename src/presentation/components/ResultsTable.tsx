@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { outcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
@@ -28,6 +29,7 @@ function ResultsTableImpl({
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color={theme.tokens.primary}>▎ </Text>
+        <Text color={theme.tokens.primary}>{outcomeTag(outcome)} </Text>
         <Text color={theme.tokens.primary}>{kind}</Text>
         <Text color={theme.tokens.muted}> · {metadata}</Text>
         {sqlLabel === "" ? null : (
