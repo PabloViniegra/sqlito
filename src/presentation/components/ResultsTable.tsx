@@ -184,13 +184,24 @@ function renderBody(
           {line}
         </Text>
       ));
-    case "error":
+    case "error": {
+      const hasCode =
+        typeof outcome.code === "string" && outcome.code.length > 0;
       return (
-        <Box marginTop={1}>
-          <Text color={theme.tokens.muted}>! </Text>
-          <Text color={theme.tokens.error}>{outcome.message}</Text>
+        <Box marginTop={1} flexDirection="column">
+          {hasCode ? (
+            <Box>
+              <Text color={theme.tokens.muted}>! </Text>
+              <Text color={theme.tokens.error}>{outcome.code}</Text>
+            </Box>
+          ) : null}
+          <Box>
+            <Text color={theme.tokens.muted}>! </Text>
+            <Text color={theme.tokens.error}>{outcome.message}</Text>
+          </Box>
         </Box>
       );
+    }
   }
 }
 

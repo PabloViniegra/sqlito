@@ -249,6 +249,48 @@ describe("ResultsTable", () => {
     expect(frame).toContain('near "syntax": syntax error');
   });
 
+  it("renders error outcome with the SQLite code on its own line above the message", async () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      code: "SQLITE_CONSTRAINT",
+      message: "UNIQUE constraint failed: t.id",
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1)"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("SQLITE_CONSTRAINT");
+    expect(frame).toContain("UNIQUE constraint failed: t.id");
+    const codeIndex = frame.indexOf("SQLITE_CONSTRAINT");
+    const messageIndex = frame.indexOf("UNIQUE constraint failed: t.id");
+    expect(codeIndex).toBeLessThan(messageIndex);
+  });
+
+  it("renders error outcome without a code showing only the message", async () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      message: "boom",
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("boom");
+    expect(frame).not.toMatch(/SQLITE_/);
+  });
+
   it("renders NULL cells as the literal string NULL", async () => {
     const outcome: QueryOutcome = {
       kind: "rows",
