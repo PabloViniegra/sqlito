@@ -20,6 +20,7 @@ describe("StatusBar", () => {
         statusMessage={null}
         historyCount={0}
         favoritesCount={0}
+        columns={80}
       />,
     );
 
@@ -35,6 +36,7 @@ describe("StatusBar", () => {
         statusMessage={null}
         historyCount={347}
         favoritesCount={4}
+        columns={80}
       />,
     );
 
@@ -51,6 +53,7 @@ describe("StatusBar", () => {
         statusMessage={{ text: "ok", kind: "info" }}
         historyCount={0}
         favoritesCount={0}
+        columns={80}
       />,
     );
 
@@ -66,6 +69,7 @@ describe("StatusBar", () => {
         statusMessage={{ text: "boom", kind: "error" }}
         historyCount={0}
         favoritesCount={0}
+        columns={80}
       />,
     );
 
@@ -80,6 +84,7 @@ describe("StatusBar", () => {
         statusMessage={{ text: "ok", kind: "info" }}
         historyCount={0}
         favoritesCount={0}
+        columns={80}
       />,
     );
 

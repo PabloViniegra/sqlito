@@ -1,6 +1,11 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { DEFAULT_THEME, type Theme } from "../../domain/theme/Theme.ts";
+import {
+  readlineReducer,
+  type ReadlineIntent,
+  type ReadlineState,
+} from "./readline.ts";
 
 export type PastQuery = {
   sql: string;
@@ -35,8 +40,8 @@ export type CommandPaletteState = {
 };
 
 export type AppState = {
-  prompt: string;
-  history: { entries: readonly HistoryEntry[]; cursor: number };
+  prompt: ReadlineState;
+  history: { entries: readonly HistoryEntry[] };
   pastQueries: readonly PastQuery[];
   autocomplete: AutocompleteState | null;
   lastRowsOutcome: QueryOutcome | null;
@@ -49,10 +54,9 @@ export type AppState = {
 };
 
 export type AppEvent =
+  | { type: "readline"; intent: ReadlineIntent }
   | { type: "setPrompt"; value: string }
   | { type: "submit"; outcome: QueryOutcome }
-  | { type: "backspace" }
-  | { type: "clearPrompt" }
   | { type: "exit" }
   | {
       type: "openAutocomplete";
@@ -65,8 +69,6 @@ export type AppEvent =
   | { type: "commitAutocomplete"; replacement: string }
   | { type: "loadHistory"; entries: readonly HistoryEntry[] }
   | { type: "recordQuery"; entry: HistoryEntry; outcome: QueryOutcome }
-  | { type: "historyUp" }
-  | { type: "historyDown" }
   | { type: "reverseSearchOpen" }
   | { type: "reverseSearchChange"; query: string }
   | { type: "reverseSearchCommit" }
@@ -86,8 +88,8 @@ export type AppEvent =
   | { type: "moveCommandPalette"; delta: -1 | 1; count: number };
 
 export const initialState: AppState = {
-  prompt: "",
-  history: { entries: [], cursor: 0 },
+  prompt: { text: "", cursor: 0 },
+  history: { entries: [] },
   pastQueries: [],
   autocomplete: null,
   lastRowsOutcome: null,
@@ -99,26 +101,26 @@ export const initialState: AppState = {
   commandPalette: null,
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 function wrapIndex(raw: number, count: number): number {
   return ((raw % count) + count) % count;
 }
 
 export function appReducer(state: AppState, event: AppEvent): AppState {
   switch (event.type) {
+    case "readline":
+      return { ...state, prompt: readlineReducer(state.prompt, event.intent) };
     case "setPrompt":
-      return { ...state, prompt: event.value };
-    case "backspace":
-      return { ...state, prompt: state.prompt.slice(0, -1) };
-    case "clearPrompt":
-      return { ...state, prompt: "" };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, {
+          type: "Reset",
+          text: event.value,
+        }),
+      };
     case "submit": {
       const next: AppState = {
         ...state,
-        prompt: "",
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
         statusMessage: null,
         lastRowsOutcome: event.outcome.kind === "rows" ? event.outcome : null,
       };
@@ -155,47 +157,30 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       };
     }
     case "commitAutocomplete":
-      return { ...state, prompt: event.replacement, autocomplete: null };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, {
+          type: "Reset",
+          text: event.replacement,
+        }),
+        autocomplete: null,
+      };
     case "loadHistory":
       return {
         ...state,
-        history: { entries: event.entries, cursor: 0 },
+        history: { entries: event.entries },
       };
     case "recordQuery": {
       const nextEntries = [...state.history.entries, event.entry];
       return {
         ...state,
-        history: { ...state.history, entries: nextEntries },
+        history: { entries: nextEntries },
         pastQueries: [
           ...state.pastQueries,
           { sql: event.entry.sql, outcome: event.outcome },
         ],
       };
     }
-    case "historyUp":
-      return {
-        ...state,
-        history: {
-          ...state.history,
-          cursor: clamp(
-            state.history.cursor + 1,
-            0,
-            state.history.entries.length,
-          ),
-        },
-      };
-    case "historyDown":
-      return {
-        ...state,
-        history: {
-          ...state.history,
-          cursor: clamp(
-            state.history.cursor - 1,
-            0,
-            state.history.entries.length,
-          ),
-        },
-      };
     case "reverseSearchOpen":
       return { ...state, reverseSearch: { query: "" } };
     case "reverseSearchChange":
@@ -208,7 +193,10 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     case "exportTo":
       return state;
     case "command":
-      return { ...state, prompt: "" };
+      return {
+        ...state,
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
+      };
     case "setVariable": {
       const pair: [string, string] = [event.name, event.raw];
       const index = state.variables.findIndex(([n]) => n === event.name);
@@ -269,3 +257,5 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
     }
   }
 }
+
+export type { ReadlineState };

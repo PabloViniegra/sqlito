@@ -1,14 +1,23 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
+import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
 
-type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
+type Props = {
+  outcome: QueryOutcome;
+  sql: string;
+  theme: Theme;
+  columns: number;
+};
 
-export function ResultsTable({ outcome, sql, theme }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
+function ResultsTableImpl({
+  outcome,
+  sql,
+  theme,
+  columns: terminalWidth,
+}: Props) {
   const rule = "─".repeat(terminalWidth);
   const kind = classify(sql, outcome);
   const metadata = metadataFor(outcome);
@@ -25,7 +34,7 @@ export function ResultsTable({ outcome, sql, theme }: Props) {
           <Text color={theme.tokens.dim}> · {sqlLabel}</Text>
         )}
       </Box>
-      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Text color={theme.tokens.border}>{rule}</Text>
       {renderBody(outcome, terminalWidth, theme)}
       {footerText === null ? null : (
         <Box marginTop={1}>
@@ -33,7 +42,7 @@ export function ResultsTable({ outcome, sql, theme }: Props) {
           <Text color={theme.tokens.success}>{footerText}</Text>
         </Box>
       )}
-      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Text color={theme.tokens.border}>{rule}</Text>
     </Box>
   );
 }
@@ -98,20 +107,33 @@ function renderBody(
   theme: Theme,
 ) {
   switch (outcome.kind) {
-    case "rows":
-      return formatBorderedTable(
+    case "rows": {
+      const lines = formatBorderedTable(
         outcome.columns,
         outcome.rows,
         terminalWidth,
-      ).map((line, i) => (
-        <Text
-          key={i}
-          color={i === 1 ? theme.tokens.primary : undefined}
-          bold={i === 1}
-        >
-          {line}
-        </Text>
-      ));
+      );
+      const last = lines.length - 1;
+      return lines.map((line, i) => {
+        const isHeader = i === 1;
+        const isBorder = i === 0 || i === 2 || i === last;
+        return (
+          <Text
+            key={i}
+            color={
+              isHeader
+                ? theme.tokens.primary
+                : isBorder
+                  ? theme.tokens.border
+                  : theme.tokens.dim
+            }
+            bold={isHeader}
+          >
+            {line}
+          </Text>
+        );
+      });
+    }
     case "affected":
       return null;
     case "side-effect":
@@ -137,3 +159,5 @@ function renderBody(
       );
   }
 }
+
+export const ResultsTable = memo(ResultsTableImpl);

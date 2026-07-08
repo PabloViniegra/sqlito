@@ -27,24 +27,24 @@ export function formatBorderedTable(
     " ".repeat(CELL_PADDING);
 
   const topBorder =
-    "╭" + widths.map((w) => "─".repeat(w + CELL_PADDING * 2)).join("┬") + "╮";
+    "+" + widths.map((w) => "-".repeat(w + CELL_PADDING * 2)).join("+") + "+";
   const sepBorder =
-    "├" + widths.map((w) => "─".repeat(w + CELL_PADDING * 2)).join("┼") + "┤";
+    "+" + widths.map((w) => "-".repeat(w + CELL_PADDING * 2)).join("+") + "+";
   const botBorder =
-    "╰" + widths.map((w) => "─".repeat(w + CELL_PADDING * 2)).join("┴") + "╯";
+    "+" + widths.map((w) => "-".repeat(w + CELL_PADDING * 2)).join("+") + "+";
 
   const headerRow =
-    "│" + columns.map((c, i) => renderCell(c.name, widths[i]!)).join("│") + "│";
+    "|" + columns.map((c, i) => renderCell(c.name, widths[i]!)).join("|") + "|";
 
   const bodyRows = rows.map(
     (row) =>
-      "│" +
+      "|" +
       row
         .map((cell, i) =>
           renderCell(truncateCell(formatCell(cell), widths[i]!), widths[i]!),
         )
-        .join("│") +
-      "│",
+        .join("|") +
+      "|",
   );
 
   return [topBorder, headerRow, sepBorder, ...bodyRows, botBorder];

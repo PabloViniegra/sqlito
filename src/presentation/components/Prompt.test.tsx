@@ -7,6 +7,7 @@ import {
   DEFAULT_THEME,
   HIGH_CONTRAST_THEME,
 } from "../../domain/theme/Theme.ts";
+import type { ReadlineState } from "../app/readline.ts";
 import { Prompt } from "./Prompt.tsx";
 import { renderInkFrame as capture } from "./renderInkFrame.ts";
 
@@ -20,10 +21,16 @@ async function settle(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
+const AT_END: ReadlineState = { text: "SELECT 1", cursor: 8 };
+
 describe("Prompt", () => {
   it("renders the default prefix in the theme's accent color", async () => {
     const frame = await capture(
-      <Prompt value="SELECT 1" theme={HIGH_CONTRAST_THEME} />,
+      <Prompt
+        readlineState={AT_END}
+        viewportColumns={80}
+        theme={HIGH_CONTRAST_THEME}
+      />,
     );
 
     expect(frame).toContain(chalk.yellow("> "));
@@ -32,7 +39,11 @@ describe("Prompt", () => {
 
   it("renders prefix and value as plain text under the default theme", async () => {
     const frame = await capture(
-      <Prompt value="SELECT 1" theme={DEFAULT_THEME} />,
+      <Prompt
+        readlineState={AT_END}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
     );
 
     expect(plain(frame)).toContain("> SELECT 1");
@@ -41,7 +52,8 @@ describe("Prompt", () => {
   it("renders a custom prefix in the theme's accent color", async () => {
     const frame = await capture(
       <Prompt
-        value="foo"
+        readlineState={{ text: "foo", cursor: 3 }}
+        viewportColumns={80}
         prefix="(reverse-i-search):"
         theme={HIGH_CONTRAST_THEME}
       />,
@@ -53,10 +65,117 @@ describe("Prompt", () => {
 
   it("does not color the typed value", async () => {
     const frame = await capture(
-      <Prompt value="SELECT 1" theme={HIGH_CONTRAST_THEME} />,
+      <Prompt
+        readlineState={AT_END}
+        viewportColumns={80}
+        theme={HIGH_CONTRAST_THEME}
+      />,
     );
 
     expect(frame).not.toContain(chalk.yellow("SELECT 1"));
+  });
+
+  it("empty prompt renders only the cursor glyph after the prefix", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "", cursor: 0 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).trimEnd();
+    expect(trimmed).toBe("> ▌");
+  });
+
+  it("single-line cursor at end renders the cursor glyph after the last char", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "SELECT 1", cursor: 8 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).trimEnd();
+    expect(trimmed).toBe("> SELECT 1▌");
+  });
+
+  it("single-line cursor in the middle splits text around the cursor glyph", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "ac", cursor: 1 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).trimEnd();
+    expect(trimmed).toBe("> a▌c");
+  });
+
+  it("single-line cursor at start renders the cursor glyph before the text", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "abc", cursor: 0 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).trimEnd();
+    expect(trimmed).toBe("> ▌abc");
+  });
+
+  it("renders two visual rows when text wraps, with the cursor on the correct cell", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "SELECT 12345", cursor: 12 }}
+        viewportColumns={8}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("> SELECT");
+    expect(lines[1]).toBe(" 12345▌");
+  });
+
+  it("renders the cursor at the start of the second visual row when wrap places it there", async () => {
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: "SELECT 12345", cursor: 6 }}
+        viewportColumns={8}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("> SELECT");
+    expect(lines[1]).toBe("▌ 12345");
+  });
+
+  it("wraps a long SQL query so no row exceeds the viewport width (HITL sample)", async () => {
+    const sql =
+      "SELECT a_long_column_name FROM a_long_table_name WHERE a_long_predicate = 'x' OR another_long_predicate LIKE '%y%';";
+    const frame = await capture(
+      <Prompt
+        readlineState={{ text: sql, cursor: sql.length }}
+        viewportColumns={40}
+        theme={DEFAULT_THEME}
+      />,
+    );
+
+    const trimmed = plain(frame).replace(/\n$/, "");
+    const lines = trimmed.split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(40);
+    }
   });
 
   it("repaints when a trailing space is typed (regression)", async () => {
@@ -64,8 +183,8 @@ describe("Prompt", () => {
     // previous frame (build/output.js) and skips the write entirely when
     // the result is unchanged (build/ink.js). A trailing space with no
     // visible cursor after it collapses to the same line, so the keystroke
-    // was silently dropped on screen. A trailing cursor glyph after `value`
-    // guarantees the line always ends in non-whitespace content.
+    // was silently dropped on screen. A trailing cursor glyph after the
+    // text guarantees the line always ends in non-whitespace content.
     const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
       columns: number;
     };
@@ -77,15 +196,28 @@ describe("Prompt", () => {
       return true;
     }) as typeof stdout.write;
 
-    const instance = render(<Prompt value="SELECT" theme={DEFAULT_THEME} />, {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      exitOnCtrlC: false,
-      patchConsole: false,
-    });
+    const instance = render(
+      <Prompt
+        readlineState={{ text: "SELECT", cursor: 6 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        exitOnCtrlC: false,
+        patchConsole: false,
+      },
+    );
     await settle();
     writes.length = 0;
 
-    instance.rerender(<Prompt value="SELECT " theme={DEFAULT_THEME} />);
+    instance.rerender(
+      <Prompt
+        readlineState={{ text: "SELECT ", cursor: 7 }}
+        viewportColumns={80}
+        theme={DEFAULT_THEME}
+      />,
+    );
     await settle();
     instance.unmount();
 

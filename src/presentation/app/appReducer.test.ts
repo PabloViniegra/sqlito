@@ -2,41 +2,22 @@ import { describe, expect, it } from "vitest";
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { HIGH_CONTRAST_THEME } from "../../domain/theme/Theme.ts";
+import type { ReadlineState } from "./readline.ts";
 import { appReducer, initialState } from "./appReducer.ts";
+
+function rl(text: string, cursor?: number): ReadlineState {
+  return { text, cursor: cursor ?? text.length };
+}
 
 describe("appReducer", () => {
   describe("setPrompt", () => {
-    it("updates state.prompt to the new value", () => {
+    it("updates state.prompt.text to the new value and parks the cursor at the end", () => {
       const next = appReducer(initialState, {
         type: "setPrompt",
         value: "SELECT 1",
       });
 
-      expect(next.prompt).toBe("SELECT 1");
-    });
-  });
-
-  describe("backspace", () => {
-    it("removes the last character from prompt", () => {
-      const state = { ...initialState, prompt: "SELECT" };
-      const next = appReducer(state, { type: "backspace" });
-
-      expect(next.prompt).toBe("SELEC");
-    });
-
-    it("leaves an empty prompt empty", () => {
-      const next = appReducer(initialState, { type: "backspace" });
-
-      expect(next.prompt).toBe("");
-    });
-  });
-
-  describe("clearPrompt", () => {
-    it("empties the prompt", () => {
-      const state = { ...initialState, prompt: "SELECT 1" };
-      const next = appReducer(state, { type: "clearPrompt" });
-
-      expect(next.prompt).toBe("");
+      expect(next.prompt).toEqual({ text: "SELECT 1", cursor: 8 });
     });
   });
 
@@ -48,13 +29,13 @@ describe("appReducer", () => {
     };
 
     it("clears the prompt", () => {
-      const state = { ...initialState, prompt: "SELECT 1" };
+      const state = { ...initialState, prompt: rl("SELECT 1") };
       const next = appReducer(state, {
         type: "submit",
         outcome: rowsOutcome,
       });
 
-      expect(next.prompt).toBe("");
+      expect(next.prompt.text).toBe("");
     });
 
     it("is a no-op for prompt when prompt is empty (prompt stays empty)", () => {
@@ -63,7 +44,7 @@ describe("appReducer", () => {
         outcome: rowsOutcome,
       });
 
-      expect(next.prompt).toBe("");
+      expect(next.prompt.text).toBe("");
     });
 
     it("clears statusMessage", () => {
@@ -154,12 +135,67 @@ describe("appReducer", () => {
     it("returns state unchanged (driver owns db.close + ink exit)", () => {
       const state = {
         ...initialState,
-        prompt: "SELECT 1",
+        prompt: rl("SELECT 1"),
         statusMessage: { text: "msg", kind: "info" as const },
       };
       const next = appReducer(state, { type: "exit" });
 
       expect(next).toBe(state);
+    });
+  });
+
+  describe("readline (basic-key dispatch)", () => {
+    it("typing 'SELECT 1' through Insert intents yields the same prompt as setPrompt", () => {
+      const initial = initialState;
+      const afterInserts = ["S", "E", "L", "E", "C", "T", " ", "1"].reduce(
+        (s, ch) =>
+          appReducer(s, { type: "readline", intent: { type: "Insert", ch } }),
+        initial,
+      );
+
+      expect(afterInserts.prompt).toEqual({ text: "SELECT 1", cursor: 8 });
+
+      const viaSetPrompt = appReducer(initialState, {
+        type: "setPrompt",
+        value: "SELECT 1",
+      });
+
+      expect(afterInserts.prompt).toEqual(viaSetPrompt.prompt);
+    });
+
+    it("cursor tracks the cursor position after a MoveRight in the middle", () => {
+      const seeded = appReducer(initialState, {
+        type: "setPrompt",
+        value: "abc",
+      });
+
+      const afterMove = appReducer(seeded, {
+        type: "readline",
+        intent: { type: "MoveLeft" },
+      });
+
+      expect(afterMove.prompt).toEqual({ text: "abc", cursor: 2 });
+    });
+
+    it("regression: submitting a multi-character SQL still routes through ExecuteQuery unchanged", () => {
+      const before = appReducer(initialState, {
+        type: "setPrompt",
+        value: "SELECT 1",
+      });
+
+      expect(before.prompt.text).toBe("SELECT 1");
+
+      const after = appReducer(before, {
+        type: "submit",
+        outcome: {
+          kind: "rows",
+          columns: [{ name: "a", type: null }],
+          rows: [[1]],
+        },
+      });
+
+      expect(after.prompt.text).toBe("");
+      expect(after.prompt.cursor).toBe(0);
     });
   });
 
@@ -329,7 +365,7 @@ describe("appReducer", () => {
     it("closes the autocomplete popup and sets the prompt to replacement", () => {
       const state = {
         ...initialState,
-        prompt: "SE",
+        prompt: rl("SE"),
         autocomplete: { open: true, index: 1, prefix: "SE", context: {} },
       };
       const next = appReducer(state, {
@@ -338,7 +374,7 @@ describe("appReducer", () => {
       });
 
       expect(next.autocomplete).toBeNull();
-      expect(next.prompt).toBe("SELECT");
+      expect(next.prompt.text).toBe("SELECT");
     });
 
     it("is a no-op when autocomplete is already null", () => {
@@ -353,7 +389,7 @@ describe("appReducer", () => {
     it("preserves the prior prompt when replacement is empty (driver-driven no-op)", () => {
       const state = {
         ...initialState,
-        prompt: "SEL",
+        prompt: rl("SEL"),
         autocomplete: { open: true, index: 0, prefix: "SEL", context: {} },
       };
       const next = appReducer(state, {
@@ -362,95 +398,7 @@ describe("appReducer", () => {
       });
 
       expect(next.autocomplete).toBeNull();
-      expect(next.prompt).toBe("SEL");
-    });
-  });
-
-  describe("historyUp", () => {
-    it("increments cursor toward older entries", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 0 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(1);
-    });
-
-    it("is a no-op on empty history (cursor stays at 0)", () => {
-      const next = appReducer(initialState, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-
-    it("clamps at entries.length once the cursor reaches the oldest entry", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: entries.length },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.cursor).toBe(entries.length);
-    });
-
-    it("shows the most-recent entry on the first ↑ from cursor 0", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 0 },
-      };
-      const next = appReducer(state, { type: "historyUp" });
-
-      expect(next.history.entries[next.history.cursor - 1]?.sql).toBe("a");
-    });
-  });
-
-  describe("historyDown", () => {
-    it("decrements cursor toward the typed prompt (0)", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-        { sql: "b", outcome: "ok", timestamp: 1 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 2 },
-      };
-      const next = appReducer(state, { type: "historyDown" });
-
-      expect(next.history.cursor).toBe(1);
-    });
-
-    it("clamps cursor at 0 (returns to the typed prompt)", () => {
-      const entries: readonly HistoryEntry[] = [
-        { sql: "a", outcome: "ok", timestamp: 0 },
-      ];
-      const state = {
-        ...initialState,
-        history: { entries, cursor: 1 },
-      };
-      const next = appReducer(state, { type: "historyDown" });
-
-      expect(next.history.cursor).toBe(0);
-    });
-
-    it("is a no-op when the cursor is already at 0", () => {
-      const next = appReducer(
-        { ...initialState, history: { entries: [], cursor: 0 } },
-        { type: "historyDown" },
-      );
-
-      expect(next.history.cursor).toBe(0);
+      expect(next.prompt.text).toBe("SEL");
     });
   });
 
@@ -463,7 +411,7 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        prompt: "SELECT 1",
+        prompt: rl("SELECT 1"),
         lastRowsOutcome,
       };
       const next = appReducer(state, {
@@ -477,15 +425,15 @@ describe("appReducer", () => {
 
   describe("command", () => {
     it("clears the prompt after a dot-command is dispatched", () => {
-      const state = { ...initialState, prompt: ".tables" };
+      const state = { ...initialState, prompt: rl(".tables") };
       const next = appReducer(state, { type: "command", line: ".tables" });
 
-      expect(next.prompt).toBe("");
+      expect(next.prompt.text).toBe("");
     });
   });
 
   describe("loadHistory", () => {
-    it("replaces history.entries and resets the cursor to 0", () => {
+    it("replaces history.entries", () => {
       const entries: readonly HistoryEntry[] = [
         { sql: "a", outcome: "ok", timestamp: 1 },
         { sql: "b", outcome: "ok", timestamp: 2 },
@@ -496,7 +444,6 @@ describe("appReducer", () => {
       });
 
       expect(next.history.entries).toEqual(entries);
-      expect(next.history.cursor).toBe(0);
     });
 
     it("overwrites any prior loaded entries", () => {
@@ -507,7 +454,7 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        history: { entries: [prior], cursor: 1 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, {
         type: "loadHistory",
@@ -515,7 +462,6 @@ describe("appReducer", () => {
       });
 
       expect(next.history.entries).toEqual([]);
-      expect(next.history.cursor).toBe(0);
     });
   });
 
@@ -559,7 +505,7 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        history: { entries: [prior], cursor: 1 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, {
         type: "recordQuery",
@@ -634,14 +580,14 @@ describe("appReducer", () => {
       };
       const state = {
         ...initialState,
-        prompt: "typed",
+        prompt: rl("typed"),
         reverseSearch: { query: "sel" },
-        history: { entries: [prior], cursor: 0 },
+        history: { entries: [prior] },
       };
       const next = appReducer(state, { type: "reverseSearchCancel" });
 
       expect(next.reverseSearch).toBeNull();
-      expect(next.prompt).toBe("typed");
+      expect(next.prompt.text).toBe("typed");
       expect(next.history.entries).toEqual([prior]);
     });
   });

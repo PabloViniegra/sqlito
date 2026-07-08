@@ -1,6 +1,8 @@
 import chalk from "chalk";
+import { PassThrough } from "node:stream";
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
+import { render } from "ink";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import {
   DEFAULT_THEME,
@@ -37,6 +39,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT id, name FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -46,9 +49,9 @@ describe("ResultsTable", () => {
     expect(frame).toContain("Lin");
     expect(frame).toContain("SELECT");
     expect(frame).toContain("2 rows");
-    expect(frame).toContain("╭");
-    expect(frame).toContain("╰");
-    expect(frame).toContain("│");
+    expect(frame).toContain("+");
+    expect(frame).toContain("|");
+    expect(frame).toContain("-");
     expect(
       frame.split("\n").filter((l) => l.length > 0).length,
     ).toBeGreaterThanOrEqual(5);
@@ -66,6 +69,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="INSERT INTO t VALUES (1)"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -85,6 +89,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="CREATE TABLE x (id INT)"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -96,7 +101,12 @@ describe("ResultsTable", () => {
     const outcome: QueryOutcome = { kind: "side-effect" };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="VACUUM" theme={DEFAULT_THEME} />,
+      <ResultsTable
+        outcome={outcome}
+        sql="VACUUM"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
     );
 
     expect(frame).toContain("VACUUM");
@@ -116,6 +126,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT syntax"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -140,6 +151,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT id, name FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -159,6 +171,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT rowid FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -179,6 +192,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT v FROM t"
         theme={DEFAULT_THEME}
+        columns={20}
       />,
       { columns: 20 },
     );
@@ -214,6 +228,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -238,6 +253,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="VACUUM"
         theme={HIGH_CONTRAST_THEME}
+        columns={80}
       />,
     );
 
@@ -252,10 +268,81 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT 1"
         theme={HIGH_CONTRAST_THEME}
+        columns={80}
       />,
     );
 
     expect(frame).toContain(chalk.redBright("boom"));
     expect(frame).not.toContain(chalk.red("boom"));
+  });
+
+  it("reflows the table width when the columns prop changes", async () => {
+    // Resize-reactivity now lives in App.tsx's single useViewportSize() call
+    // and flows down as a prop, so this drives it via rerender rather than a
+    // stdout "resize" event (ResultsTable no longer listens for one itself).
+    type FakeTty = NodeJS.WriteStream & {
+      columns: number;
+      rows: number;
+      isTTY: boolean;
+      buffer: string;
+    };
+    const tty = new PassThrough() as unknown as FakeTty;
+    tty.columns = 20;
+    tty.rows = 24;
+    tty.isTTY = true;
+    tty.buffer = "";
+    tty.write = (chunk: string | Uint8Array): boolean => {
+      tty.buffer += chunk.toString();
+      return true;
+    };
+
+    const longValue =
+      "this string is intentionally much longer than the column width";
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "v", type: null }],
+      rows: [[longValue]],
+    };
+
+    const instance = render(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT v"
+        theme={DEFAULT_THEME}
+        columns={20}
+      />,
+      {
+        stdout: tty as NodeJS.WriteStream,
+        exitOnCtrlC: false,
+        patchConsole: false,
+      },
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const narrowFrame = stripAnsi(tty.buffer).replace(/\r/g, "");
+    expect(narrowFrame).toContain("…");
+    expect(narrowFrame).not.toContain(longValue);
+
+    tty.columns = 120;
+    instance.rerender(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT v"
+        theme={DEFAULT_THEME}
+        columns={120}
+      />,
+    );
+    // Ink throttles re-renders; a single setImmediate tick can fire before
+    // the second frame flushes, so wait long enough for it to land.
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    const wideFrame = stripAnsi(tty.buffer).replace(/\r/g, "");
+    expect(wideFrame).not.toContain("SELECT v…");
+
+    const narrowRules = (narrowFrame.match(/─/g) ?? []).length;
+    const wideRules = (wideFrame.match(/─/g) ?? []).length;
+    expect(wideRules).toBeGreaterThan(narrowRules);
+
+    instance.unmount();
   });
 });

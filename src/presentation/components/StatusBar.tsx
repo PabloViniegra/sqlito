@@ -1,4 +1,5 @@
-import { Box, Text, useStdout } from "ink";
+import { Box, Text } from "ink";
+import { memo } from "react";
 import type { StatusMessage } from "../app/appReducer.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
@@ -8,18 +9,18 @@ type Props = {
   statusMessage: StatusMessage | null;
   historyCount: number;
   favoritesCount: number;
+  columns: number;
 };
 
-export function StatusBar({
+function StatusBarImpl({
   dbPath,
   theme,
   statusMessage,
   historyCount,
   favoritesCount,
+  columns,
 }: Props) {
-  const { stdout } = useStdout();
-  const terminalWidth = stdout.columns ?? 80;
-  const rule = "─".repeat(terminalWidth);
+  const rule = "─".repeat(columns);
 
   return (
     <Box flexDirection="column">
@@ -87,3 +88,5 @@ function StatusLine({
   }
   return <Text color={theme.tokens.muted}>{message.text}</Text>;
 }
+
+export const StatusBar = memo(StatusBarImpl);

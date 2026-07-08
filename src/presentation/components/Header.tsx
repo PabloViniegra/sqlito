@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { memo } from "react";
 import type { Theme } from "../../domain/theme/Theme.ts";
 
 const MASCOT = [
@@ -13,7 +14,7 @@ type Props = {
   theme: Theme;
 };
 
-export function Header({ dbPath, theme }: Props) {
+function HeaderImpl({ dbPath, theme }: Props) {
   return (
     <Box
       borderStyle="round"
@@ -36,3 +37,5 @@ export function Header({ dbPath, theme }: Props) {
     </Box>
   );
 }
+
+export const Header = memo(HeaderImpl);

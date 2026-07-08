@@ -1,5 +1,25 @@
-import { Box, Static, useApp, useInput } from "ink";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+// Slice → user-story traceability (v1.1 "fluidity" chain, PRD #31).
+// Each wiring in this file exists to satisfy the user story listed below;
+// before deleting code that "looks unused", check the slice that owns it.
+//   #32 alternate-screen              → launch / exit feel like one app, no scrollback pollution
+//   #33 useViewportSize + responsive   → prompt stays reachable, results scroll independently
+//   #34 wrap prompt + ↑/↓ cursor rows  → long queries don't truncate; ↑/↓ navigate within the wrapped prompt
+//   #35 readline reducer + Prompt      → insert / delete / move are predictable across every key
+//   #36 history recall at boundary     → ↑ on the first visual row pulls prior SQL, not just the prior line
+//   #37 kill + word-skip               → editing a long query feels like a shell
+//   #38 Ctrl+L clear + re-anchor       → a cluttered session is one keystroke from a fresh slate
+//   #39 split useInput precedence      → Tab and Ctrl+P never collide; overlays own their own input
+//   #40 memoize + render-counter       → typing stays responsive on large result sets
+//   #41 e2e smoke + bench gate         → every key sequence has at least one automated proof; cold-start regressions are caught before merge
+import { Box, useApp, useInput, usePaste, useStdout } from "ink";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
 import { ListFavorites } from "../../application/favorites/ListFavorites.ts";
 import { SaveFavorite } from "../../application/favorites/SaveFavorite.ts";
@@ -27,17 +47,27 @@ import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { CommandPalette } from "../components/CommandPalette.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
+import {
+  DEFAULT_PROMPT_PREFIX,
+  promptEffectiveWidth,
+} from "../components/derivePromptLayout.ts";
 import { ResultsTable } from "../components/ResultsTable.tsx";
 import { StatusBar } from "../components/StatusBar.tsx";
+import { usePromptInput } from "../hooks/usePromptInput.ts";
+import { useViewportSize } from "../hooks/useViewportSize.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
 import { appReducer, initialState } from "./appReducer.ts";
+import { clearScreen } from "./clearScreen.ts";
 import {
   filterCommands,
   handleCommandPaletteInput,
 } from "./commandPaletteInput.ts";
 import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
+import { promptKeymapReadlineIntent } from "./promptKeymap.ts";
+import { recallHistory } from "./recallHistory.ts";
+import type { ReadlineState } from "./readline.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
 type Props = {
@@ -46,8 +76,14 @@ type Props = {
   dbPath: string;
 };
 
+const MAX_VISIBLE_QUERIES = 5;
+const HEADER_HEIGHT = 6;
+const PROMPT_AREA = 4;
+
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const { rows, columns } = useViewportSize();
   const sessionVars = useMemo(() => new SessionVariables(), []);
   const executeQuery = useMemo(
     () => new ExecuteQuery(db, () => sessionVars.entries()),
@@ -104,6 +140,8 @@ export function App({ db, schema, dbPath }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
+  const stashedPromptRef = useRef<ReadlineState | null>(null);
+  const [historyCursor, setHistoryCursor] = useState(0);
 
   const quit = useCallback(() => {
     db.close();
@@ -172,7 +210,68 @@ export function App({ db, schema, dbPath }: Props) {
     switchTheme,
   };
 
+  const effectiveColumns = promptEffectiveWidth(
+    columns,
+    DEFAULT_PROMPT_PREFIX.length,
+  );
+
+  const navigateHistory = useCallback(
+    (direction: "up" | "down") => {
+      const result = recallHistory({
+        text: state.prompt.text,
+        cursor: state.prompt.cursor,
+        viewportColumns: effectiveColumns,
+        entries: state.history.entries,
+        historyCursor,
+        stashedPrompt: stashedPromptRef.current,
+        direction,
+      });
+      if (result.kind === "skip") {
+        dispatch({
+          type: "readline",
+          intent:
+            direction === "up"
+              ? { type: "MoveUp", viewportColumns: effectiveColumns }
+              : { type: "MoveDown", viewportColumns: effectiveColumns },
+        });
+        return;
+      }
+      if (result.kind === "apply") {
+        dispatch({
+          type: "readline",
+          intent: {
+            type: "Reset",
+            text: result.prompt.text,
+            cursor: result.prompt.cursor,
+          },
+        });
+        setHistoryCursor(result.nextHistoryCursor);
+        stashedPromptRef.current = result.nextStashedPrompt;
+      }
+    },
+    [
+      effectiveColumns,
+      historyCursor,
+      state.history.entries,
+      state.prompt.cursor,
+      state.prompt.text,
+    ],
+  );
+
+  const overlayActive =
+    state.autocomplete !== null ||
+    state.commandPalette !== null ||
+    state.reverseSearch !== null;
+
   useInput((input, key) => {
+    if (key.ctrl && input === "l") {
+      // Ink only writes a frame when it differs from the last one it
+      // rendered, so a raw terminal clear needs a real state change behind
+      // it or the screen stays blank until something else touches state.
+      if (stdout !== undefined) clearScreen(stdout);
+      dispatch({ type: "setStatus", status: null });
+      return;
+    }
     if (state.reverseSearch !== null) {
       handleReverseSearchInput({
         input,
@@ -186,19 +285,6 @@ export function App({ db, schema, dbPath }: Props) {
     }
     if (key.ctrl && input === "c") {
       quit();
-      return;
-    }
-    if (key.ctrl && input === "u") {
-      dispatch({ type: "clearPrompt" });
-      return;
-    }
-    if (key.ctrl && input === "r") {
-      promptBeforeReverseRef.current = state.prompt;
-      dispatch({ type: "reverseSearchOpen" });
-      return;
-    }
-    if (key.ctrl && input === "p") {
-      dispatch({ type: "openCommandPalette" });
       return;
     }
     if (state.commandPalette !== null) {
@@ -216,25 +302,42 @@ export function App({ db, schema, dbPath }: Props) {
         input,
         key,
         autocomplete,
-        prompt: state.prompt,
+        prompt: state.prompt.text,
         popup: state.autocomplete,
         dispatch,
       });
       return;
     }
+    if (key.ctrl && input === "r") {
+      promptBeforeReverseRef.current = state.prompt.text;
+      dispatch({ type: "reverseSearchOpen" });
+      return;
+    }
+    if (key.ctrl && input === "p") {
+      dispatch({ type: "openCommandPalette" });
+      return;
+    }
     if (key.tab) {
-      const ac = deriveAutocompleteContext(state.prompt);
+      const ac = deriveAutocompleteContext(state.prompt.text);
       dispatch({
         type: "openAutocomplete",
         prefix: ac.prefix,
         prefixBase: ac.prefixBase,
         context: ac.context,
       });
+    }
+  });
+
+  usePromptInput(overlayActive, (input, key) => {
+    const promptIntent = promptKeymapReadlineIntent(input, key);
+    if (promptIntent !== null) {
+      dispatch({ type: "readline", intent: promptIntent });
       return;
     }
     if (key.return) {
-      const sql = state.prompt.trim();
+      const sql = state.prompt.text.trim();
       if (sql === "") return;
+      setHistoryCursor(0);
       if (sql.startsWith(".")) {
         void handleDotCommand(sql, dotCommandDeps);
         dispatch({ type: "command", line: sql });
@@ -258,29 +361,49 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (key.upArrow) {
-      dispatch({ type: "historyUp" });
+      navigateHistory("up");
       return;
     }
     if (key.downArrow) {
-      dispatch({ type: "historyDown" });
+      navigateHistory("down");
       return;
     }
-    if (key.backspace || key.delete) {
-      dispatch({ type: "backspace" });
+    if (key.leftArrow) {
+      dispatch({ type: "readline", intent: { type: "MoveLeft" } });
+      return;
+    }
+    if (key.rightArrow) {
+      dispatch({ type: "readline", intent: { type: "MoveRight" } });
+      return;
+    }
+    if (key.home) {
+      dispatch({ type: "readline", intent: { type: "MoveHome" } });
+      return;
+    }
+    if (key.end) {
+      dispatch({ type: "readline", intent: { type: "MoveEnd" } });
+      return;
+    }
+    if (key.backspace) {
+      dispatch({ type: "readline", intent: { type: "Backspace" } });
+      return;
+    }
+    if (key.delete) {
+      dispatch({ type: "readline", intent: { type: "Delete" } });
       return;
     }
     if (input && !key.ctrl && !key.meta) {
-      dispatch({ type: "setPrompt", value: state.prompt + input });
+      dispatch({ type: "readline", intent: { type: "Insert", ch: input } });
     }
   });
 
-  const { cursor, entries } = state.history;
-  const displayedPrompt =
-    state.reverseSearch !== null
-      ? state.prompt
-      : cursor === 0
-        ? state.prompt
-        : (entries[cursor - 1]?.sql ?? state.prompt);
+  usePaste(
+    (text) => {
+      dispatch({ type: "readline", intent: { type: "Paste", text } });
+    },
+    { isActive: !overlayActive },
+  );
+
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
@@ -292,27 +415,42 @@ export function App({ db, schema, dbPath }: Props) {
   const paletteMatches = palette === null ? [] : filterCommands(palette.query);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
       <Header dbPath={dbPath} theme={state.theme} />
       {state.pastQueries.length > 0 && (
-        <Static items={[...state.pastQueries]}>
-          {(item, index) => (
+        <Box
+          flexDirection="column"
+          flexShrink={1}
+          overflowY="hidden"
+          minHeight={0}
+          height={Math.max(0, rows - HEADER_HEIGHT - PROMPT_AREA)}
+        >
+          {state.pastQueries.slice(-MAX_VISIBLE_QUERIES).map((item) => (
             <ResultsTable
-              key={index}
+              key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
               outcome={item.outcome}
               sql={item.sql}
               theme={state.theme}
+              columns={columns}
             />
-          )}
-        </Static>
+          ))}
+        </Box>
       )}
-      <Prompt value={displayedPrompt} prefix={prefix} theme={state.theme} />
+      <Box flexGrow={1} />
+      <Prompt
+        readlineState={state.prompt}
+        viewportColumns={columns}
+        prefix={prefix}
+        theme={state.theme}
+      />
       {popup !== null && (
-        <AutocompletePopup
-          suggestions={suggestions}
-          index={popup.index}
-          theme={state.theme}
-        />
+        <Box position="absolute" width={columns} bottom={3}>
+          <AutocompletePopup
+            suggestions={suggestions}
+            index={popup.index}
+            theme={state.theme}
+          />
+        </Box>
       )}
       {palette !== null && (
         <CommandPalette
@@ -328,6 +466,7 @@ export function App({ db, schema, dbPath }: Props) {
         statusMessage={state.statusMessage}
         historyCount={state.history.entries.length}
         favoritesCount={state.favorites.length}
+        columns={columns}
       />
     </Box>
   );

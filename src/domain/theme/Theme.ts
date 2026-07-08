@@ -25,8 +25,8 @@ export const DEFAULT_THEME: Theme = {
     highlight: "cyan",
     error: "red",
     success: "green",
-    dim: "gray",
-    border: "gray",
+    dim: "white",
+    border: "white",
   },
 };
 
