@@ -7,6 +7,8 @@ import {
   type ReadlineState,
 } from "./readline.ts";
 
+export const MAX_VISIBLE_QUERIES = 5;
+
 export type PastQuery = {
   sql: string;
   outcome: QueryOutcome;
@@ -43,6 +45,7 @@ export type AppState = {
   prompt: ReadlineState;
   history: { entries: readonly HistoryEntry[] };
   pastQueries: readonly PastQuery[];
+  pastQueriesScrollOffset: number;
   autocomplete: AutocompleteState | null;
   lastOutcome: QueryOutcome | null;
   statusMessage: StatusMessage | null;
@@ -85,12 +88,15 @@ export type AppEvent =
   | { type: "openCommandPalette" }
   | { type: "closeCommandPalette" }
   | { type: "setCommandPaletteQuery"; query: string }
-  | { type: "moveCommandPalette"; delta: -1 | 1; count: number };
+  | { type: "moveCommandPalette"; delta: -1 | 1; count: number }
+  | { type: "pastQueriesPageUp" }
+  | { type: "pastQueriesPageDown" };
 
 export const initialState: AppState = {
   prompt: { text: "", cursor: 0 },
   history: { entries: [] },
   pastQueries: [],
+  pastQueriesScrollOffset: 0,
   autocomplete: null,
   lastOutcome: null,
   statusMessage: null,
@@ -123,12 +129,34 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
         prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
         statusMessage: null,
         lastOutcome: event.outcome,
+        pastQueriesScrollOffset: 0,
       };
       if (state.reverseSearch !== null) next.reverseSearch = null;
       return next;
     }
-    case "setStatus":
+    case "setStatus": {
+      if (event.status === null) {
+        return { ...state, statusMessage: null, pastQueriesScrollOffset: 0 };
+      }
       return { ...state, statusMessage: event.status };
+    }
+    case "pastQueriesPageUp": {
+      const maxOffset = Math.max(
+        0,
+        state.pastQueries.length - MAX_VISIBLE_QUERIES,
+      );
+      if (state.pastQueriesScrollOffset >= maxOffset) return state;
+      return {
+        ...state,
+        pastQueriesScrollOffset: state.pastQueriesScrollOffset + 1,
+      };
+    }
+    case "pastQueriesPageDown":
+      if (state.pastQueriesScrollOffset <= 0) return state;
+      return {
+        ...state,
+        pastQueriesScrollOffset: state.pastQueriesScrollOffset - 1,
+      };
     case "exit":
       return state;
     case "openAutocomplete":
