@@ -26,7 +26,7 @@ export type DotCommandDeps = {
   dispatch: AppDispatch;
   exportCsv: ExportCsv;
   schema: SchemaPrettyPrint;
-  lastRowsOutcome: QueryOutcome | null;
+  lastOutcome: QueryOutcome | null;
   onQuit: () => void;
   sessionVars: SessionVariables;
   variables: readonly [string, string][];
@@ -246,12 +246,16 @@ function formatVars(variables: readonly [string, string][]): string {
 }
 
 async function runExport(deps: DotCommandDeps, path: string): Promise<void> {
-  if (deps.lastRowsOutcome === null) {
+  if (deps.lastOutcome === null) {
+    setStatus(deps, "No tabular result to export", "error");
+    return;
+  }
+  if (deps.lastOutcome.kind !== "rows") {
     setStatus(deps, "No tabular result to export", "error");
     return;
   }
   try {
-    const result = await deps.exportCsv.run(deps.lastRowsOutcome, path);
+    const result = await deps.exportCsv.run(deps.lastOutcome, path);
     setStatus(
       deps,
       `Exported ${result.rowsWritten} rows to ${result.path}`,

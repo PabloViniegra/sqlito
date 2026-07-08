@@ -14,6 +14,6 @@ export function outcomeToHistoryKind(
     case "plan":
       return "ok";
     case "error":
-      return "ok";
+      return "error";
   }
 }

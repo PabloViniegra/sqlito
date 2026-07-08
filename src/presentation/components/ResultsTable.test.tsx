@@ -21,6 +21,101 @@ async function capture(
 }
 
 describe("ResultsTable", () => {
+  it("prepends READ to rows headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "1", type: null }],
+      rows: [[1]],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("READ SELECT · 1 rows · SELECT 1");
+  });
+
+  it("prepends WRITE to affected headers", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 1,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1)"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("WRITE INSERT");
+  });
+
+  it("prepends DDL to side-effect headers", async () => {
+    const outcome: QueryOutcome = { kind: "side-effect" };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="VACUUM"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("DDL VACUUM");
+    expect(frame).toContain("DDL VACUUM · side effect");
+  });
+
+  it("uses ERROR and PLAN tags as the header keyword", async () => {
+    const planOutcome: QueryOutcome = {
+      kind: "plan",
+      nodes: [
+        {
+          id: 1,
+          parent: 0,
+          detail: "SCAN users",
+          depth: 0,
+          children: [],
+        },
+      ],
+    };
+    const errorOutcome: QueryOutcome = {
+      kind: "error",
+      message: "boom",
+    };
+
+    const planFrame = await capture(
+      <ResultsTable
+        outcome={planOutcome}
+        sql="EXPLAIN QUERY PLAN SELECT * FROM users"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+    const errorFrame = await capture(
+      <ResultsTable
+        outcome={errorOutcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(planFrame).toContain("PLAN · 1 node");
+    expect(planFrame).not.toMatch(/PLAN\s+PLAN/);
+    expect(errorFrame).toContain("ERROR · aborted");
+    expect(errorFrame).not.toMatch(/ERROR\s+ERROR/);
+  });
+
   it("renders rows outcome with a framed table that includes header and rows", async () => {
     const outcome: QueryOutcome = {
       kind: "rows",
@@ -77,24 +172,45 @@ describe("ResultsTable", () => {
     expect(frame).toContain("last insert rowid: 42");
   });
 
-  it("omits the rowid parenthetical from the footer when lastInsertRowid is zero", async () => {
+  it("renders no rows matched for affected outcomes with zero changes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
-      lastInsertRowid: 0n,
+      lastInsertRowid: 0,
     };
 
     const frame = await capture(
       <ResultsTable
         outcome={outcome}
-        sql="CREATE TABLE x (id INT)"
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
         theme={DEFAULT_THEME}
         columns={80}
       />,
     );
 
     expect(frame).toContain("0 rows affected");
+    expect(frame).toContain("no rows matched");
     expect(frame).not.toContain("last insert rowid");
+  });
+
+  it("keeps the rowid footer for affected outcomes with zero changes and a positive rowid", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 0,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("no rows matched");
+    expect(frame).toContain("last insert rowid: 42");
   });
 
   it("renders side-effect outcome as 'done' with no row count or rowid", async () => {
@@ -131,6 +247,48 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain('near "syntax": syntax error');
+  });
+
+  it("renders error outcome with the SQLite code on its own line above the message", async () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      code: "SQLITE_CONSTRAINT",
+      message: "UNIQUE constraint failed: t.id",
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1)"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("SQLITE_CONSTRAINT");
+    expect(frame).toContain("UNIQUE constraint failed: t.id");
+    const codeIndex = frame.indexOf("SQLITE_CONSTRAINT");
+    const messageIndex = frame.indexOf("UNIQUE constraint failed: t.id");
+    expect(codeIndex).toBeLessThan(messageIndex);
+  });
+
+  it("renders error outcome without a code showing only the message", async () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      message: "boom",
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT 1"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("boom");
+    expect(frame).not.toMatch(/SQLITE_/);
   });
 
   it("renders NULL cells as the literal string NULL", async () => {
@@ -258,6 +416,27 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain(chalk.gray("done"));
+  });
+
+  it("renders WRITE tags in the high-contrast write color", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 0,
+      lastInsertRowid: 0,
+    };
+
+    const frame = await captureRaw(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        theme={HIGH_CONTRAST_THEME}
+        columns={80}
+      />,
+    );
+
+    const escape = "\u001B[";
+    expect(frame).toContain(`${escape}33mWRITE`);
+    expect(frame).not.toContain(`${escape}93mWRITE`);
   });
 
   it("renders error messages in the theme's error color", async () => {

@@ -7,6 +7,7 @@ export type ThemeTokens = {
   highlight: string;
   error: string;
   success: string;
+  writes: string;
   dim: string;
   border: string;
 };
@@ -25,6 +26,7 @@ export const DEFAULT_THEME: Theme = {
     highlight: "cyan",
     error: "red",
     success: "green",
+    writes: "yellow",
     dim: "white",
     border: "white",
   },
@@ -39,6 +41,7 @@ export const HIGH_CONTRAST_THEME: Theme = {
     highlight: "yellow",
     error: "redBright",
     success: "greenBright",
+    writes: "yellow",
     dim: "white",
     border: "white",
   },
