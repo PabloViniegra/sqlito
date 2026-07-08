@@ -471,7 +471,7 @@ export function App({ db, schema, dbPath }: Props) {
               </Text>
             </Box>
           ) : null}
-          {pastQueriesView.visible.map((item) => (
+          {[...pastQueriesView.visible].reverse().map((item) => (
             <ResultsTable
               key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
               outcome={item.outcome}
