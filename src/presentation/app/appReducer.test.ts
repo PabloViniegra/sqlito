@@ -60,41 +60,54 @@ describe("appReducer", () => {
       expect(next.statusMessage).toBeNull();
     });
 
-    it("stores lastRowsOutcome when the outcome is rows", () => {
-      const state = { ...initialState, lastRowsOutcome: null };
+    it("stores lastOutcome when the outcome is rows", () => {
+      const state = { ...initialState, lastOutcome: null };
       const next = appReducer(state, { type: "submit", outcome: rowsOutcome });
 
-      expect(next.lastRowsOutcome).toBe(rowsOutcome);
+      expect(next.lastOutcome).toBe(rowsOutcome);
     });
 
-    it("clears lastRowsOutcome when the outcome is affected", () => {
-      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
-      const next = appReducer(state, {
-        type: "submit",
-        outcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
-      });
+    it("stores lastOutcome when the outcome is affected (writes)", () => {
+      const affected: QueryOutcome = {
+        kind: "affected",
+        changes: 1,
+        lastInsertRowid: 1,
+      };
+      const state = { ...initialState, lastOutcome: null };
+      const next = appReducer(state, { type: "submit", outcome: affected });
 
-      expect(next.lastRowsOutcome).toBeNull();
+      expect(next.lastOutcome).toBe(affected);
     });
 
-    it("clears lastRowsOutcome when the outcome is side-effect", () => {
-      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
-      const next = appReducer(state, {
-        type: "submit",
-        outcome: { kind: "side-effect" },
-      });
+    it("stores lastOutcome when the outcome is side-effect", () => {
+      const sideEffect: QueryOutcome = { kind: "side-effect" };
+      const state = { ...initialState, lastOutcome: null };
+      const next = appReducer(state, { type: "submit", outcome: sideEffect });
 
-      expect(next.lastRowsOutcome).toBeNull();
+      expect(next.lastOutcome).toBe(sideEffect);
     });
 
-    it("clears lastRowsOutcome when the outcome is error", () => {
-      const state = { ...initialState, lastRowsOutcome: rowsOutcome };
-      const next = appReducer(state, {
-        type: "submit",
-        outcome: { kind: "error", message: "boom" },
-      });
+    it("stores lastOutcome when the outcome is plan", () => {
+      const planOutcome: QueryOutcome = {
+        kind: "plan",
+        nodes: [{ id: 1, parent: 0, detail: "x", depth: 0, children: [] }],
+      };
+      const state = { ...initialState, lastOutcome: null };
+      const next = appReducer(state, { type: "submit", outcome: planOutcome });
 
-      expect(next.lastRowsOutcome).toBeNull();
+      expect(next.lastOutcome).toBe(planOutcome);
+    });
+
+    it("stores lastOutcome when the outcome is error", () => {
+      const errorOutcome: QueryOutcome = {
+        kind: "error",
+        code: "SQLITE_CONSTRAINT",
+        message: "boom",
+      };
+      const state = { ...initialState, lastOutcome: null };
+      const next = appReducer(state, { type: "submit", outcome: errorOutcome });
+
+      expect(next.lastOutcome).toBe(errorOutcome);
     });
   });
 
@@ -404,7 +417,7 @@ describe("appReducer", () => {
 
   describe("exportTo", () => {
     it("returns state unchanged (driver owns the CSV write)", () => {
-      const lastRowsOutcome: QueryOutcome = {
+      const lastOutcome: QueryOutcome = {
         kind: "rows",
         columns: [{ name: "a", type: null }],
         rows: [[1]],
@@ -412,7 +425,7 @@ describe("appReducer", () => {
       const state = {
         ...initialState,
         prompt: rl("SELECT 1"),
-        lastRowsOutcome,
+        lastOutcome,
       };
       const next = appReducer(state, {
         type: "exportTo",

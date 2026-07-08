@@ -44,7 +44,7 @@ export type AppState = {
   history: { entries: readonly HistoryEntry[] };
   pastQueries: readonly PastQuery[];
   autocomplete: AutocompleteState | null;
-  lastRowsOutcome: QueryOutcome | null;
+  lastOutcome: QueryOutcome | null;
   statusMessage: StatusMessage | null;
   reverseSearch: ReverseSearchState | null;
   variables: readonly [string, string][];
@@ -92,7 +92,7 @@ export const initialState: AppState = {
   history: { entries: [] },
   pastQueries: [],
   autocomplete: null,
-  lastRowsOutcome: null,
+  lastOutcome: null,
   statusMessage: null,
   reverseSearch: null,
   variables: [],
@@ -122,7 +122,7 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
         ...state,
         prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
         statusMessage: null,
-        lastRowsOutcome: event.outcome.kind === "rows" ? event.outcome : null,
+        lastOutcome: event.outcome,
       };
       if (state.reverseSearch !== null) next.reverseSearch = null;
       return next;

@@ -30,7 +30,7 @@ function makeDeps(dispatch: (event: AppEvent) => void): DotCommandDeps {
       indexes: () => "idx on users",
       schema: () => ({ ok: true, text: "CREATE TABLE users (...);" }),
     } as unknown as DotCommandDeps["schema"],
-    lastRowsOutcome: null,
+    lastOutcome: null,
     onQuit: vi.fn(),
     sessionVars: new SessionVariables(),
     variables: [],

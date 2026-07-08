@@ -1,7 +1,9 @@
 import { Box, Text } from "ink";
 import { memo } from "react";
-import type { StatusMessage } from "../app/appReducer.ts";
+import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import type { StatusMessage } from "../app/appReducer.ts";
+import { renderOutcomeChip } from "./outcomeChip.ts";
 
 type Props = {
   dbPath: string;
@@ -10,6 +12,7 @@ type Props = {
   historyCount: number;
   favoritesCount: number;
   columns: number;
+  lastOutcome: QueryOutcome | null;
 };
 
 function StatusBarImpl({
@@ -19,6 +22,7 @@ function StatusBarImpl({
   historyCount,
   favoritesCount,
   columns,
+  lastOutcome,
 }: Props) {
   const rule = "─".repeat(columns);
 
@@ -36,6 +40,12 @@ function StatusBarImpl({
             {historyCount} history · {favoritesCount} favorites
           </Text>
         </Box>
+        {lastOutcome !== null && (
+          <Box flexShrink={0}>
+            <Text color={theme.tokens.muted}> · </Text>
+            <OutcomeChip outcome={lastOutcome} theme={theme} />
+          </Box>
+        )}
         <Box flexGrow={1} />
         <Hint label="^R" token="search" theme={theme} />
         <Hint label="^P" token="palette" theme={theme} />
@@ -87,6 +97,24 @@ function StatusLine({
     );
   }
   return <Text color={theme.tokens.muted}>{message.text}</Text>;
+}
+
+function OutcomeChip({
+  outcome,
+  theme,
+}: {
+  outcome: QueryOutcome;
+  theme: Theme;
+}) {
+  const { tag, detail } = renderOutcomeChip(outcome);
+  return (
+    <Text>
+      <Text color={theme.tokens.primary} bold>
+        {tag}
+      </Text>
+      {detail !== "" && <Text color={theme.tokens.muted}> {detail}</Text>}
+    </Text>
+  );
 }
 
 export const StatusBar = memo(StatusBarImpl);

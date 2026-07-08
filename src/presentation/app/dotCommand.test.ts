@@ -31,7 +31,7 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
           ? { ok: false, error: "unknown table: ghost" }
           : { ok: true, text: "CREATE TABLE users (...);" },
     } as unknown as DotCommandDeps["schema"],
-    lastRowsOutcome: null,
+    lastOutcome: null,
     onQuit: vi.fn(),
     sessionVars: new SessionVariables(),
     variables: [],
@@ -112,8 +112,21 @@ describe("handleDotCommand", () => {
   });
 
   it(".export with no prior result errors", async () => {
-    const { deps, events } = makeDeps({ lastRowsOutcome: null });
+    const { deps, events } = makeDeps({ lastOutcome: null });
     await handleDotCommand(".export /tmp/x.csv", deps);
+    expect(events).toEqual([
+      { status: { text: "No tabular result to export", kind: "error" } },
+    ]);
+  });
+
+  it(".export errors when the last outcome is not tabular (e.g. affected)", async () => {
+    const run = vi.fn();
+    const { deps, events } = makeDeps({
+      exportCsv: { run } as unknown as DotCommandDeps["exportCsv"],
+      lastOutcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
+    });
+    await handleDotCommand(".export /tmp/x.csv", deps);
+    expect(run).not.toHaveBeenCalled();
     expect(events).toEqual([
       { status: { text: "No tabular result to export", kind: "error" } },
     ]);
@@ -130,7 +143,7 @@ describe("handleDotCommand", () => {
       .mockResolvedValue({ rowsWritten: 1, path: "/tmp/x.csv" });
     const { deps, events } = makeDeps({
       exportCsv: { run } as unknown as DotCommandDeps["exportCsv"],
-      lastRowsOutcome: outcome,
+      lastOutcome: outcome,
     });
     await handleDotCommand(".export /tmp/x.csv", deps);
     expect(run).toHaveBeenCalledWith(outcome, "/tmp/x.csv");
@@ -152,7 +165,7 @@ describe("handleDotCommand — variables", () => {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
-      lastRowsOutcome: null,
+      lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: vars,
       variables,
@@ -268,7 +281,7 @@ describe("handleDotCommand — explain", () => {
       },
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
-      lastRowsOutcome: null,
+      lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],
@@ -355,7 +368,7 @@ describe("handleDotCommand — favorites", () => {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
-      lastRowsOutcome: null,
+      lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],
@@ -482,7 +495,7 @@ describe("handleDotCommand — theme", () => {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
-      lastRowsOutcome: null,
+      lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],

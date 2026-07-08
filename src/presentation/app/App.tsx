@@ -187,7 +187,7 @@ export function App({ db, schema, dbPath }: Props) {
     dispatch,
     exportCsv,
     schema: schemaPrettyPrint,
-    lastRowsOutcome: state.lastRowsOutcome,
+    lastOutcome: state.lastOutcome,
     onQuit: quit,
     sessionVars,
     variables: state.variables,
@@ -467,6 +467,7 @@ export function App({ db, schema, dbPath }: Props) {
         historyCount={state.history.entries.length}
         favoritesCount={state.favorites.length}
         columns={columns}
+        lastOutcome={state.lastOutcome}
       />
     </Box>
   );
