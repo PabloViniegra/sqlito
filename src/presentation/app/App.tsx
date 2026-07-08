@@ -11,7 +11,7 @@
 //   #39 split useInput precedence      → Tab and Ctrl+P never collide; overlays own their own input
 //   #40 memoize + render-counter       → typing stays responsive on large result sets
 //   #41 e2e smoke + bench gate         → every key sequence has at least one automated proof; cold-start regressions are caught before merge
-import { Box, Static, useApp, useInput, usePaste, useStdout } from "ink";
+import { Box, useApp, useInput, usePaste, useStdout } from "ink";
 import {
   useCallback,
   useEffect,
@@ -75,6 +75,10 @@ type Props = {
   schema: SchemaRepository;
   dbPath: string;
 };
+
+const MAX_VISIBLE_QUERIES = 5;
+const HEADER_HEIGHT = 6;
+const PROMPT_AREA = 4;
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
@@ -414,17 +418,23 @@ export function App({ db, schema, dbPath }: Props) {
     <Box flexDirection="column" height={rows}>
       <Header dbPath={dbPath} theme={state.theme} />
       {state.pastQueries.length > 0 && (
-        <Static items={[...state.pastQueries]}>
-          {(item, index) => (
+        <Box
+          flexDirection="column"
+          flexShrink={1}
+          overflowY="hidden"
+          minHeight={0}
+          height={Math.max(0, rows - HEADER_HEIGHT - PROMPT_AREA)}
+        >
+          {state.pastQueries.slice(-MAX_VISIBLE_QUERIES).map((item) => (
             <ResultsTable
-              key={index}
+              key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
               outcome={item.outcome}
               sql={item.sql}
               theme={state.theme}
               columns={columns}
             />
-          )}
-        </Static>
+          ))}
+        </Box>
       )}
       <Box flexGrow={1} />
       <Prompt
@@ -434,11 +444,13 @@ export function App({ db, schema, dbPath }: Props) {
         theme={state.theme}
       />
       {popup !== null && (
-        <AutocompletePopup
-          suggestions={suggestions}
-          index={popup.index}
-          theme={state.theme}
-        />
+        <Box position="absolute" width={columns} bottom={3}>
+          <AutocompletePopup
+            suggestions={suggestions}
+            index={popup.index}
+            theme={state.theme}
+          />
+        </Box>
       )}
       {palette !== null && (
         <CommandPalette

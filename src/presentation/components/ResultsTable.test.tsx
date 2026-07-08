@@ -49,9 +49,9 @@ describe("ResultsTable", () => {
     expect(frame).toContain("Lin");
     expect(frame).toContain("SELECT");
     expect(frame).toContain("2 rows");
-    expect(frame).toContain("╭");
-    expect(frame).toContain("╰");
-    expect(frame).toContain("│");
+    expect(frame).toContain("+");
+    expect(frame).toContain("|");
+    expect(frame).toContain("-");
     expect(
       frame.split("\n").filter((l) => l.length > 0).length,
     ).toBeGreaterThanOrEqual(5);

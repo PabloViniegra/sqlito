@@ -34,7 +34,7 @@ function ResultsTableImpl({
           <Text color={theme.tokens.dim}> · {sqlLabel}</Text>
         )}
       </Box>
-      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Text color={theme.tokens.border}>{rule}</Text>
       {renderBody(outcome, terminalWidth, theme)}
       {footerText === null ? null : (
         <Box marginTop={1}>
@@ -42,7 +42,7 @@ function ResultsTableImpl({
           <Text color={theme.tokens.success}>{footerText}</Text>
         </Box>
       )}
-      <Text color={theme.tokens.muted}>{rule}</Text>
+      <Text color={theme.tokens.border}>{rule}</Text>
     </Box>
   );
 }
@@ -107,20 +107,33 @@ function renderBody(
   theme: Theme,
 ) {
   switch (outcome.kind) {
-    case "rows":
-      return formatBorderedTable(
+    case "rows": {
+      const lines = formatBorderedTable(
         outcome.columns,
         outcome.rows,
         terminalWidth,
-      ).map((line, i) => (
-        <Text
-          key={i}
-          color={i === 1 ? theme.tokens.primary : undefined}
-          bold={i === 1}
-        >
-          {line}
-        </Text>
-      ));
+      );
+      const last = lines.length - 1;
+      return lines.map((line, i) => {
+        const isHeader = i === 1;
+        const isBorder = i === 0 || i === 2 || i === last;
+        return (
+          <Text
+            key={i}
+            color={
+              isHeader
+                ? theme.tokens.primary
+                : isBorder
+                  ? theme.tokens.border
+                  : theme.tokens.dim
+            }
+            bold={isHeader}
+          >
+            {line}
+          </Text>
+        );
+      });
+    }
     case "affected":
       return null;
     case "side-effect":
