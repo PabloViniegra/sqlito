@@ -605,6 +605,100 @@ describe("appReducer", () => {
     });
   });
 
+  describe("submit resets pastQueriesScrollOffset to 0", () => {
+    const rowsOutcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "a", type: null }],
+      rows: [[1]],
+    };
+
+    it("snaps offset to 0 when it was non-zero before submit", () => {
+      const state = {
+        ...initialState,
+        pastQueriesScrollOffset: 5,
+      };
+      const next = appReducer(state, { type: "submit", outcome: rowsOutcome });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+
+    it("keeps offset at 0 when it was already 0", () => {
+      const next = appReducer(initialState, {
+        type: "submit",
+        outcome: rowsOutcome,
+      });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+  });
+
+  describe("pastQueriesPageUp / pastQueriesPageDown", () => {
+    const seed = (n: number, offset: number) => ({
+      ...initialState,
+      pastQueries: Array.from({ length: n }, (_, i) => ({
+        sql: `q${i}`,
+        outcome: { kind: "side-effect" as const },
+      })),
+      pastQueriesScrollOffset: offset,
+    });
+
+    it("pageUp from offset 0 with 6 queries → offset 1", () => {
+      const next = appReducer(seed(6, 0), { type: "pastQueriesPageUp" });
+      expect(next.pastQueriesScrollOffset).toBe(1);
+    });
+
+    it("pageUp at max offset (length - MAX_VISIBLE_QUERIES = 3) → no change", () => {
+      const next = appReducer(seed(8, 3), { type: "pastQueriesPageUp" });
+      expect(next.pastQueriesScrollOffset).toBe(3);
+    });
+
+    it("pageUp at offset > max (oversized) → no change", () => {
+      const next = appReducer(seed(6, 9), { type: "pastQueriesPageUp" });
+      expect(next.pastQueriesScrollOffset).toBe(9);
+    });
+
+    it("pageUp with no past queries → no change", () => {
+      const next = appReducer(seed(0, 0), { type: "pastQueriesPageUp" });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+
+    it("pageDown from offset 1 → offset 0", () => {
+      const next = appReducer(seed(6, 1), { type: "pastQueriesPageDown" });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+
+    it("pageDown at offset 0 → no change", () => {
+      const next = appReducer(seed(6, 0), { type: "pastQueriesPageDown" });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+
+    it("pageDown past 0 (already 0) → no change", () => {
+      const next = appReducer(seed(0, 0), { type: "pastQueriesPageDown" });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+  });
+
+  describe("setStatus(null) clears pastQueriesScrollOffset", () => {
+    it("snaps offset to 0 when Ctrl+L clears the status", () => {
+      const state = {
+        ...initialState,
+        pastQueriesScrollOffset: 4,
+      };
+      const next = appReducer(state, { type: "setStatus", status: null });
+      expect(next.pastQueriesScrollOffset).toBe(0);
+    });
+
+    it("leaves offset at 0 when setStatus carries a non-null status", () => {
+      const state = {
+        ...initialState,
+        pastQueriesScrollOffset: 4,
+      };
+      const next = appReducer(state, {
+        type: "setStatus",
+        status: { text: "ok", kind: "info" as const },
+      });
+      expect(next.pastQueriesScrollOffset).toBe(4);
+    });
+  });
+
   describe("submit + reverse-search interaction", () => {
     it("closes an open reverse-search on submit", () => {
       const state = {
