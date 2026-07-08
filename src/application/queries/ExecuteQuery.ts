@@ -4,7 +4,6 @@ import type {
   PreparedStatement,
 } from "../../domain/database/Database.ts";
 import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
-import { isReadOnly } from "../../domain/sql/isReadOnly.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 
 export class ExecuteQuery {
@@ -29,10 +28,12 @@ export class ExecuteQuery {
 
     const params = this.bindParams();
     try {
-      if (isReadOnly(trimmed)) {
+      if (stmt.reader) {
         const columns = stmt.columns();
         const rows = stmt.all(params);
-        return { kind: "rows", columns, rows };
+        return stmt.readonly
+          ? { kind: "rows", columns, rows }
+          : { kind: "rows", columns, rows, writes: true };
       }
       const info = stmt.run(params);
       if (classifySideEffect(trimmed)) {

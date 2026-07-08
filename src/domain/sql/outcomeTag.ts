@@ -5,7 +5,7 @@ export type OutcomeTag = "READ" | "WRITE" | "DDL" | "ERROR" | "PLAN";
 export function outcomeTag(outcome: QueryOutcome): OutcomeTag {
   switch (outcome.kind) {
     case "rows":
-      return "READ";
+      return outcome.writes === true ? "WRITE" : "READ";
     case "affected":
       return "WRITE";
     case "side-effect":

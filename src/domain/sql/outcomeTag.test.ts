@@ -13,6 +13,17 @@ describe("outcomeTag", () => {
     expect(outcomeTag(outcome)).toBe("READ");
   });
 
+  it("maps rows outcomes flagged as writes (RETURNING) to WRITE", () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [],
+      rows: [],
+      writes: true,
+    };
+
+    expect(outcomeTag(outcome)).toBe("WRITE");
+  });
+
   it("maps affected outcomes to WRITE", () => {
     const outcome: QueryOutcome = {
       kind: "affected",

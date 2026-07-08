@@ -71,6 +71,61 @@ describe("ExecuteQuery", () => {
     expect(Number(outcome.lastInsertRowid)).toBeGreaterThan(0);
   });
 
+  it("executes INSERT … RETURNING and returns the rows, flagged as writes", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)").run();
+
+    const outcome = exec.execute(
+      "INSERT INTO t (name) VALUES ('Ada'), ('Lin') RETURNING id, name",
+    );
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.writes).toBe(true);
+    expect(outcome.rows).toEqual([
+      [1, "Ada"],
+      [2, "Lin"],
+    ]);
+    expect(db.prepare("SELECT count(*) FROM t").all()).toEqual([[2]]);
+  });
+
+  it("executes DELETE … RETURNING and returns the deleted rows", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER PRIMARY KEY)").run();
+    db.prepare("INSERT INTO t VALUES (1), (2)").run();
+
+    const outcome = exec.execute("DELETE FROM t RETURNING id");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.writes).toBe(true);
+    expect(outcome.rows).toEqual([[1], [2]]);
+  });
+
+  it("executes a CTE write (WITH … UPDATE) as affected, not as a read", () => {
+    const exec = setup();
+    db.prepare("CREATE TABLE t (id INTEGER, name TEXT)").run();
+    db.prepare("INSERT INTO t VALUES (1, 'a'), (2, 'b')").run();
+
+    const outcome = exec.execute(
+      "WITH picked AS (SELECT 1 AS id) UPDATE t SET name = 'x' WHERE id IN (SELECT id FROM picked)",
+    );
+
+    expect(outcome.kind).toBe("affected");
+    if (outcome.kind !== "affected") throw new Error("expected affected");
+    expect(outcome.changes).toBe(1);
+  });
+
+  it("does not flag plain SELECT rows as writes", () => {
+    const exec = setup();
+
+    const outcome = exec.execute("SELECT 1 AS a");
+
+    expect(outcome.kind).toBe("rows");
+    if (outcome.kind !== "rows") throw new Error("expected rows");
+    expect(outcome.writes).toBeUndefined();
+  });
+
   it("executes CREATE TABLE (DDL) and returns side-effect outcome", () => {
     const exec = setup();
 

@@ -33,6 +33,8 @@ export class BetterSqliteDatabase implements Database {
   prepare(sql: string): PreparedStatement {
     const stmt = this.driver.prepare(sql);
     return {
+      reader: stmt.reader,
+      readonly: stmt.readonly,
       all: (params?: BindParams) => {
         const columnNames = stmt.columns().map((c) => c.name);
         const rows = (
