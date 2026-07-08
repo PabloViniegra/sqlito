@@ -7,6 +7,7 @@ const counters = vi.hoisted(() => ({
   header: 0,
   statusBar: 0,
   resultsTable: 0,
+  prompt: 0,
 }));
 
 vi.mock("../components/Header.tsx", async () => {
@@ -46,6 +47,19 @@ vi.mock("../components/ResultsTable.tsx", async () => {
     return React.createElement(actual.ResultsTable, props);
   }
   return { ResultsTable: React.memo(Stub) };
+});
+
+vi.mock("../components/Prompt.tsx", async () => {
+  const React = await import("react");
+  const actual = await vi.importActual<
+    typeof import("../components/Prompt.tsx")
+  >("../components/Prompt.tsx");
+  type PromptProps = React.ComponentProps<typeof actual.Prompt>;
+  function Stub(props: PromptProps) {
+    counters.prompt += 1;
+    return React.createElement(actual.Prompt, props);
+  }
+  return { Prompt: React.memo(Stub) };
 });
 
 import { App } from "./App.tsx";
@@ -114,6 +128,7 @@ async function mountApp(): Promise<{
       counters.header = 0;
       counters.statusBar = 0;
       counters.resultsTable = 0;
+      counters.prompt = 0;
     },
     async cleanup() {
       instance.unmount();
@@ -157,6 +172,17 @@ describe("App render-counter (memoization guard)", () => {
       await app.cleanup();
     }
   });
+
+  it("Prompt does not re-render when the command palette opens", async () => {
+    const app = await mountApp();
+    try {
+      app.reset();
+      await app.send("\x10");
+      expect(counters.prompt).toBe(0);
+    } finally {
+      await app.cleanup();
+    }
+  });
 });
 
 describe("App render-counter (memoization guard) — real component memoization", () => {
@@ -176,6 +202,15 @@ describe("App render-counter (memoization guard) — real component memoization"
     expect(
       (actual.StatusBar as { $$typeof: symbol }).$$typeof.description,
     ).toBe("react.memo");
+  });
+
+  it("Prompt is wrapped in React.memo", async () => {
+    const actual = await vi.importActual<
+      typeof import("../components/Prompt.tsx")
+    >("../components/Prompt.tsx");
+    expect((actual.Prompt as { $$typeof: symbol }).$$typeof.description).toBe(
+      "react.memo",
+    );
   });
 
   it("ResultsTable is wrapped in React.memo", async () => {

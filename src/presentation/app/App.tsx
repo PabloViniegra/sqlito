@@ -11,7 +11,7 @@
 //   #39 split useInput precedence      → Tab and Ctrl+P never collide; overlays own their own input
 //   #40 memoize + render-counter       → typing stays responsive on large result sets
 //   #41 e2e smoke + bench gate         → every key sequence has at least one automated proof; cold-start regressions are caught before merge
-import { Box, Static, useApp, useInput, useStdout } from "ink";
+import { Box, Static, useApp, useInput, usePaste, useStdout } from "ink";
 import {
   useCallback,
   useEffect,
@@ -47,6 +47,10 @@ import { AutocompletePopup } from "../components/AutocompletePopup.tsx";
 import { CommandPalette } from "../components/CommandPalette.tsx";
 import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
+import {
+  DEFAULT_PROMPT_PREFIX,
+  promptEffectiveWidth,
+} from "../components/derivePromptLayout.ts";
 import { ResultsTable } from "../components/ResultsTable.tsx";
 import { StatusBar } from "../components/StatusBar.tsx";
 import { usePromptInput } from "../hooks/usePromptInput.ts";
@@ -202,12 +206,17 @@ export function App({ db, schema, dbPath }: Props) {
     switchTheme,
   };
 
+  const effectiveColumns = promptEffectiveWidth(
+    columns,
+    DEFAULT_PROMPT_PREFIX.length,
+  );
+
   const navigateHistory = useCallback(
     (direction: "up" | "down") => {
       const result = recallHistory({
         text: state.prompt.text,
         cursor: state.prompt.cursor,
-        viewportColumns: columns,
+        viewportColumns: effectiveColumns,
         entries: state.history.entries,
         historyCursor,
         stashedPrompt: stashedPromptRef.current,
@@ -218,8 +227,8 @@ export function App({ db, schema, dbPath }: Props) {
           type: "readline",
           intent:
             direction === "up"
-              ? { type: "MoveUp", viewportColumns: columns }
-              : { type: "MoveDown", viewportColumns: columns },
+              ? { type: "MoveUp", viewportColumns: effectiveColumns }
+              : { type: "MoveDown", viewportColumns: effectiveColumns },
         });
         return;
       }
@@ -237,7 +246,7 @@ export function App({ db, schema, dbPath }: Props) {
       }
     },
     [
-      columns,
+      effectiveColumns,
       historyCursor,
       state.history.entries,
       state.prompt.cursor,
@@ -252,7 +261,11 @@ export function App({ db, schema, dbPath }: Props) {
 
   useInput((input, key) => {
     if (key.ctrl && input === "l") {
+      // Ink only writes a frame when it differs from the last one it
+      // rendered, so a raw terminal clear needs a real state change behind
+      // it or the screen stays blank until something else touches state.
       if (stdout !== undefined) clearScreen(stdout);
+      dispatch({ type: "setStatus", status: null });
       return;
     }
     if (state.reverseSearch !== null) {
@@ -268,15 +281,6 @@ export function App({ db, schema, dbPath }: Props) {
     }
     if (key.ctrl && input === "c") {
       quit();
-      return;
-    }
-    if (key.ctrl && input === "r") {
-      promptBeforeReverseRef.current = state.prompt.text;
-      dispatch({ type: "reverseSearchOpen" });
-      return;
-    }
-    if (key.ctrl && input === "p") {
-      dispatch({ type: "openCommandPalette" });
       return;
     }
     if (state.commandPalette !== null) {
@@ -300,6 +304,15 @@ export function App({ db, schema, dbPath }: Props) {
       });
       return;
     }
+    if (key.ctrl && input === "r") {
+      promptBeforeReverseRef.current = state.prompt.text;
+      dispatch({ type: "reverseSearchOpen" });
+      return;
+    }
+    if (key.ctrl && input === "p") {
+      dispatch({ type: "openCommandPalette" });
+      return;
+    }
     if (key.tab) {
       const ac = deriveAutocompleteContext(state.prompt.text);
       dispatch({
@@ -320,6 +333,7 @@ export function App({ db, schema, dbPath }: Props) {
     if (key.return) {
       const sql = state.prompt.text.trim();
       if (sql === "") return;
+      setHistoryCursor(0);
       if (sql.startsWith(".")) {
         void handleDotCommand(sql, dotCommandDeps);
         dispatch({ type: "command", line: sql });
@@ -375,20 +389,17 @@ export function App({ db, schema, dbPath }: Props) {
       return;
     }
     if (input && !key.ctrl && !key.meta) {
-      dispatch({
-        type: "readline",
-        intent:
-          input.length === 1
-            ? { type: "Insert", ch: input }
-            : { type: "Paste", text: input },
-      });
+      dispatch({ type: "readline", intent: { type: "Insert", ch: input } });
     }
   });
 
-  const displayedPrompt =
-    state.reverseSearch !== null || historyCursor === 0
-      ? state.prompt.text
-      : (state.history.entries[historyCursor - 1]?.sql ?? state.prompt.text);
+  usePaste(
+    (text) => {
+      dispatch({ type: "readline", intent: { type: "Paste", text } });
+    },
+    { isActive: !overlayActive },
+  );
+
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
@@ -410,16 +421,14 @@ export function App({ db, schema, dbPath }: Props) {
               outcome={item.outcome}
               sql={item.sql}
               theme={state.theme}
+              columns={columns}
             />
           )}
         </Static>
       )}
       <Box flexGrow={1} />
       <Prompt
-        readlineState={{
-          text: displayedPrompt,
-          cursor: displayedPrompt.length,
-        }}
+        readlineState={state.prompt}
         viewportColumns={columns}
         prefix={prefix}
         theme={state.theme}
@@ -445,6 +454,7 @@ export function App({ db, schema, dbPath }: Props) {
         statusMessage={state.statusMessage}
         historyCount={state.history.entries.length}
         favoritesCount={state.favorites.length}
+        columns={columns}
       />
     </Box>
   );

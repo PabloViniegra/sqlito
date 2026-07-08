@@ -39,6 +39,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT id, name FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -68,6 +69,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="INSERT INTO t VALUES (1)"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -87,6 +89,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="CREATE TABLE x (id INT)"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -98,7 +101,12 @@ describe("ResultsTable", () => {
     const outcome: QueryOutcome = { kind: "side-effect" };
 
     const frame = await capture(
-      <ResultsTable outcome={outcome} sql="VACUUM" theme={DEFAULT_THEME} />,
+      <ResultsTable
+        outcome={outcome}
+        sql="VACUUM"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
     );
 
     expect(frame).toContain("VACUUM");
@@ -118,6 +126,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT syntax"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -142,6 +151,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT id, name FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -161,6 +171,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT rowid FROM t"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -181,6 +192,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT v FROM t"
         theme={DEFAULT_THEME}
+        columns={20}
       />,
       { columns: 20 },
     );
@@ -216,6 +228,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="EXPLAIN QUERY PLAN SELECT * FROM users ORDER BY name"
         theme={DEFAULT_THEME}
+        columns={80}
       />,
     );
 
@@ -240,6 +253,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="VACUUM"
         theme={HIGH_CONTRAST_THEME}
+        columns={80}
       />,
     );
 
@@ -254,6 +268,7 @@ describe("ResultsTable", () => {
         outcome={outcome}
         sql="SELECT 1"
         theme={HIGH_CONTRAST_THEME}
+        columns={80}
       />,
     );
 
@@ -261,14 +276,17 @@ describe("ResultsTable", () => {
     expect(frame).not.toContain(chalk.red("boom"));
   });
 
-  it("reflows the table width when stdout emits a resize event", async () => {
-    type ResizableTty = NodeJS.WriteStream & {
+  it("reflows the table width when the columns prop changes", async () => {
+    // Resize-reactivity now lives in App.tsx's single useViewportSize() call
+    // and flows down as a prop, so this drives it via rerender rather than a
+    // stdout "resize" event (ResultsTable no longer listens for one itself).
+    type FakeTty = NodeJS.WriteStream & {
       columns: number;
       rows: number;
       isTTY: boolean;
       buffer: string;
     };
-    const tty = new PassThrough() as unknown as ResizableTty;
+    const tty = new PassThrough() as unknown as FakeTty;
     tty.columns = 20;
     tty.rows = 24;
     tty.isTTY = true;
@@ -287,7 +305,12 @@ describe("ResultsTable", () => {
     };
 
     const instance = render(
-      <ResultsTable outcome={outcome} sql="SELECT v" theme={DEFAULT_THEME} />,
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT v"
+        theme={DEFAULT_THEME}
+        columns={20}
+      />,
       {
         stdout: tty as NodeJS.WriteStream,
         exitOnCtrlC: false,
@@ -301,9 +324,17 @@ describe("ResultsTable", () => {
     expect(narrowFrame).not.toContain(longValue);
 
     tty.columns = 120;
-    tty.emit("resize");
-    await new Promise<void>((resolve) => setTimeout(resolve, 40));
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    instance.rerender(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT v"
+        theme={DEFAULT_THEME}
+        columns={120}
+      />,
+    );
+    // Ink throttles re-renders; a single setImmediate tick can fire before
+    // the second frame flushes, so wait long enough for it to land.
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
     const wideFrame = stripAnsi(tty.buffer).replace(/\r/g, "");
     expect(wideFrame).not.toContain("SELECT v…");

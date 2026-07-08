@@ -387,36 +387,33 @@ describe("readlineReducer", () => {
     expect(state).toEqual(snapshot);
   });
 
-  describe("HistoryPrev / HistoryNext (boundary-aware history recall lives in App.tsx)", () => {
-    it("HistoryPrev returns state unchanged (pure signal — the reducer has no history)", () => {
-      const state: ReadlineState = { text: "SELECT 1", cursor: 8 };
-      const next = readlineReducer(state, { type: "HistoryPrev" });
+  describe("codepoint-aware cursor movement (surrogate pairs)", () => {
+    it("MoveRight steps over a surrogate pair as a single character", () => {
+      const state: ReadlineState = { text: "a😀b", cursor: 1 };
+      const next = readlineReducer(state, { type: "MoveRight" });
 
-      expect(next).toBe(state);
+      expect(next).toEqual({ text: "a😀b", cursor: 3 });
     });
 
-    it("HistoryNext returns state unchanged (symmetric pure signal)", () => {
-      const state: ReadlineState = { text: "SELECT 1", cursor: 8 };
-      const next = readlineReducer(state, { type: "HistoryNext" });
+    it("MoveLeft steps back over a surrogate pair as a single character", () => {
+      const state: ReadlineState = { text: "a😀b", cursor: 3 };
+      const next = readlineReducer(state, { type: "MoveLeft" });
 
-      expect(next).toBe(state);
+      expect(next).toEqual({ text: "a😀b", cursor: 1 });
     });
 
-    it("HistoryPrev does not move the cursor even when at the first row of a multi-line prompt", () => {
-      const state: ReadlineState = {
-        text: "ABCDEFGHIJ",
-        cursor: 2,
-      };
-      const next = readlineReducer(state, { type: "HistoryPrev" });
+    it("Backspace removes a whole surrogate pair, not just one code unit", () => {
+      const state: ReadlineState = { text: "a😀b", cursor: 3 };
+      const next = readlineReducer(state, { type: "Backspace" });
 
-      expect(next).toBe(state);
+      expect(next).toEqual({ text: "ab", cursor: 1 });
     });
 
-    it("HistoryNext does not move the cursor even when at the last row of a multi-line prompt", () => {
-      const state: ReadlineState = { text: "ABCDEFGHIJ", cursor: 9 };
-      const next = readlineReducer(state, { type: "HistoryNext" });
+    it("Delete removes a whole surrogate pair, not just one code unit", () => {
+      const state: ReadlineState = { text: "a😀b", cursor: 1 };
+      const next = readlineReducer(state, { type: "Delete" });
 
-      expect(next).toBe(state);
+      expect(next).toEqual({ text: "ab", cursor: 1 });
     });
   });
 });

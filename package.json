@@ -12,7 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "bench": "node scripts/bench-cold-start.mjs",
-    "gate": "pnpm exec lint-staged; pnpm typecheck; pnpm test:run; pnpm bench",
+    "gate": "pnpm exec lint-staged && pnpm typecheck && pnpm test:run && pnpm bench",
     "db:seed": "node scripts/seed-sample-db.mjs",
     "prepare": "husky",
     "doctor": "npx react-doctor@latest"

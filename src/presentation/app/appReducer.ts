@@ -57,7 +57,6 @@ export type AppEvent =
   | { type: "readline"; intent: ReadlineIntent }
   | { type: "setPrompt"; value: string }
   | { type: "submit"; outcome: QueryOutcome }
-  | { type: "backspace" }
   | { type: "exit" }
   | {
       type: "openAutocomplete";
@@ -106,8 +105,6 @@ function wrapIndex(raw: number, count: number): number {
   return ((raw % count) + count) % count;
 }
 
-const emptyReadline: ReadlineState = { text: "", cursor: 0 };
-
 export function appReducer(state: AppState, event: AppEvent): AppState {
   switch (event.type) {
     case "readline":
@@ -119,11 +116,6 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
           type: "Reset",
           text: event.value,
         }),
-      };
-    case "backspace":
-      return {
-        ...state,
-        prompt: readlineReducer(state.prompt, { type: "Backspace" }),
       };
     case "submit": {
       const next: AppState = {
@@ -267,4 +259,3 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
 }
 
 export type { ReadlineState };
-export { emptyReadline };

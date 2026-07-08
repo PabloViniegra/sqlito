@@ -1,7 +1,12 @@
 import { Box, Text } from "ink";
+import { memo } from "react";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import type { ReadlineState } from "../app/readline.ts";
-import { derivePromptLayout } from "./derivePromptLayout.ts";
+import {
+  DEFAULT_PROMPT_PREFIX,
+  derivePromptLayout,
+  promptEffectiveWidth,
+} from "./derivePromptLayout.ts";
 
 type Props = {
   readlineState: ReadlineState;
@@ -10,14 +15,12 @@ type Props = {
   theme: Theme;
 };
 
-export function Prompt({
-  readlineState,
-  viewportColumns,
-  prefix,
-  theme,
-}: Props) {
-  const promptPrefix = prefix ?? "> ";
-  const effectiveWidth = Math.max(1, viewportColumns - promptPrefix.length);
+function PromptImpl({ readlineState, viewportColumns, prefix, theme }: Props) {
+  const promptPrefix = prefix ?? DEFAULT_PROMPT_PREFIX;
+  const effectiveWidth = promptEffectiveWidth(
+    viewportColumns,
+    promptPrefix.length,
+  );
   const layout = derivePromptLayout(readlineState, effectiveWidth);
   const cursorRowIndex = layout.cursor.row;
   const cursorCol = layout.cursor.col;
@@ -45,3 +48,5 @@ export function Prompt({
     </Box>
   );
 }
+
+export const Prompt = memo(PromptImpl);

@@ -47,12 +47,13 @@ export function recallHistory(
 
   if (direction === "up") {
     if (!atUpBoundary) return { kind: "skip" };
-    const target = entries[historyCursor];
+    const nextHistoryCursor = historyCursor + 1;
+    const target = entries[entries.length - nextHistoryCursor];
     if (target === undefined) return { kind: "noop" };
     return {
       kind: "apply",
       prompt: { text: target.sql, cursor: target.sql.length },
-      nextHistoryCursor: historyCursor + 1,
+      nextHistoryCursor,
       nextStashedPrompt: historyCursor === 0 ? { text, cursor } : stashedPrompt,
     };
   }
@@ -68,12 +69,13 @@ export function recallHistory(
       nextStashedPrompt: null,
     };
   }
-  const target = entries[historyCursor - 2];
+  const nextHistoryCursor = historyCursor - 1;
+  const target = entries[entries.length - nextHistoryCursor];
   if (target === undefined) return { kind: "noop" };
   return {
     kind: "apply",
     prompt: { text: target.sql, cursor: target.sql.length },
-    nextHistoryCursor: historyCursor - 1,
+    nextHistoryCursor,
     nextStashedPrompt: stashedPrompt,
   };
 }

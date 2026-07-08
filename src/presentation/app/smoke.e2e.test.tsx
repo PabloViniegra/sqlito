@@ -106,65 +106,53 @@ describe("App end-to-end smoke (v1.1 slice-11)", () => {
     }
     await rm(XDG_DIR, { recursive: true, force: true });
   });
-  // @todo phase-6: this test is intentionally marked { fails: true }.
-  // On the merged code, after recalling a SQL from history and pressing
-  // Enter, the rendered prompt still shows the recalled entry instead of
-  // clearing (App.tsx does not reset historyCursor on submit). The
-  // assertions inside still RUN; the annotation just inverts vitest's
-  // verdict so the pre-commit chain doesn't block on the known regression.
-  // Phase 6 must (1) reset historyCursor on submit and (2) remove the
-  // { fails: true } annotation so the test asserts the desired behavior.
-  it(
-    "drives the full fluidity key sequence: submit, autocomplete, wrap, recall, submit",
-    { fails: true },
-    async () => {
-      const app = await mountApp(80, 24);
-      try {
-        await app.send("SELECT 1;");
-        await app.send(ENTER);
-        const afterFirstSubmit = app.fullOutput();
-        expect(afterFirstSubmit).toContain("SELECT 1");
-        expect(afterFirstSubmit).toContain("1 row");
+  it("drives the full fluidity key sequence: submit, autocomplete, wrap, recall, submit", async () => {
+    const app = await mountApp(80, 24);
+    try {
+      await app.send("SELECT 1;");
+      await app.send(ENTER);
+      const afterFirstSubmit = app.fullOutput();
+      expect(afterFirstSubmit).toContain("SELECT 1");
+      expect(afterFirstSubmit).toContain("1 row");
 
-        await app.send(TAB);
-        const afterTabDelta = app.delta();
-        expect(afterTabDelta).toContain("COMPLETE");
+      await app.send(TAB);
+      const afterTabDelta = app.delta();
+      expect(afterTabDelta).toContain("COMPLETE");
 
-        await app.send(ESC);
-        const afterEscDelta = app.delta();
-        expect(afterEscDelta).not.toContain("↑↓ move");
-        expect(afterEscDelta).not.toContain("COMPLETE");
+      await app.send(ESC);
+      const afterEscDelta = app.delta();
+      expect(afterEscDelta).not.toContain("↑↓ move");
+      expect(afterEscDelta).not.toContain("COMPLETE");
 
-        await app.send(LONG_SQL);
-        const afterLongTypeDelta = app.delta();
-        const anotherIdx = afterLongTypeDelta.lastIndexOf("another");
-        const hasWrap =
-          anotherIdx >= 0 &&
-          afterLongTypeDelta
-            .slice(anotherIdx)
-            .split("\n")[1]
-            ?.includes("_long_predicate");
-        expect(hasWrap).toBe(true);
+      await app.send(LONG_SQL);
+      const afterLongTypeDelta = app.delta();
+      const anotherIdx = afterLongTypeDelta.lastIndexOf("another");
+      const hasWrap =
+        anotherIdx >= 0 &&
+        afterLongTypeDelta
+          .slice(anotherIdx)
+          .split("\n")[1]
+          ?.includes("_long_predicate");
+      expect(hasWrap).toBe(true);
 
-        for (let i = 0; i < 6; i++) await app.send(UP);
-        const afterRecallDelta = app.delta();
-        expect(afterRecallDelta).toContain("SELECT 1;");
+      for (let i = 0; i < 6; i++) await app.send(UP);
+      const afterRecallDelta = app.delta();
+      expect(afterRecallDelta).toContain("SELECT 1;");
 
-        await app.send(ENTER);
-        const afterSecondSubmit = app.fullOutput();
-        const rowMentions = afterSecondSubmit.match(/\d+ rows?/g) ?? [];
-        expect(rowMentions.length).toBeGreaterThanOrEqual(2);
+      await app.send(ENTER);
+      const afterSecondSubmit = app.fullOutput();
+      const rowMentions = afterSecondSubmit.match(/\d+ rows?/g) ?? [];
+      expect(rowMentions.length).toBeGreaterThanOrEqual(2);
 
-        const promptLinesAfter = afterSecondSubmit.split("\n");
-        const lastPromptLine =
-          promptLinesAfter.filter((l) => l.trim().startsWith(">")).pop() ?? "";
-        const ANSI = String.fromCharCode(0x1b);
-        expect(
-          lastPromptLine.replace(new RegExp(`${ANSI}\\[.*?m`, "g"), "").trim(),
-        ).toMatch(/^>\s*\u258C?\s*$/);
-      } finally {
-        await app.cleanup();
-      }
-    },
-  );
+      const promptLinesAfter = afterSecondSubmit.split("\n");
+      const lastPromptLine =
+        promptLinesAfter.filter((l) => l.trim().startsWith(">")).pop() ?? "";
+      const ANSI = String.fromCharCode(0x1b);
+      expect(
+        lastPromptLine.replace(new RegExp(`${ANSI}\\[.*?m`, "g"), "").trim(),
+      ).toMatch(/^>\s*\u258C?\s*$/);
+    } finally {
+      await app.cleanup();
+    }
+  });
 });

@@ -80,15 +80,21 @@ async function mountApp(columns = 80, rows = 24) {
 }
 
 describe("App Ctrl+L (clear screen)", () => {
-  it("writes the clear sequence to stdout and leaves the prompt on screen", async () => {
+  it("writes the clear sequence to stdout and repaints the prompt after it", async () => {
     const app = await mountApp();
     try {
       expect(app.raw()).not.toContain(clearScreenSequence());
 
       await app.send(CTRL_L);
 
-      expect(app.raw()).toContain(clearScreenSequence());
-      expect(app.plain()).toContain(">");
+      const raw = app.raw();
+      expect(raw).toContain(clearScreenSequence());
+      // Assert content was written AFTER the clear, not just that a prompt
+      // frame exists somewhere in the cumulative buffer from before Ctrl+L.
+      const afterClear = raw.slice(
+        raw.lastIndexOf(clearScreenSequence()) + clearScreenSequence().length,
+      );
+      expect(stripAnsi(afterClear).replace(/\r/g, "")).toContain(">");
     } finally {
       await app.cleanup();
     }

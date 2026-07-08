@@ -11,6 +11,9 @@ const TAB = "\t";
 const ESC = "\u001B";
 const ENTER = "\r";
 
+const CTRL_P = String.fromCharCode(0x10);
+const CTRL_R = String.fromCharCode(0x12);
+
 const tick = () => new Promise<void>((r) => setImmediate(r));
 const settle = () => new Promise<void>((r) => setTimeout(r, 30));
 
@@ -102,6 +105,44 @@ describe("App overlay precedence", () => {
       const out = app.output();
       expect(out).toContain("lucky");
       expect(out).toContain("7");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("Ctrl+R while the command palette is open does not start reverse-search", async () => {
+    const app = await mountApp();
+    try {
+      await app.send(CTRL_P);
+      await app.send(CTRL_R);
+      const out = app.output();
+      expect(out).toContain("COMMAND");
+      expect(out).not.toContain("(reverse-i-search)");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("Ctrl+P while reverse-search is active does not open the command palette", async () => {
+    const app = await mountApp();
+    try {
+      await app.send(CTRL_R);
+      await app.send(CTRL_P);
+      const out = app.output();
+      expect(out).toContain("(reverse-i-search)");
+      expect(out).not.toContain("COMMAND");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("Ctrl+R while autocomplete is open does not start reverse-search", async () => {
+    const app = await mountApp();
+    try {
+      await app.send(TAB);
+      await app.send(CTRL_R);
+      const out = app.output();
+      expect(out).not.toContain("(reverse-i-search)");
     } finally {
       await app.cleanup();
     }

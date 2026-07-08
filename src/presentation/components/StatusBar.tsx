@@ -2,7 +2,6 @@ import { Box, Text } from "ink";
 import { memo } from "react";
 import type { StatusMessage } from "../app/appReducer.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
-import { useViewportSize } from "../hooks/useViewportSize.ts";
 
 type Props = {
   dbPath: string;
@@ -10,6 +9,7 @@ type Props = {
   statusMessage: StatusMessage | null;
   historyCount: number;
   favoritesCount: number;
+  columns: number;
 };
 
 function StatusBarImpl({
@@ -18,9 +18,9 @@ function StatusBarImpl({
   statusMessage,
   historyCount,
   favoritesCount,
+  columns,
 }: Props) {
-  const { columns: terminalWidth } = useViewportSize();
-  const rule = "─".repeat(terminalWidth);
+  const rule = "─".repeat(columns);
 
   return (
     <Box flexDirection="column">

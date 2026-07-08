@@ -50,4 +50,16 @@ describe("wrapPrompt", () => {
       expect(result.rows.join("")).toBe(text);
     }
   });
+
+  it("wraps by display width, so wide CJK glyphs count as two columns", () => {
+    const result = wrapPrompt({ text: "中中中中", viewportColumns: 5 });
+
+    expect(result.rows).toEqual(["中中", "中中"]);
+  });
+
+  it("never splits a surrogate pair across two rows", () => {
+    const result = wrapPrompt({ text: "ab😀", viewportColumns: 2 });
+
+    expect(result.rows).toEqual(["ab", "😀"]);
+  });
 });

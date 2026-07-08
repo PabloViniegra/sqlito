@@ -22,7 +22,7 @@ function freshState(
 
 describe("recallHistory — boundary-aware history navigation", () => {
   describe("UpArrow at the first visual row", () => {
-    it("applies entries[0] and stashes the typed prompt on the first hit", () => {
+    it("applies the most recent entry and stashes the typed prompt on the first hit", () => {
       const result = recallHistory({
         text: TYPED.text,
         cursor: TYPED.cursor,
@@ -34,16 +34,16 @@ describe("recallHistory — boundary-aware history navigation", () => {
 
       expect(result).toEqual({
         kind: "apply",
-        prompt: { text: "SELECT 1", cursor: 8 },
+        prompt: { text: "SELECT 3", cursor: 8 },
         nextHistoryCursor: 1,
         nextStashedPrompt: TYPED,
       });
     });
 
-    it("applies entries[1] on the second hit without re-stashing", () => {
+    it("applies the second-most-recent entry on the second hit without re-stashing", () => {
       const stash = { text: "earlier", cursor: 2 };
       const result = recallHistory({
-        text: "SELECT 1",
+        text: "SELECT 3",
         cursor: 8,
         viewportColumns: 80,
         entries: ENTRIES,
@@ -151,7 +151,7 @@ describe("recallHistory — boundary-aware history navigation", () => {
       expect(result).toEqual({ kind: "noop" });
     });
 
-    it("steps to entries[historyCursor-2] when historyCursor>1, preserving the stash", () => {
+    it("steps toward the more recent entry when historyCursor>1, preserving the stash", () => {
       const stash = { text: "typed", cursor: 1 };
       const result = recallHistory({
         text: "SELECT 2",
@@ -165,7 +165,7 @@ describe("recallHistory — boundary-aware history navigation", () => {
 
       expect(result).toEqual({
         kind: "apply",
-        prompt: { text: "SELECT 1", cursor: 8 },
+        prompt: { text: "SELECT 3", cursor: 8 },
         nextHistoryCursor: 1,
         nextStashedPrompt: stash,
       });
@@ -189,7 +189,7 @@ describe("recallHistory — boundary-aware history navigation", () => {
   });
 
   describe("Single-row prompts (every cursor is at row 0 AND lastRow)", () => {
-    it("UpArrow on a single-row prompt with history recalls entries[0]", () => {
+    it("UpArrow on a single-row prompt with history recalls the most recent entry", () => {
       const result = recallHistory({
         text: "typed",
         cursor: 3,
@@ -201,7 +201,7 @@ describe("recallHistory — boundary-aware history navigation", () => {
 
       expect(result).toEqual({
         kind: "apply",
-        prompt: { text: "SELECT 1", cursor: 8 },
+        prompt: { text: "SELECT 3", cursor: 8 },
         nextHistoryCursor: 1,
         nextStashedPrompt: { text: "typed", cursor: 3 },
       });

@@ -4,12 +4,20 @@ import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
-import { useViewportSize } from "../hooks/useViewportSize.ts";
 
-type Props = { outcome: QueryOutcome; sql: string; theme: Theme };
+type Props = {
+  outcome: QueryOutcome;
+  sql: string;
+  theme: Theme;
+  columns: number;
+};
 
-function ResultsTableImpl({ outcome, sql, theme }: Props) {
-  const { columns: terminalWidth } = useViewportSize();
+function ResultsTableImpl({
+  outcome,
+  sql,
+  theme,
+  columns: terminalWidth,
+}: Props) {
   const rule = "─".repeat(terminalWidth);
   const kind = classify(sql, outcome);
   const metadata = metadataFor(outcome);

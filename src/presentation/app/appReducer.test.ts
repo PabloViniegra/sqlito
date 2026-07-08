@@ -21,21 +21,6 @@ describe("appReducer", () => {
     });
   });
 
-  describe("backspace", () => {
-    it("removes the last character from prompt", () => {
-      const state = { ...initialState, prompt: rl("SELECT") };
-      const next = appReducer(state, { type: "backspace" });
-
-      expect(next.prompt.text).toBe("SELEC");
-    });
-
-    it("leaves an empty prompt empty", () => {
-      const next = appReducer(initialState, { type: "backspace" });
-
-      expect(next.prompt.text).toBe("");
-    });
-  });
-
   describe("submit", () => {
     const rowsOutcome: QueryOutcome = {
       kind: "rows",

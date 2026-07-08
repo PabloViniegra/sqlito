@@ -22,9 +22,44 @@ export type ReadlineIntent =
   | { type: "KillToEnd" }
   | { type: "KillWord" }
   | { type: "Reset"; text: string; cursor?: number }
-  | { type: "Paste"; text: string }
-  | { type: "HistoryPrev" }
-  | { type: "HistoryNext" };
+  | { type: "Paste"; text: string };
+
+const HIGH_SURROGATE_MIN = 0xd800;
+const HIGH_SURROGATE_MAX = 0xdbff;
+const LOW_SURROGATE_MIN = 0xdc00;
+const LOW_SURROGATE_MAX = 0xdfff;
+
+function isHighSurrogate(code: number): boolean {
+  return code >= HIGH_SURROGATE_MIN && code <= HIGH_SURROGATE_MAX;
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= LOW_SURROGATE_MIN && code <= LOW_SURROGATE_MAX;
+}
+
+// Steps one codepoint left/right instead of one UTF-16 code unit, so a
+// surrogate pair (e.g. an emoji) moves and deletes as a single character.
+function stepLeft(text: string, cursor: number): number {
+  if (
+    cursor >= 2 &&
+    isLowSurrogate(text.charCodeAt(cursor - 1)) &&
+    isHighSurrogate(text.charCodeAt(cursor - 2))
+  ) {
+    return cursor - 2;
+  }
+  return cursor - 1;
+}
+
+function stepRight(text: string, cursor: number): number {
+  if (
+    cursor + 1 < text.length &&
+    isHighSurrogate(text.charCodeAt(cursor)) &&
+    isLowSurrogate(text.charCodeAt(cursor + 1))
+  ) {
+    return cursor + 2;
+  }
+  return cursor + 1;
+}
 
 export function readlineReducer(
   state: ReadlineState,
@@ -39,28 +74,28 @@ export function readlineReducer(
           state.text.slice(state.cursor),
         cursor: state.cursor + intent.ch.length,
       };
-    case "Backspace":
+    case "Backspace": {
       if (state.cursor === 0) return state;
+      const start = stepLeft(state.text, state.cursor);
       return {
-        text:
-          state.text.slice(0, state.cursor - 1) +
-          state.text.slice(state.cursor),
-        cursor: state.cursor - 1,
+        text: state.text.slice(0, start) + state.text.slice(state.cursor),
+        cursor: start,
       };
-    case "Delete":
+    }
+    case "Delete": {
       if (state.cursor >= state.text.length) return state;
+      const end = stepRight(state.text, state.cursor);
       return {
-        text:
-          state.text.slice(0, state.cursor) +
-          state.text.slice(state.cursor + 1),
+        text: state.text.slice(0, state.cursor) + state.text.slice(end),
         cursor: state.cursor,
       };
+    }
     case "MoveLeft":
       if (state.cursor === 0) return state;
-      return { ...state, cursor: state.cursor - 1 };
+      return { ...state, cursor: stepLeft(state.text, state.cursor) };
     case "MoveRight":
       if (state.cursor >= state.text.length) return state;
-      return { ...state, cursor: state.cursor + 1 };
+      return { ...state, cursor: stepRight(state.text, state.cursor) };
     case "MoveHome":
       if (state.cursor === 0) return state;
       return { ...state, cursor: 0 };
@@ -130,10 +165,6 @@ export function readlineReducer(
           state.text.slice(state.cursor),
         cursor: state.cursor + intent.text.length,
       };
-    case "HistoryPrev":
-      return state;
-    case "HistoryNext":
-      return state;
     default: {
       const _exhaustive: never = intent;
       return _exhaustive;
