@@ -66,6 +66,7 @@ import {
 import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
 import { outcomeToHistoryKind } from "./outcomeToHistory.ts";
 import { promptKeymapReadlineIntent } from "./promptKeymap.ts";
+import { recallError } from "./recallError.ts";
 import { recallHistory } from "./recallHistory.ts";
 import type { ReadlineState } from "./readline.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
@@ -140,6 +141,7 @@ export function App({ db, schema, dbPath }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
+  const lastFailedSqlRef = useRef<string>("");
   const stashedPromptRef = useRef<ReadlineState | null>(null);
   const [historyCursor, setHistoryCursor] = useState(0);
 
@@ -357,10 +359,32 @@ export function App({ db, schema, dbPath }: Props) {
           outcome,
         });
         void saveHistory.save(sql, outcome, timestamp);
+        // a successful query invalidates the prior failure's recall slot — only the most recent error is recallable
+        lastFailedSqlRef.current = "";
+      } else {
+        lastFailedSqlRef.current = sql;
       }
       return;
     }
     if (key.upArrow) {
+      const recalled = recallError({
+        prompt: state.prompt,
+        failedSql: lastFailedSqlRef.current,
+        direction: "up",
+      });
+      if (recalled !== null) {
+        dispatch({
+          type: "readline",
+          intent: {
+            type: "Reset",
+            text: recalled.text,
+            cursor: recalled.cursor,
+          },
+        });
+        setHistoryCursor(0);
+        stashedPromptRef.current = null;
+        return;
+      }
       navigateHistory("up");
       return;
     }
