@@ -114,6 +114,8 @@ describe("App REPL render order", () => {
       // older above, newest below, prompt right after
       expect(bPos).toBeLessThan(frankPos);
       expect(frankPos).toBeLessThan(promptPos);
+      // the newest write shows its prominent feedback line next to the prompt
+      expect(frame).toContain("✓ INSERT OK · 1 rows · rowid 6");
     } finally {
       await app.cleanup();
     }

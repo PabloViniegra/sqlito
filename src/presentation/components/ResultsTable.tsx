@@ -74,6 +74,7 @@ function ResultsTableImpl({
     theme,
     table,
     budget - CARD_CHROME,
+    kind,
   );
 
   return (
@@ -152,18 +153,6 @@ function metadataFor(outcome: QueryOutcome): string {
 }
 
 function footerFor(outcome: QueryOutcome): string | null {
-  if (outcome.kind === "affected") {
-    const rowidFooter =
-      Number(outcome.lastInsertRowid) > 0
-        ? `last insert rowid: ${outcome.lastInsertRowid.toString()}`
-        : null;
-    if (outcome.changes === 0) {
-      return rowidFooter === null
-        ? "OK · no rows matched"
-        : `OK · no rows matched · ${rowidFooter}`;
-    }
-    return rowidFooter === null ? null : `OK · ${rowidFooter}`;
-  }
   if (outcome.kind === "side-effect") return "OK";
   if (outcome.kind === "rows" && outcome.rows.length > 0) return "OK";
   if (outcome.kind === "plan") return "OK";
@@ -182,11 +171,15 @@ function buildCard(
   theme: Theme,
   table: BorderedTable | null,
   bodyBudget: number,
+  keyword: string,
 ): CardContent {
   switch (outcome.kind) {
     case "rows": {
       const lines = table === null ? [] : table.lines;
-      const okFooter = footerFor(outcome);
+      const okFooter =
+        outcome.writes === true
+          ? `✓ ${keyword} OK · ${outcome.rows.length} rows returned`
+          : footerFor(outcome);
       const needed = lines.length + (okFooter === null ? 0 : 1);
       if (needed <= bodyBudget) {
         return {
@@ -216,13 +209,25 @@ function buildCard(
       };
     }
     case "affected": {
-      const footer = footerFor(outcome);
+      const rowid =
+        Number(outcome.lastInsertRowid) > 0
+          ? ` · rowid ${outcome.lastInsertRowid.toString()}`
+          : "";
       return {
-        body: null,
-        footer:
-          footer === null
-            ? null
-            : { text: footer, color: theme.tokens.success },
+        body: (
+          <Text>
+            <Text color={theme.tokens.success}>✓ {keyword} OK · </Text>
+            <Text color={theme.tokens.writes} bold>
+              {outcome.changes === 0
+                ? "0 rows matched"
+                : `${outcome.changes} rows`}
+            </Text>
+            {rowid === "" ? null : (
+              <Text color={theme.tokens.success}>{rowid}</Text>
+            )}
+          </Text>
+        ),
+        footer: null,
       };
     }
     case "side-effect":

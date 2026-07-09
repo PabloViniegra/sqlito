@@ -175,7 +175,7 @@ describe("ResultsTable", () => {
     ).toBeGreaterThanOrEqual(5);
   });
 
-  it("renders affected outcome with row count and last insert rowid in the footer", async () => {
+  it("renders a prominent ✓ line with row count and rowid for affected outcomes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 1,
@@ -192,10 +192,10 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain("1 rows affected");
-    expect(frame).toContain("last insert rowid: 42");
+    expect(frame).toContain("✓ INSERT OK · 1 rows · rowid 42");
   });
 
-  it("renders no rows matched for affected outcomes with zero changes", async () => {
+  it("renders 0 rows matched for affected outcomes with zero changes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -212,11 +212,11 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain("0 rows affected");
-    expect(frame).toContain("no rows matched");
-    expect(frame).not.toContain("last insert rowid");
+    expect(frame).toContain("✓ UPDATE OK · 0 rows matched");
+    expect(frame).not.toContain("rowid");
   });
 
-  it("keeps the rowid footer for affected outcomes with zero changes and a positive rowid", async () => {
+  it("keeps the rowid segment for affected outcomes with zero changes and a positive rowid", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -232,8 +232,29 @@ describe("ResultsTable", () => {
       />,
     );
 
-    expect(frame).toContain("no rows matched");
-    expect(frame).toContain("last insert rowid: 42");
+    expect(frame).toContain("0 rows matched");
+    expect(frame).toContain("rowid 42");
+  });
+
+  it("renders a ✓ footer with rows returned for write-flagged rows outcomes (RETURNING)", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "id", type: null }],
+      rows: [[1], [2]],
+      writes: true,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1), (2) RETURNING id"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("WRITE INSERT");
+    expect(frame).toContain("✓ INSERT OK · 2 rows returned");
   });
 
   it("renders side-effect outcome as 'done' with no row count or rowid", async () => {
@@ -251,7 +272,7 @@ describe("ResultsTable", () => {
     expect(frame).toContain("VACUUM");
     expect(frame).toContain("done");
     expect(frame).not.toContain("rows affected");
-    expect(frame).not.toContain("last insert rowid");
+    expect(frame).not.toContain("rowid");
   });
 
   it("renders error outcome with the SQLite message", async () => {
