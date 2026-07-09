@@ -58,7 +58,7 @@ and open the pull request from there.
 
 Requirements:
 
-- Node.js 20 or later
+- Node.js 22 or later
 - pnpm 9 or later
 - A C toolchain capable of building native modules (for `better-sqlite3`)
 
