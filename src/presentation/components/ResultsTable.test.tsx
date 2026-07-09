@@ -216,7 +216,7 @@ describe("ResultsTable", () => {
     expect(frame).not.toContain("rowid");
   });
 
-  it("keeps the rowid segment for affected outcomes with zero changes and a positive rowid", async () => {
+  it("keeps the rowid segment for INSERTs with zero changes and a positive rowid", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -226,7 +226,7 @@ describe("ResultsTable", () => {
     const frame = await capture(
       <ResultsTable
         outcome={outcome}
-        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        sql="INSERT OR IGNORE INTO users VALUES (1, 'Ada')"
         theme={DEFAULT_THEME}
         columns={80}
       />,
@@ -234,6 +234,26 @@ describe("ResultsTable", () => {
 
     expect(frame).toContain("0 rows matched");
     expect(frame).toContain("rowid 42");
+  });
+
+  it("omits the connection-level stale rowid for non-INSERT writes", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 2,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id <= 2"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("✓ UPDATE OK · 2 rows");
+    expect(frame).not.toContain("rowid");
   });
 
   it("renders a ✓ footer with rows returned for write-flagged rows outcomes (RETURNING)", async () => {

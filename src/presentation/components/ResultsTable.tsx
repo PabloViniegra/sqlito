@@ -209,8 +209,11 @@ function buildCard(
       };
     }
     case "affected": {
+      // lastInsertRowid is connection-level state in SQLite: stale (and
+      // misleading) for anything that isn't an actual insert
+      const inserts = keyword === "INSERT" || keyword === "REPLACE";
       const rowid =
-        Number(outcome.lastInsertRowid) > 0
+        inserts && Number(outcome.lastInsertRowid) > 0
           ? ` · rowid ${outcome.lastInsertRowid.toString()}`
           : "";
       return {
