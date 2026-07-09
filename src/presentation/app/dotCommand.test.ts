@@ -23,6 +23,7 @@ function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
       if (event.type === "setStatus") events.push({ status: event.status });
     },
     exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+    copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
     schema: {
       tables: () => "posts\nusers",
       indexes: () => "idx on users",
@@ -151,6 +152,45 @@ describe("handleDotCommand", () => {
       { status: { text: "Exported 1 rows to /tmp/x.csv", kind: "info" } },
     ]);
   });
+
+  it(".copy with no prior result errors", async () => {
+    const { deps, events } = makeDeps({ lastOutcome: null });
+    await handleDotCommand(".copy", deps);
+    expect(events).toEqual([
+      { status: { text: "No tabular result to copy", kind: "error" } },
+    ]);
+  });
+
+  it(".copy errors when the last outcome is not tabular (e.g. affected)", async () => {
+    const run = vi.fn();
+    const { deps, events } = makeDeps({
+      copyCsv: { run } as unknown as DotCommandDeps["copyCsv"],
+      lastOutcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
+    });
+    await handleDotCommand(".copy", deps);
+    expect(run).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      { status: { text: "No tabular result to copy", kind: "error" } },
+    ]);
+  });
+
+  it(".copy runs CopyCsv and reports rows written", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "a", type: null }],
+      rows: [[1]],
+    };
+    const run = vi.fn().mockResolvedValue({ rowsWritten: 1 });
+    const { deps, events } = makeDeps({
+      copyCsv: { run } as unknown as DotCommandDeps["copyCsv"],
+      lastOutcome: outcome,
+    });
+    await handleDotCommand(".copy", deps);
+    expect(run).toHaveBeenCalledWith(outcome);
+    expect(events).toEqual([
+      { status: { text: "Copied 1 rows to clipboard", kind: "info" } },
+    ]);
+  });
 });
 
 describe("handleDotCommand — variables", () => {
@@ -164,6 +204,7 @@ describe("handleDotCommand — variables", () => {
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
       lastOutcome: null,
       onQuit: vi.fn(),
@@ -280,6 +321,7 @@ describe("handleDotCommand — explain", () => {
         if (event.type === "setStatus") statuses.push(event.status);
       },
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
       lastOutcome: null,
       onQuit: vi.fn(),
@@ -367,6 +409,7 @@ describe("handleDotCommand — favorites", () => {
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
       lastOutcome: null,
       onQuit: vi.fn(),
@@ -494,6 +537,7 @@ describe("handleDotCommand — theme", () => {
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
       exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
       schema: {} as unknown as DotCommandDeps["schema"],
       lastOutcome: null,
       onQuit: vi.fn(),
@@ -572,6 +616,7 @@ describe("COMMAND_REGISTRY", () => {
     "forget",
     "export",
     "theme",
+    "copy",
   ].sort();
 
   it("keeps the dispatch and the registry in sync — same set of kinds on both sides", () => {

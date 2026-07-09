@@ -1,4 +1,5 @@
 import type { ExportCsv } from "../../application/commands/ExportCsv.ts";
+import type { CopyCsv } from "../../application/commands/CopyCsv.ts";
 import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
 import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import {
@@ -25,6 +26,7 @@ export type AppDispatch = (event: AppEvent) => void;
 export type DotCommandDeps = {
   dispatch: AppDispatch;
   exportCsv: ExportCsv;
+  copyCsv: CopyCsv;
   schema: SchemaPrettyPrint;
   lastOutcome: QueryOutcome | null;
   onQuit: () => void;
@@ -118,6 +120,10 @@ export const COMMAND_REGISTRY: CommandRegistry = {
   theme: {
     ...COMMAND_DESCRIPTORS.theme,
     run: (command, deps) => runTheme(deps, command.name),
+  },
+  copy: {
+    ...COMMAND_DESCRIPTORS.copy,
+    run: (_command, deps) => runCopy(deps),
   },
 };
 
@@ -263,6 +269,21 @@ async function runExport(deps: DotCommandDeps, path: string): Promise<void> {
     );
   } catch (err) {
     setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+  }
+}
+
+async function runCopy(deps: DotCommandDeps): Promise<void> {
+  if (deps.lastOutcome === null || deps.lastOutcome.kind !== "rows") {
+    setStatus(deps, "No tabular result to copy", "error");
+    return;
+  }
+  try {
+    const result = await deps.copyCsv.run(deps.lastOutcome);
+    setStatus(deps, `Copied ${result.rowsWritten} rows to clipboard`, "info");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // clipboardy errors can be multi-line (e.g. xsel install instructions); StatusBar is single-line (ADR-0003)
+    setStatus(deps, message.split("\n")[0], "error");
   }
 }
 

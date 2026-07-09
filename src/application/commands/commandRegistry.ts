@@ -42,6 +42,10 @@ export const COMMAND_DESCRIPTORS: {
     name: ".export <path>",
     description: "Export the last result to CSV",
   },
+  copy: {
+    name: ".copy",
+    description: "Copy the last result to the clipboard as CSV",
+  },
   help: { name: ".help", description: "Show this reference" },
   quit: {
     name: ".quit",
