@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { render, type Instance } from "ink";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import pkg from "../package.json" with { type: "json" };
 import type { Database } from "./domain/database/Database.ts";
 import type { SchemaRepository } from "./domain/schema/SchemaRepository.ts";
 import { App } from "./presentation/app/App.tsx";
@@ -43,6 +44,7 @@ export function run(argv: readonly string[]): void {
   const program = new Command();
   program
     .name("sqlito")
+    .version(pkg.version)
     .argument("<database>", "path to a SQLite database file")
     .action((databaseArg: string) => {
       const dbPath = resolve(databaseArg);
