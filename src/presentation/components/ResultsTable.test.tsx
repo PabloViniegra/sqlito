@@ -40,6 +40,29 @@ describe("ResultsTable", () => {
     expect(frame).toContain("READ SELECT · 1 rows · SELECT 1");
   });
 
+  it("reports hidden columns in the header when they cannot fit", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: Array.from({ length: 12 }, (_, i) => ({
+        name: `column_${i}`,
+        type: null,
+      })),
+      rows: [Array.from({ length: 12 }, (_, i) => `value ${i}`)],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT * FROM wide"
+        theme={DEFAULT_THEME}
+        columns={60}
+      />,
+      { columns: 60 },
+    );
+
+    expect(frame).toContain("+4 more cols");
+  });
+
   it("prepends WRITE to affected headers", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",

@@ -3,7 +3,10 @@ import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { outcomeTag, type OutcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
-import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
+import {
+  formatBorderedTable,
+  type BorderedTable,
+} from "../../shared/utils/formatBorderedTable.ts";
 import { formatPlanTree } from "../../shared/utils/formatPlanTree.ts";
 
 type Props = {
@@ -22,7 +25,14 @@ function ResultsTableImpl({
   const rule = "─".repeat(terminalWidth);
   const tag = outcomeTag(outcome);
   const kind = classify(sql, outcome);
-  const metadata = metadataFor(outcome);
+  const table =
+    outcome.kind === "rows"
+      ? formatBorderedTable(outcome.columns, outcome.rows, terminalWidth)
+      : null;
+  const metadata =
+    table !== null && table.hiddenColumns > 0
+      ? `${metadataFor(outcome)} · +${table.hiddenColumns} more cols`
+      : metadataFor(outcome);
   const keyword = tag === "ERROR" || tag === "PLAN" ? null : kind;
   const sqlLabel = truncateSql(
     sql,
@@ -44,7 +54,7 @@ function ResultsTableImpl({
         )}
       </Box>
       <Text color={theme.tokens.border}>{rule}</Text>
-      {renderBody(outcome, terminalWidth, theme)}
+      {renderBody(outcome, terminalWidth, theme, table)}
       {footerText === null ? null : (
         <Box marginTop={1}>
           <Text color={theme.tokens.success}>▎ </Text>
@@ -139,14 +149,11 @@ function renderBody(
   outcome: QueryOutcome,
   terminalWidth: number,
   theme: Theme,
+  table: BorderedTable | null,
 ) {
   switch (outcome.kind) {
     case "rows": {
-      const lines = formatBorderedTable(
-        outcome.columns,
-        outcome.rows,
-        terminalWidth,
-      );
+      const lines = table === null ? [] : table.lines;
       const last = lines.length - 1;
       return lines.map((line, i) => {
         const isHeader = i === 1;
