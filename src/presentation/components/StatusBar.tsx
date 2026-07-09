@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import { memo } from "react";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { outcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
 import type { StatusMessage } from "../app/appReducer.ts";
 import { renderOutcomeChip } from "./outcomeChip.ts";
@@ -107,9 +108,16 @@ function OutcomeChip({
   theme: Theme;
 }) {
   const { tag, detail } = renderOutcomeChip(outcome);
+  const kind = outcomeTag(outcome);
+  const tagColor =
+    kind === "WRITE"
+      ? theme.tokens.writes
+      : kind === "ERROR"
+        ? theme.tokens.error
+        : theme.tokens.success;
   return (
     <Text>
-      <Text color={theme.tokens.primary} bold>
+      <Text color={tagColor} bold>
         {tag}
       </Text>
       {detail !== "" && <Text color={theme.tokens.muted}> {detail}</Text>}

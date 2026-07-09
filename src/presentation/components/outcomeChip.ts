@@ -14,7 +14,8 @@ export function renderOutcomeChip(outcome: QueryOutcome): OutcomeChipText {
     case "affected":
       return {
         tag,
-        detail: outcome.changes === 0 ? "0 no-match" : String(outcome.changes),
+        detail:
+          outcome.changes === 0 ? "0 rows matched" : `${outcome.changes} rows`,
       };
     case "side-effect":
       return { tag, detail: "" };

@@ -49,6 +49,7 @@ import { Header } from "../components/Header.tsx";
 import { Prompt } from "../components/Prompt.tsx";
 import {
   DEFAULT_PROMPT_PREFIX,
+  derivePromptLayout,
   promptEffectiveWidth,
 } from "../components/derivePromptLayout.ts";
 import { ResultsTable } from "../components/ResultsTable.tsx";
@@ -57,7 +58,7 @@ import { usePromptInput } from "../hooks/usePromptInput.ts";
 import { useViewportSize } from "../hooks/useViewportSize.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
 import { handleAutocompleteInput } from "./autocompleteInput.ts";
-import { appReducer, initialState } from "./appReducer.ts";
+import { appReducer, initialState, MAX_VISIBLE_QUERIES } from "./appReducer.ts";
 import { clearScreen } from "./clearScreen.ts";
 import {
   filterCommands,
@@ -71,6 +72,7 @@ import { recallHistory } from "./recallHistory.ts";
 import type { ReadlineState } from "./readline.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 import { pastQueriesViewport } from "./pastQueriesViewport.ts";
+import { countWrappedLines, layoutResults } from "./resultsLayout.ts";
 
 type Props = {
   db: Database;
@@ -78,9 +80,8 @@ type Props = {
   dbPath: string;
 };
 
-const MAX_VISIBLE_QUERIES = 5;
+// 4-line mascot + 2 border rows in Header.tsx
 const HEADER_HEIGHT = 6;
-const PROMPT_AREA = 4;
 
 export function App({ db, schema, dbPath }: Props) {
   const { exit } = useApp();
@@ -372,6 +373,7 @@ export function App({ db, schema, dbPath }: Props) {
         lastFailedSqlRef.current = "";
       } else {
         lastFailedSqlRef.current = sql;
+        dispatch({ type: "recordError", sql, outcome });
       }
       return;
     }
@@ -453,36 +455,63 @@ export function App({ db, schema, dbPath }: Props) {
     state.pastQueriesScrollOffset,
   );
 
+  // analytic height budget: everything below must sum to ≤ rows so the frame
+  // never exceeds the terminal (physical scroll is what breaks the layout)
+  const promptLines = derivePromptLayout(
+    state.prompt,
+    promptEffectiveWidth(columns, (prefix ?? DEFAULT_PROMPT_PREFIX).length),
+  ).rows.length;
+  // StatusBar = rule + status line (+ wrapped statusMessage under paddingX/gutter)
+  const statusLines =
+    2 +
+    (state.statusMessage === null
+      ? 0
+      : countWrappedLines(state.statusMessage.text, columns - 4));
+  // CommandPalette chrome is 5 lines + its visible window (MAX_VISIBLE = 10)
+  const paletteLines =
+    palette === null ? 0 : 5 + Math.max(1, Math.min(10, paletteMatches.length));
+  const resultsView = layoutResults(
+    pastQueriesView.visible,
+    pastQueriesView.overflowAbove,
+    rows - HEADER_HEIGHT - promptLines - statusLines - paletteLines,
+  );
+
   return (
     <Box flexDirection="column" height={rows}>
       <Header dbPath={dbPath} theme={state.theme} />
-      {state.pastQueries.length > 0 && (
+      <Box flexGrow={1} />
+      {resultsView.expanded !== null && (
         <Box
           flexDirection="column"
           flexShrink={1}
           overflowY="hidden"
           minHeight={0}
-          height={Math.max(0, rows - HEADER_HEIGHT - PROMPT_AREA)}
         >
-          {pastQueriesView.overflowAbove > 0 ? (
-            <Box marginBottom={1}>
-              <Text color={state.theme.tokens.muted}>
-                ↑ {pastQueriesView.overflowAbove} more · PgUp
-              </Text>
-            </Box>
+          {resultsView.showIndicator ? (
+            <Text color={state.theme.tokens.muted}>
+              ↑ {resultsView.hiddenAbove} more · PgUp
+            </Text>
           ) : null}
-          {[...pastQueriesView.visible].reverse().map((item) => (
+          {resultsView.collapsed.map((item) => (
             <ResultsTable
               key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
               outcome={item.outcome}
               sql={item.sql}
               theme={state.theme}
               columns={columns}
+              variant="compact"
             />
           ))}
+          <ResultsTable
+            key={`${resultsView.expanded.sql}-${state.pastQueries.indexOf(resultsView.expanded)}`}
+            outcome={resultsView.expanded.outcome}
+            sql={resultsView.expanded.sql}
+            theme={state.theme}
+            columns={columns}
+            maxLines={resultsView.expandedMaxLines}
+          />
         </Box>
       )}
-      <Box flexGrow={1} />
       <Prompt
         readlineState={state.prompt}
         viewportColumns={columns}

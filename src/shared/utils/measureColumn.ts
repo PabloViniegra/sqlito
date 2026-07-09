@@ -2,12 +2,16 @@ import stringWidth from "string-width";
 import type { Column } from "../../domain/sql/Column.ts";
 import { formatCell } from "./formatCell.ts";
 
-const CELL_GAP = 2;
+export const MIN_COL_WIDTH = 4;
 
+/**
+ * Distributes a pure content budget (no borders, padding or gaps — the
+ * caller owns all chrome) across columns.
+ */
 export function computeColumnWidths(
   columns: readonly Column[],
   rows: readonly unknown[][],
-  terminalWidth: number,
+  contentBudget: number,
 ): number[] {
   if (columns.length === 0) return [];
 
@@ -21,25 +25,34 @@ export function computeColumnWidths(
     return Math.max(headerWidth, valueWidth);
   });
 
-  const totalGap = CELL_GAP * (columns.length - 1);
-  const available = Math.max(0, terminalWidth - totalGap);
+  const available = Math.max(columns.length, contentBudget);
   const sumDesired = desired.reduce((a, b) => a + b, 0);
-
   if (sumDesired <= available) return desired;
 
-  const scale = available / sumDesired;
-  const widths = desired.map((d) => Math.floor(d * scale));
+  // every column keeps a readable floor; leftover goes proportionally to the hungriest
+  const floorWidth = Math.min(
+    MIN_COL_WIDTH,
+    Math.floor(available / columns.length),
+  );
+  const base = desired.map((d) => Math.min(d, floorWidth));
+  const leftover = available - base.reduce((a, b) => a + b, 0);
+  const excess = desired.map((d, i) => d - base[i]!);
+  const sumExcess = excess.reduce((a, b) => a + b, 0);
+  const widths = base.map((b, i) =>
+    sumExcess === 0 ? b : b + Math.floor((excess[i]! * leftover) / sumExcess),
+  );
 
   let used = widths.reduce((a, b) => a + b, 0);
   const order = [...desired.keys()].sort((a, b) => desired[b]! - desired[a]!);
-
   while (used < available) {
     let grew = false;
     for (const i of order) {
       if (used >= available) break;
-      widths[i]! += 1;
-      used += 1;
-      grew = true;
+      if (widths[i]! < desired[i]!) {
+        widths[i]! += 1;
+        used += 1;
+        grew = true;
+      }
     }
     if (!grew) break;
   }

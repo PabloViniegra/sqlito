@@ -104,10 +104,10 @@ describe("StatusBar", () => {
     );
 
     const output = plain(frame);
-    expect(output).toContain("WRITE 3");
+    expect(output).toContain("WRITE 3 rows");
   });
 
-  it("renders WRITE 0 no-match when changes is zero", async () => {
+  it("renders WRITE 0 rows matched when changes is zero", async () => {
     const frame = await capture(
       <StatusBar
         {...baseProps}
@@ -116,7 +116,7 @@ describe("StatusBar", () => {
     );
 
     const output = plain(frame);
-    expect(output).toContain("WRITE 0 no-match");
+    expect(output).toContain("WRITE 0 rows matched");
   });
 
   it("renders DDL for a side-effect outcome", async () => {

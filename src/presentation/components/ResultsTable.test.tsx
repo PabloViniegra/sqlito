@@ -40,6 +40,29 @@ describe("ResultsTable", () => {
     expect(frame).toContain("READ SELECT · 1 rows · SELECT 1");
   });
 
+  it("reports hidden columns in the header when they cannot fit", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: Array.from({ length: 12 }, (_, i) => ({
+        name: `column_${i}`,
+        type: null,
+      })),
+      rows: [Array.from({ length: 12 }, (_, i) => `value ${i}`)],
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT * FROM wide"
+        theme={DEFAULT_THEME}
+        columns={60}
+      />,
+      { columns: 60 },
+    );
+
+    expect(frame).toContain("+4 more cols");
+  });
+
   it("prepends WRITE to affected headers", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
@@ -152,7 +175,7 @@ describe("ResultsTable", () => {
     ).toBeGreaterThanOrEqual(5);
   });
 
-  it("renders affected outcome with row count and last insert rowid in the footer", async () => {
+  it("renders a prominent ✓ line with row count and rowid for affected outcomes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 1,
@@ -169,10 +192,10 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain("1 rows affected");
-    expect(frame).toContain("last insert rowid: 42");
+    expect(frame).toContain("✓ INSERT OK · 1 rows · rowid 42");
   });
 
-  it("renders no rows matched for affected outcomes with zero changes", async () => {
+  it("renders 0 rows matched for affected outcomes with zero changes", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -189,11 +212,11 @@ describe("ResultsTable", () => {
     );
 
     expect(frame).toContain("0 rows affected");
-    expect(frame).toContain("no rows matched");
-    expect(frame).not.toContain("last insert rowid");
+    expect(frame).toContain("✓ UPDATE OK · 0 rows matched");
+    expect(frame).not.toContain("rowid");
   });
 
-  it("keeps the rowid footer for affected outcomes with zero changes and a positive rowid", async () => {
+  it("keeps the rowid segment for INSERTs with zero changes and a positive rowid", async () => {
     const outcome: QueryOutcome = {
       kind: "affected",
       changes: 0,
@@ -203,14 +226,55 @@ describe("ResultsTable", () => {
     const frame = await capture(
       <ResultsTable
         outcome={outcome}
-        sql="UPDATE users SET name = 'Ada' WHERE id = 999"
+        sql="INSERT OR IGNORE INTO users VALUES (1, 'Ada')"
         theme={DEFAULT_THEME}
         columns={80}
       />,
     );
 
-    expect(frame).toContain("no rows matched");
-    expect(frame).toContain("last insert rowid: 42");
+    expect(frame).toContain("0 rows matched");
+    expect(frame).toContain("rowid 42");
+  });
+
+  it("omits the connection-level stale rowid for non-INSERT writes", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 2,
+      lastInsertRowid: 42,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="UPDATE users SET name = 'Ada' WHERE id <= 2"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("✓ UPDATE OK · 2 rows");
+    expect(frame).not.toContain("rowid");
+  });
+
+  it("renders a ✓ footer with rows returned for write-flagged rows outcomes (RETURNING)", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "id", type: null }],
+      rows: [[1], [2]],
+      writes: true,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO t VALUES (1), (2) RETURNING id"
+        theme={DEFAULT_THEME}
+        columns={80}
+      />,
+    );
+
+    expect(frame).toContain("WRITE INSERT");
+    expect(frame).toContain("✓ INSERT OK · 2 rows returned");
   });
 
   it("renders side-effect outcome as 'done' with no row count or rowid", async () => {
@@ -228,7 +292,7 @@ describe("ResultsTable", () => {
     expect(frame).toContain("VACUUM");
     expect(frame).toContain("done");
     expect(frame).not.toContain("rows affected");
-    expect(frame).not.toContain("last insert rowid");
+    expect(frame).not.toContain("rowid");
   });
 
   it("renders error outcome with the SQLite message", async () => {

@@ -1,6 +1,6 @@
 import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
-import { computeColumnWidths } from "./measureColumn.ts";
+import { computeColumnWidths, MIN_COL_WIDTH } from "./measureColumn.ts";
 
 describe("computeColumnWidths", () => {
   it("returns an empty array when there are no columns", () => {
@@ -36,7 +36,7 @@ describe("computeColumnWidths", () => {
     expect(widths[1]).toBe(stringWidth("Ada Lovelace"));
   });
 
-  it("caps total rendered width at the terminal width", () => {
+  it("caps total content width at the budget", () => {
     const columns = [
       { name: "id", type: null },
       { name: "description", type: null },
@@ -49,14 +49,26 @@ describe("computeColumnWidths", () => {
         "a very long owner name that should also be truncated",
       ],
     ];
-    const terminalWidth = 30;
+    const contentBudget = 30;
 
-    const widths = computeColumnWidths(columns, rows, terminalWidth);
+    const widths = computeColumnWidths(columns, rows, contentBudget);
 
-    const totalGap = 2 * (columns.length - 1);
-    const totalWidth = widths.reduce((a, b) => a + b, 0) + totalGap;
-    expect(totalWidth).toBeLessThanOrEqual(terminalWidth);
-    expect(widths.every((w) => w >= 0)).toBe(true);
+    const totalWidth = widths.reduce((a, b) => a + b, 0);
+    expect(totalWidth).toBeLessThanOrEqual(contentBudget);
+    expect(widths.every((w) => w >= 1)).toBe(true);
+  });
+
+  it("never squeezes a column below MIN_COL_WIDTH when the budget allows it", () => {
+    const columns = Array.from({ length: 5 }, (_, i) => ({
+      name: `col_${i}`,
+      type: null,
+    }));
+    const rows = [columns.map(() => "a value that is fairly wide indeed")];
+
+    const widths = computeColumnWidths(columns, rows, 40);
+
+    expect(widths.every((w) => w >= MIN_COL_WIDTH)).toBe(true);
+    expect(widths.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(40);
   });
 
   it("returns exact desired widths when they fit in the terminal", () => {

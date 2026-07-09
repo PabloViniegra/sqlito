@@ -79,7 +79,12 @@ function parseJsonl(raw: string): HistoryEntry[] {
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
-    out.push(JSON.parse(trimmed) as HistoryEntry);
+    try {
+      out.push(JSON.parse(trimmed) as HistoryEntry);
+    } catch {
+      // a torn concurrent append/rewrite must not brick the whole history
+      continue;
+    }
   }
   return out;
 }

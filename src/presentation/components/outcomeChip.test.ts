@@ -29,16 +29,16 @@ describe("renderOutcomeChip", () => {
     });
   });
 
-  it("renders WRITE <changes> for an affected outcome", () => {
+  it("renders WRITE <changes> rows for an affected outcome", () => {
     expect(
       renderOutcomeChip({ kind: "affected", changes: 4, lastInsertRowid: 1 }),
-    ).toEqual({ tag: "WRITE", detail: "4" });
+    ).toEqual({ tag: "WRITE", detail: "4 rows" });
   });
 
-  it("renders WRITE 0 no-match when changes is zero", () => {
+  it("renders WRITE 0 rows matched when changes is zero", () => {
     expect(
       renderOutcomeChip({ kind: "affected", changes: 0, lastInsertRowid: 0 }),
-    ).toEqual({ tag: "WRITE", detail: "0 no-match" });
+    ).toEqual({ tag: "WRITE", detail: "0 rows matched" });
   });
 
   it("renders DDL for a side-effect outcome", () => {
