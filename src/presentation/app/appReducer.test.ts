@@ -530,6 +530,45 @@ describe("appReducer", () => {
     });
   });
 
+  describe("recordError", () => {
+    const outcome: QueryOutcome = {
+      kind: "error",
+      code: "SQLITE_ERROR",
+      message: "no such table: nope",
+    };
+
+    it("appends sql+outcome to pastQueries", () => {
+      const next = appReducer(initialState, {
+        type: "recordError",
+        sql: "SELECT * FROM nope",
+        outcome,
+      });
+
+      expect(next.pastQueries).toEqual([
+        { sql: "SELECT * FROM nope", outcome },
+      ]);
+    });
+
+    it("leaves history.entries untouched", () => {
+      const prior: HistoryEntry = {
+        sql: "SELECT 0",
+        outcome: "ok",
+        timestamp: 0,
+      };
+      const state = {
+        ...initialState,
+        history: { entries: [prior] },
+      };
+      const next = appReducer(state, {
+        type: "recordError",
+        sql: "SELECT * FROM nope",
+        outcome,
+      });
+
+      expect(next.history.entries).toEqual([prior]);
+    });
+  });
+
   describe("reverseSearchOpen", () => {
     it("opens reverse-search with an empty query", () => {
       const next = appReducer(initialState, { type: "reverseSearchOpen" });

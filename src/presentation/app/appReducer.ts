@@ -72,6 +72,7 @@ export type AppEvent =
   | { type: "commitAutocomplete"; replacement: string }
   | { type: "loadHistory"; entries: readonly HistoryEntry[] }
   | { type: "recordQuery"; entry: HistoryEntry; outcome: QueryOutcome }
+  | { type: "recordError"; sql: string; outcome: QueryOutcome }
   | { type: "reverseSearchOpen" }
   | { type: "reverseSearchChange"; query: string }
   | { type: "reverseSearchCommit" }
@@ -209,6 +210,15 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
         ],
       };
     }
+    case "recordError":
+      // errors show in the results flow but stay out of the ↑/Ctrl+R recall corpus
+      return {
+        ...state,
+        pastQueries: [
+          ...state.pastQueries,
+          { sql: event.sql, outcome: event.outcome },
+        ],
+      };
     case "reverseSearchOpen":
       return { ...state, reverseSearch: { query: "" } };
     case "reverseSearchChange":

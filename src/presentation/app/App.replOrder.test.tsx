@@ -121,6 +121,35 @@ describe("App REPL render order", () => {
     }
   });
 
+  it("renders a failed query as an error card above the prompt, collapsed after the next success", async () => {
+    const app = await mountAppWithUsersTable();
+    try {
+      await app.send("SELECT * FROM missing_table");
+      await app.send(ENTER);
+
+      let frame = app.lastFrame();
+      expect(frame).toContain("ERROR · aborted");
+      expect(frame).toContain("! SQLITE_ERROR");
+      expect(frame).toContain("no such table: missing_table");
+      // the error card sits above the prompt
+      expect(frame.indexOf("no such table")).toBeLessThan(frame.indexOf("▌"));
+
+      await app.send("SELECT * FROM users");
+      await app.send(ENTER);
+
+      frame = app.lastFrame();
+      // collapsed to its one-line header above the newest result
+      const errorLine = frame
+        .split("\n")
+        .find((l) => l.includes("ERROR · aborted"));
+      expect(errorLine).toBeDefined();
+      expect(errorLine).toContain("SELECT * FROM missing_table");
+      expect(frame).not.toContain("! SQLITE_ERROR");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
   it("collapses older visible entries to one-line summaries", async () => {
     const app = await mountAppWithUsersTable();
     try {

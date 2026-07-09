@@ -373,6 +373,7 @@ export function App({ db, schema, dbPath }: Props) {
         lastFailedSqlRef.current = "";
       } else {
         lastFailedSqlRef.current = sql;
+        dispatch({ type: "recordError", sql, outcome });
       }
       return;
     }
