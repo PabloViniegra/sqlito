@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseCopyCommand,
   parseDotCommand,
   parseExplainCommand,
   parseExportCommand,
@@ -436,6 +437,26 @@ describe("parseSaveCommand", () => {
       ok: false,
       error: "unknown command: .run x",
     });
+  });
+});
+
+describe("parseCopyCommand", () => {
+  it("parses '.copy'", () => {
+    expect(parseCopyCommand(".copy")).toEqual({ ok: true });
+  });
+
+  it("tolerates surrounding whitespace", () => {
+    expect(parseCopyCommand("  .copy  ")).toEqual({ ok: true });
+  });
+
+  it("rejects extra arguments", () => {
+    const r = parseCopyCommand(".copy users");
+    expect(r).toEqual({ ok: false, error: "copy: too many arguments" });
+  });
+
+  it("rejects a non-copy command", () => {
+    const r = parseCopyCommand(".schema");
+    expect(r).toEqual({ ok: false, error: "unknown command: .schema" });
   });
 });
 

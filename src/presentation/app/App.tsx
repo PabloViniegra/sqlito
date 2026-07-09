@@ -28,6 +28,7 @@ import { ForgetFavorite } from "../../application/favorites/ForgetFavorite.ts";
 import { LoadHistory } from "../../application/history/LoadHistory.ts";
 import { SaveHistory } from "../../application/history/SaveHistory.ts";
 import { ExportCsv } from "../../application/commands/ExportCsv.ts";
+import { CopyCsv } from "../../application/commands/CopyCsv.ts";
 import { ExecuteQuery } from "../../application/queries/ExecuteQuery.ts";
 import { RunExplain } from "../../application/queries/RunExplain.ts";
 import { SchemaPrettyPrint } from "../../application/queries/SchemaPrettyPrint.ts";
@@ -97,6 +98,7 @@ export function App({ db, schema, dbPath }: Props) {
     [executeQuery],
   );
   const exportCsv = useMemo(() => new ExportCsv(), []);
+  const copyCsv = useMemo(() => new CopyCsv(), []);
   const schemaPrettyPrint = useMemo(() => new SchemaPrettyPrint(db), [db]);
   const historyRepo = useMemo(
     () => new XdgHistoryRepository(resolveXdgHistoryPath()),
@@ -190,6 +192,7 @@ export function App({ db, schema, dbPath }: Props) {
   const dotCommandDeps: DotCommandDeps = {
     dispatch,
     exportCsv,
+    copyCsv,
     schema: schemaPrettyPrint,
     lastOutcome: state.lastOutcome,
     onQuit: quit,

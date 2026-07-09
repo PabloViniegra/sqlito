@@ -16,6 +16,7 @@ const EXPECTED_HELP_TEXT = [
   "  .forget <name>     Delete a favorite",
   "  .theme <name>      Switch the active theme (default, high-contrast)",
   "  .export <path>     Export the last result to CSV",
+  "  .copy              Copy the last result to the clipboard as CSV",
   "  .help              Show this reference",
   "  .quit              Close the database and exit (alias: .exit)",
 ].join("\n");
