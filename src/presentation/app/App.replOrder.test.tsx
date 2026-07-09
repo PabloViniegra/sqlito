@@ -1,6 +1,13 @@
 import BetterSqlite3 from "better-sqlite3";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { render } from "ink";
+
+// keep test-session queries out of the user's real XDG history
+process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), "sqlito-test-"));
+process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "sqlito-test-"));
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import { App } from "./App.tsx";
@@ -16,7 +23,7 @@ type FakeStdout = NodeJS.WriteStream & {
   isTTY: boolean;
   columns: number;
   rows: number;
-  buffer: string;
+  frames: string[];
 };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
@@ -24,9 +31,10 @@ function fakeStdout(columns: number, rows: number): FakeStdout {
   stream.isTTY = true;
   stream.columns = columns;
   stream.rows = rows;
-  stream.buffer = "";
+  stream.frames = [];
   stream.write = (chunk: string | Uint8Array): boolean => {
-    stream.buffer += chunk.toString();
+    const text = stripAnsi(chunk.toString()).replace(/\r/g, "");
+    if (text.trim() !== "") stream.frames.push(text);
     return true;
   };
   return stream;
@@ -57,7 +65,7 @@ const INSERTS = [
   "INSERT INTO users VALUES (6, 'Frank')",
 ];
 
-async function mountAppWithUsersTable(columns = 120, rows = 80) {
+async function mountAppWithUsersTable(columns = 120, rows = 40) {
   const driver = new BetterSqlite3(":memory:");
   driver.exec("CREATE TABLE users (id INTEGER, name TEXT);");
   const db = BetterSqliteDatabase.withDriver(driver);
@@ -72,7 +80,7 @@ async function mountAppWithUsersTable(columns = 120, rows = 80) {
   });
   await settle();
   return {
-    output: () => stripAnsi(stdout.buffer).replace(/\r/g, ""),
+    lastFrame: () => stdout.frames[stdout.frames.length - 1] ?? "",
     async send(data: string) {
       stdin.write(data);
       await settle();
@@ -86,8 +94,8 @@ async function mountAppWithUsersTable(columns = 120, rows = 80) {
   };
 }
 
-describe("App pastQueries reverse render order", () => {
-  it("renders the newest query above the older ones so Ink never clips it", async () => {
+describe("App REPL render order", () => {
+  it("renders the newest result at the bottom, directly above the prompt", async () => {
     const app = await mountAppWithUsersTable();
     try {
       for (const sql of INSERTS) {
@@ -95,15 +103,45 @@ describe("App pastQueries reverse render order", () => {
         await app.send(ENTER);
       }
 
-      const out = app.output();
-      expect(out).toContain("INSERT INTO users VALUES (6, 'Frank')");
-      expect(out).toContain("INSERT INTO users VALUES (1, 'Ada')");
+      const frame = app.lastFrame();
+      const bPos = frame.indexOf("'B'");
+      const frankPos = frame.indexOf("Frank");
+      const promptPos = frame.indexOf("▌");
 
-      const frankPos = out.lastIndexOf("Frank");
-      const bPos = out.lastIndexOf("'B'");
-      expect(frankPos).toBeGreaterThan(-1);
       expect(bPos).toBeGreaterThan(-1);
-      expect(frankPos).toBeLessThan(bPos);
+      expect(frankPos).toBeGreaterThan(-1);
+      expect(promptPos).toBeGreaterThan(-1);
+      // older above, newest below, prompt right after
+      expect(bPos).toBeLessThan(frankPos);
+      expect(frankPos).toBeLessThan(promptPos);
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("collapses older visible entries to one-line summaries", async () => {
+    const app = await mountAppWithUsersTable();
+    try {
+      for (const sql of INSERTS) {
+        await app.send(sql);
+        await app.send(ENTER);
+      }
+      await app.send("SELECT * FROM users");
+      await app.send(ENTER);
+
+      const frame = app.lastFrame();
+      const lines = frame.split("\n");
+      // the expanded SELECT card renders a framed table…
+      expect(frame).toContain("+----");
+      // …while collapsed INSERT entries are single header lines: their line
+      // contains the tag + sql and no table borders
+      const collapsedLine = lines.find((l) => l.includes("'E'"));
+      expect(collapsedLine).toBeDefined();
+      expect(collapsedLine).toContain("WRITE INSERT");
+      // newest (the SELECT table) sits below the collapsed entries
+      const eLine = lines.findIndex((l) => l.includes("'E'"));
+      const tableLine = lines.findIndex((l) => l.includes("+----"));
+      expect(eLine).toBeLessThan(tableLine);
     } finally {
       await app.cleanup();
     }
