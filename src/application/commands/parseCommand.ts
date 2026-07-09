@@ -23,7 +23,8 @@ export type DotCommand =
   | { kind: "favorites" }
   | { kind: "run"; name: string }
   | { kind: "forget"; name: string }
-  | { kind: "theme"; name: string };
+  | { kind: "theme"; name: string }
+  | { kind: "copy" };
 
 export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
@@ -96,6 +97,10 @@ export function parseExplainCommand(line: string): NoArgResult {
 
 export function parseFavoritesCommand(line: string): NoArgResult {
   return parseNoArg(line, "favorites");
+}
+
+export function parseCopyCommand(line: string): NoArgResult {
+  return parseNoArg(line, "copy");
 }
 
 export function parseSaveCommand(line: string): NamedResult {
@@ -228,6 +233,10 @@ export function parseDotCommand(line: string): DotCommandResult {
     case "theme": {
       const r = parseThemeCommand(line);
       return r.ok ? { ok: true, command: { kind: "theme", name: r.name } } : r;
+    }
+    case "copy": {
+      const r = parseCopyCommand(line);
+      return r.ok ? { ok: true, command: { kind: "copy" } } : r;
     }
     default:
       return unknown(line);

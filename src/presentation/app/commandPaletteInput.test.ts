@@ -25,6 +25,7 @@ function makeDeps(dispatch: (event: AppEvent) => void): DotCommandDeps {
   return {
     dispatch,
     exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
+    copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
     schema: {
       tables: () => "posts\nusers",
       indexes: () => "idx on users",
