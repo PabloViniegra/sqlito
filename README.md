@@ -53,18 +53,25 @@ is a layer on top of that one command.
 ## Features
 
 - Open any local SQLite file from the command line.
-- Execute SQL synchronously against the file via `better-sqlite3`.
-- Render results in a virtualized, terminal-native table.
-- Persistent per-database query history with recall (Up / Down).
+- Execute SQL synchronously against the file via `better-sqlite3`, with a
+  colored outcome tag (READ / WRITE / DDL / ERROR / PLAN) on every result.
+- Render results in a windowed, terminal-native table; past queries scroll
+  with PageUp / PageDown and show an overflow indicator.
+- Persistent per-database query history with recall (Up / Down); a failed
+  query can be recalled and retried immediately.
 - Autocompletion for table and column names.
-- CSV export of the current result set.
+- CSV export of the current result set, to a file (`.export`) or straight
+  to the clipboard (`.copy`).
+- Session variables, an `EXPLAIN QUERY PLAN` view and favourite queries
+  (`.set`/`.vars`, `.explain`, `.save`/`.run`/`.favorites`).
+- Switchable themes (`.theme`), persisted to `~/.config/sqlito/config.json`.
 - Dot-commands for schema introspection: `.tables`, `.schema`, `.indexes`.
-- Command palette (Ctrl+P) and mode switch (`.mode`).
+- Command palette (Ctrl+P) surfacing every dot-command.
 - Keyboard-only navigation across the whole interface.
 - Takes over the terminal on launch via the alternate screen buffer; the
-  previous content is restored when you exit (Ctrl+C, `.quit`, or
+  previous content is restored when you exit (Ctrl+C, `.quit`/`.exit`, or
   normal exit).
-- Cold start under 100 ms on small projects.
+- Cold-start bench gate (`pnpm bench`) enforces a 1500 ms budget.
 
 ## Quick start
 
@@ -96,37 +103,48 @@ HMR-style reloads on save without an extra bundling step.
 
 ### Keyboard shortcuts
 
-| Shortcut            | Action                                                                                              |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| `Enter`             | Submit the current SQL statement.                                                                   |
-| `Tab` / `Esc`       | Open / close the autocomplete popup for the current prefix.                                         |
-| `↑` / `↓`           | Move the prompt cursor up/down across visual rows.                                                  |
-| `↑` / `↓`           | At the first / last visual row, recall previous / next entry from history.                          |
-| `←` / `→`           | Move the cursor one character.                                                                      |
-| `Home` / `End`      | Move the cursor to the start / end of the prompt.                                                   |
-| `Backspace`         | Delete the character before the cursor.                                                             |
-| `Alt+←` / `Alt+→`   | Skip to the previous / next word boundary.                                                          |
-| `Ctrl+U`            | Kill from the cursor to the start of the prompt.                                                    |
-| `Ctrl+K`            | Kill from the cursor to the end of the prompt.                                                      |
-| `Ctrl+W`            | Kill the word before the cursor.                                                                    |
-| `Ctrl+A` / `Ctrl+E` | Move the cursor to the start / end (readline aliases).                                              |
-| `Ctrl+L`            | Clear the screen and re-anchor the prompt.                                                          |
-| `Ctrl+P`            | Open the command palette.                                                                           |
-| `Ctrl+R`            | Open reverse-i-search over the history.                                                             |
-| `Ctrl+C`            | Cancel the current input or exit.                                                                   |
-| Bracketed paste     | Multi-line paste (`ESC[200~ … ESC[201~`) inserts newlines into the prompt without triggering Enter. |
+| Shortcut              | Action                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `Enter`               | Submit the current SQL statement.                                                                   |
+| `Tab` / `Esc`         | Open / close the autocomplete popup for the current prefix.                                         |
+| `↑` / `↓`             | Move the prompt cursor up/down across visual rows.                                                  |
+| `↑` / `↓`             | At the first / last visual row, recall previous / next entry from history.                          |
+| `←` / `→`             | Move the cursor one character.                                                                      |
+| `Home` / `End`        | Move the cursor to the start / end of the prompt.                                                   |
+| `Backspace`           | Delete the character before the cursor.                                                             |
+| `Delete`              | Delete the character after the cursor.                                                              |
+| `Alt+←` / `Alt+→`     | Skip to the previous / next word boundary.                                                          |
+| `Ctrl+U`              | Kill from the cursor to the start of the prompt.                                                    |
+| `Ctrl+K`              | Kill from the cursor to the end of the prompt.                                                      |
+| `Ctrl+W`              | Kill the word before the cursor.                                                                    |
+| `Ctrl+A` / `Ctrl+E`   | Move the cursor to the start / end (readline aliases).                                              |
+| `Ctrl+L`              | Clear the screen and re-anchor the prompt.                                                          |
+| `Ctrl+P`              | Open the command palette.                                                                           |
+| `Ctrl+R`              | Open reverse-i-search over the history.                                                             |
+| `Ctrl+C`              | Cancel the current input or exit.                                                                   |
+| Bracketed paste       | Multi-line paste (`ESC[200~ … ESC[201~`) inserts newlines into the prompt without triggering Enter. |
+| `PageUp` / `PageDown` | Scroll the past-queries viewport.                                                                   |
 
 ### Dot-commands
 
-| Command        | Description                                |
-| -------------- | ------------------------------------------ |
-| `.tables`      | List every table in the database.          |
-| `.schema`      | Print the schema of every table.           |
-| `.schema <t>`  | Print the schema of table `<t>`.           |
-| `.indexes`     | List every index in the database.          |
-| `.mode <mode>` | Switch the output mode (table, csv, etc.). |
-| `.help`        | Show the help overlay.                     |
-| `.quit`        | Exit SQLito.                               |
+| Command                 | Description                                                                 |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `.tables`               | List every table in the database.                                           |
+| `.schema [table]`       | Print CREATE statements for every table, or for `<table>` plus its indexes. |
+| `.indexes`              | List every index in the database, with its table.                           |
+| `.set <name> <val>`     | Define a session variable, usable as `:name` in SQL.                        |
+| `.unset <name>`         | Remove a session variable.                                                  |
+| `.vars`                 | List active session variables.                                              |
+| `.explain`              | Re-run the last query with `EXPLAIN QUERY PLAN`.                            |
+| `.save <name>`          | Save the last query as a favourite.                                         |
+| `.favorites`            | List saved favourites.                                                      |
+| `.run <name>`           | Load a favourite's SQL into the prompt.                                     |
+| `.forget <name>`        | Delete a favourite.                                                         |
+| `.theme <name>`         | Switch the active theme (`default`, `high-contrast`).                       |
+| `.export <path>`        | Export the last result to a CSV file.                                       |
+| `.copy`                 | Copy the last result to the clipboard as CSV.                               |
+| `.help`                 | Show the command reference.                                                 |
+| `.quit` (alias `.exit`) | Close the database and exit.                                                |
 
 ## Architecture
 
@@ -139,16 +157,22 @@ Presentation  →  Application  →  Domain  ←  Infrastructure
 ```
 
 - **Domain** has no outward dependencies. It contains the entities
-  (`Database`, `Query`, `QueryResult`, `Table`, `Column`, `Index`) and
-  pure behaviour.
-- **Application** holds use cases: `ExecuteQuery`, `ExportCsv`,
-  `ListTables`, `DescribeTable`, `LoadHistory`, `SaveHistory`,
-  `GetAutocompleteSuggestions`.
+  (`Database`, `Table`, `Column`, `Index`, `QueryOutcome`, `PlanNode`,
+  `HistoryEntry`, `Favorite`, `Theme`) and pure behaviour: read-only
+  detection, side-effect classification, CSV rendering, query-plan
+  building.
+- **Application** holds use cases: `ExecuteQuery`, `ExportCsv`, `CopyCsv`,
+  `DescribeTable`, `SchemaPrettyPrint`, `RunExplain`, `LoadHistory`,
+  `SaveHistory`, `GetAutocompleteSuggestions`, `SaveFavorite`,
+  `ListFavorites`, `RunFavorite`, `ForgetFavorite`, `LoadTheme`,
+  `SwitchTheme`, `SessionVariables`.
 - **Infrastructure** adapts the outside world to the domain:
-  `BetterSqliteDatabase`, `SqliteSchemaRepository`, `HistoryRepository`,
-  `KeyboardAdapter`.
+  `BetterSqliteDatabase`, `SqliteSchemaRepository`, `XdgHistoryRepository`,
+  `XdgFavoritesRepository`, `XdgThemeRepository`. Keyboard handling lives
+  in the presentation layer instead (`App.tsx`, `promptKeymap.ts`,
+  `readline.ts`).
 - **Presentation** is the Ink / React TUI: `App`, `Header`, `Prompt`,
-  `ResultsTable`, `CommandPalette`, `StatusBar`, `HelpOverlay`.
+  `ResultsTable`, `CommandPalette`, `AutocompletePopup`, `StatusBar`.
 
 Components follow the container-presentational pattern and must not
 exceed 250 lines of code. Strict TypeScript is enforced: `verbatimModuleSyntax`,
@@ -160,24 +184,29 @@ exceed 250 lines of code. Strict TypeScript is enforced: `verbatimModuleSyntax`,
 ```
 src/
 ├── application/
-│   ├── commands/         # ExecuteQuery, ExportCsv, ListTables, ListIndexes
-│   ├── queries/          # DescribeTable, LoadHistory
+│   ├── commands/         # ExportCsv, CopyCsv, parseCommand, commandRegistry
+│   ├── queries/          # ExecuteQuery, DescribeTable, SchemaPrettyPrint, RunExplain
 │   ├── autocomplete/     # GetAutocompleteSuggestions
-│   └── history/          # SaveHistory
+│   ├── history/          # LoadHistory, SaveHistory
+│   ├── favorites/        # SaveFavorite, ListFavorites, RunFavorite, ForgetFavorite
+│   ├── theme/            # LoadTheme, SwitchTheme
+│   └── variables/        # SessionVariables
 ├── domain/
 │   ├── database/         # Database
-│   ├── schema/           # Table, Column, Index
-│   └── sql/              # Query, QueryResult
+│   ├── schema/           # Table, Index, renderCsv, escapeCsvField
+│   ├── sql/              # Column, QueryOutcome, PlanNode, isReadOnly
+│   ├── history/          # HistoryEntry
+│   ├── favorites/        # Favorite, FavoritesRepository
+│   └── theme/            # Theme, ThemeRepository
 ├── infrastructure/
 │   ├── sqlite/           # BetterSqliteDatabase, SqliteSchemaRepository
-│   ├── filesystem/       # HistoryRepository
-│   └── terminal/         # KeyboardAdapter
+│   └── filesystem/       # XdgHistoryRepository, XdgFavoritesRepository, XdgThemeRepository
 ├── presentation/
-│   ├── app/              # App
-│   ├── screens/          # Header, StatusBar, HelpOverlay
-│   ├── components/       # Prompt, ResultsTable, CommandPalette, AutocompletePopup
-│   └── hooks/
-├── shared/               # constants, types, utils
+│   ├── app/              # App, dotCommand, readline, promptKeymap, pastQueriesViewport
+│   ├── components/       # Header, Prompt, ResultsTable, CommandPalette, StatusBar, AutocompletePopup
+│   └── hooks/            # usePromptInput, useViewportSize
+├── shared/
+│   └── utils/            # formatCell, measureColumn, wrapPrompt, formatPlanTree
 ├── cli.tsx               # Commander entry point
 └── main.tsx              # process argv bootstrap
 ```
@@ -222,14 +251,22 @@ pnpm test:run
 
 ## Roadmap
 
+Shipped:
+
 - **v0.1** — CLI, SQL execution, results table.
 - **v0.2** — Persistent history, autocompletion, CSV export.
-- **v0.3** — Variables, `EXPLAIN` view, favourites.
-- **v1.0** — Command palette, plugins, themes, configuration file.
-- **v1.1** — Fluidity: alternate-screen, viewport-aware prompt, readline
-  reducer, multi-line wrap, kill / word-skip, history recall at edit
-  boundary, screen clear, autocomplete / palette precedence, memoised
-  frames, and a cold-start bench gate (`pnpm bench`).
+- **v0.3** — Session variables (`.set`/`.unset`/`.vars`), `EXPLAIN QUERY
+PLAN` view (`.explain`), favourite queries
+  (`.save`/`.run`/`.forget`/`.favorites`).
+- **v1.0** — Command palette, themes (`.theme`), persistent config file.
+- **v1.1** — Fluid terminal UX: alternate-screen buffer, viewport-aware
+  prompt, readline-style editing (kill / word-skip / multi-line wrap),
+  history recall at edit boundary, screen clear, scrollable past-query
+  viewport (PageUp/PageDown), memoised frames, cold-start bench gate.
+
+Planned:
+
+- Plugins.
 
 ## Contributing
 
