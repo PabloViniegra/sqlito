@@ -20,9 +20,15 @@
 // the gate catches real regressions (≥ ~1.6× slowdown) without blocking on
 // the source-mode overhead. Phase 6 should reintroduce a bundled-CLI bench
 // alongside this one and tighten both.
+//
+// packaging/slice-4: bundled-mode budget added. Measured `node dist/cli.js`
+// cold-start at a median of ~550 ms on this machine (range ~530-610 ms
+// across 12 runs), a real drop from the ~900 ms source-mode figure above
+// since the tsx transform/module-graph overhead is gone. Budget set to
+// 900 ms (~1.6× observed, rounded) so the gate catches real regressions.
 
 import { spawn } from 'node:child_process';
-import { statSync, unlinkSync } from 'node:fs';
+import { existsSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
@@ -30,7 +36,8 @@ import Database from 'better-sqlite3';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dbPath = '/tmp/sqlito-bench.db';
 const targetBytes = 1024 * 1024;
-const budgetMs = 1500;
+const sourceBudgetMs = 1500;
+const bundledBudgetMs = 900;
 
 function generateBenchDb() {
   try { unlinkSync(dbPath); } catch {}
@@ -46,10 +53,10 @@ function generateBenchDb() {
   db.close();
 }
 
-function measureFirstByteMs() {
+function measureFirstByteMs(command, args) {
   return new Promise((resolve, reject) => {
     const t0 = performance.now();
-    const child = spawn('./node_modules/.bin/tsx', ['src/main.tsx', dbPath], {
+    const child = spawn(command, args, {
       cwd: repoRoot,
       env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -71,11 +78,19 @@ function measureFirstByteMs() {
 let exitCode = 0;
 try {
   generateBenchDb();
-  const ms = await measureFirstByteMs();
-  const rounded = Math.round(ms);
-  const pass = rounded < budgetMs;
-  console.log(`cold start: ${rounded} ms (budget ${budgetMs}ms) — ${pass ? 'PASS' : 'FAIL'}`);
-  exitCode = pass ? 0 : 1;
+  const distEntry = resolve(repoRoot, 'dist/cli.js');
+  if (!existsSync(distEntry)) {
+    throw new Error('dist/cli.js not found — run `pnpm build` first');
+  }
+  const sourceMs = await measureFirstByteMs('./node_modules/.bin/tsx', ['src/main.tsx', dbPath]);
+  const bundledMs = await measureFirstByteMs('node', [distEntry, dbPath]);
+  const sourceRounded = Math.round(sourceMs);
+  const bundledRounded = Math.round(bundledMs);
+  const sourcePass = sourceRounded < sourceBudgetMs;
+  const bundledPass = bundledRounded < bundledBudgetMs;
+  console.log(`cold start (source/tsx): ${sourceRounded} ms (budget ${sourceBudgetMs}ms) — ${sourcePass ? 'PASS' : 'FAIL'}`);
+  console.log(`cold start (bundled/dist): ${bundledRounded} ms (budget ${bundledBudgetMs}ms) — ${bundledPass ? 'PASS' : 'FAIL'}`);
+  exitCode = sourcePass && bundledPass ? 0 : 1;
 } catch (err) {
   console.error(`bench failed: ${err.message}`);
   exitCode = 2;
