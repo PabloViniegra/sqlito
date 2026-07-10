@@ -20,7 +20,10 @@ By participating in this project you agree to the [MIT License](LICENSE).
 
 Contributions are accepted **exclusively through the fork and pull request
 flow**. Direct pushes to the upstream repository are not permitted under any
-circumstance, including for maintainers working from a local clone.
+circumstance, including for maintainers working from a local clone. The one
+exception is the automated release commit created by CI (`semantic-release`),
+which updates `package.json`'s version and `CHANGELOG.md` and pushes directly
+to `main` as part of the release pipeline.
 
 The end-to-end process is:
 
