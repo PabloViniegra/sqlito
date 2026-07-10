@@ -21,6 +21,7 @@
 
 - [Overview](#overview)
 - [Features](#features)
+- [Installation](#installation)
 - [Quick start](#quick-start)
 - [Usage](#usage)
   - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -72,6 +73,27 @@ is a layer on top of that one command.
   previous content is restored when you exit (Ctrl+C, `.quit`/`.exit`, or
   normal exit).
 - Cold-start bench gate (`pnpm bench`) enforces a 1500 ms budget.
+
+## Installation
+
+Requires Node.js 22 or later.
+
+```bash
+npm install -g @pabloviniegra/sqlito
+```
+
+Or run it once without installing:
+
+```bash
+npx @pabloviniegra/sqlito ./path/to.db
+```
+
+Either way, the command is `sqlito`:
+
+```bash
+sqlito --help
+sqlito ./path/to.db
+```
 
 ## Quick start
 
