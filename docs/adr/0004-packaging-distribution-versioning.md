@@ -45,10 +45,10 @@ available.
 ## Decision
 
 - **Distribute via the npm registry only**, under the scoped package
-  name **`@pabloviniegra/sqlito`** (the bare name is taken — see
+  name **`@pablo-v/sqlito`** (the bare name is taken — see
   above). The `bin` field name stays `sqlito` regardless of the
   package's scope — package name and command name are independent, so
-  `npm i -g @pabloviniegra/sqlito` still exposes the `sqlito` command
+  `npm i -g @pablo-v/sqlito` still exposes the `sqlito` command
   unchanged. Flip `"private"` to `false` and publish. No standalone
   binaries (`yao-pkg/pkg` or otherwise) in this iteration.
 - **`engines.node: ">=22"`.** Corrects the README/CONTRIBUTING's

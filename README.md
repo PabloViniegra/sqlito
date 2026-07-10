@@ -79,13 +79,13 @@ is a layer on top of that one command.
 Requires Node.js 22 or later.
 
 ```bash
-npm install -g @pabloviniegra/sqlito
+npm install -g @pablo-v/sqlito
 ```
 
 Or run it once without installing:
 
 ```bash
-npx @pabloviniegra/sqlito ./path/to.db
+npx @pablo-v/sqlito ./path/to.db
 ```
 
 Either way, the command is `sqlito`:
