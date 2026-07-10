@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/PabloViniegra/sqlito/compare/v1.0.0...v1.0.1) (2026-07-10)
+
+### Bug Fixes
+
+- **packaging:** rename npm scope to @pablo-v/sqlito ([2d64318](https://github.com/PabloViniegra/sqlito/commit/2d643180be81fb4218250bff6a6aa8bf479d6059))
+
 # 1.0.0 (2026-07-10)
 
 ### Bug Fixes
