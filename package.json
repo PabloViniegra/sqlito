@@ -1,11 +1,23 @@
 {
-  "name": "sqlito",
-  "private": true,
+  "name": "@pabloviniegra/sqlito",
+  "private": false,
   "version": "0.0.0",
   "type": "module",
+  "bin": {
+    "sqlito": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/main.tsx",
-    "build": "tsc -b",
+    "build": "tsup",
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
@@ -47,6 +59,7 @@
     "oxlint": "^1.71.0",
     "prettier": "^3.6.2",
     "react-doctor": "^0.7.1",
+    "tsup": "^8.5.1",
     "tsx": "^4.22.5",
     "typescript": "~6.0.2",
     "vitest": "^4.1.9"

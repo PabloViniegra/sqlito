@@ -1,6 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
+import pkg from "../package.json" with { type: "json" };
 import { mountApp, run } from "./cli.tsx";
 import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
@@ -101,6 +102,29 @@ describe("cli.run", () => {
       expect(stderrBuffer.join("")).toMatch(/cannot open database/);
     } finally {
       stderrSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
+
+  it("prints the package version and exits when --version is passed", () => {
+    const stdoutBuffer: string[] = [];
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk: string | Uint8Array): boolean => {
+        stdoutBuffer.push(chunk.toString());
+        return true;
+      });
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((): never => {
+      throw new Error("__process_exit__");
+    }) as typeof process.exit);
+
+    try {
+      expect(() => run(["node", "sqlito", "--version"])).toThrow(
+        "__process_exit__",
+      );
+      expect(stdoutBuffer.join("")).toBe(`${pkg.version}\n`);
+    } finally {
+      stdoutSpy.mockRestore();
       exitSpy.mockRestore();
     }
   });
