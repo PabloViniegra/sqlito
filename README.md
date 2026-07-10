@@ -75,7 +75,7 @@ is a layer on top of that one command.
 
 ## Quick start
 
-Requirements: Node.js 20 or later, pnpm 9 or later, and a C toolchain
+Requirements: Node.js 22 or later, pnpm 9 or later, and a C toolchain
 able to build native modules (`better-sqlite3`).
 
 ```bash
