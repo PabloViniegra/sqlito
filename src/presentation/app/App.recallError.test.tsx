@@ -60,6 +60,7 @@ async function mountApp() {
     stdout: stdout as unknown as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
+    interactive: true,
   });
   await settle();
   let lastSeen = 0;

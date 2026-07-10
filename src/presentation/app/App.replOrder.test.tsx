@@ -77,6 +77,7 @@ async function mountAppWithUsersTable(columns = 120, rows = 40) {
     stdout: stdout as unknown as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
+    interactive: true,
   });
   await settle();
   return {

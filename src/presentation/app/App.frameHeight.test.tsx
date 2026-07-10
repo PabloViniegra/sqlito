@@ -73,6 +73,7 @@ async function mountSeededApp(columns: number, rows: number) {
     stdout: stdout as unknown as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
+    interactive: true,
   });
   await settle();
   return {
