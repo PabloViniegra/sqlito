@@ -61,6 +61,7 @@ async function mountApp(columns = 80, rows = 24) {
     stdout: stdout as unknown as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
+    interactive: true,
   });
   await settle();
   return {

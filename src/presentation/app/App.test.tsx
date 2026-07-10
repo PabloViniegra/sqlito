@@ -46,6 +46,7 @@ async function renderApp(
       stdout: tty as NodeJS.WriteStream,
       exitOnCtrlC: false,
       patchConsole: false,
+      interactive: true,
     });
     await new Promise<void>((r) => setImmediate(r));
     instance.unmount();

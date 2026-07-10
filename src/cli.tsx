@@ -11,8 +11,10 @@ import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDataba
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
 
 export type MountOptions = {
+  stdin?: NodeJS.ReadStream;
   stdout?: NodeJS.WriteStream;
   patchConsole?: boolean;
+  interactive?: boolean;
 };
 
 export function mountApp(
@@ -32,9 +34,13 @@ export function mountApp(
     <App db={handle.db} schema={handle.schema} dbPath={handle.dbPath} />,
     {
       alternateScreen: true,
+      ...(options.stdin !== undefined && { stdin: options.stdin }),
       ...(options.stdout !== undefined && { stdout: options.stdout }),
       ...(options.patchConsole !== undefined && {
         patchConsole: options.patchConsole,
+      }),
+      ...(options.interactive !== undefined && {
+        interactive: options.interactive,
       }),
     },
   );

@@ -24,6 +24,22 @@ function fakeTty(): FakeTty {
   return stream;
 }
 
+type FakeStdin = NodeJS.ReadStream & {
+  isTTY: boolean;
+  setRawMode: (mode: boolean) => FakeStdin;
+  ref: () => FakeStdin;
+  unref: () => FakeStdin;
+};
+
+function fakeStdin(): FakeStdin {
+  const stream = new PassThrough() as unknown as FakeStdin;
+  stream.isTTY = true;
+  stream.setRawMode = () => stream;
+  stream.ref = () => stream;
+  stream.unref = () => stream;
+  return stream;
+}
+
 async function nextFrame(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve));
 }
@@ -43,10 +59,11 @@ describe("cli.mountApp", () => {
     try {
       const db = BetterSqliteDatabase.withDriver(driver);
       const tty = fakeTty();
+      const stdin = fakeStdin();
 
       const instance = mountApp(
         { db, schema, dbPath: ":memory:" },
-        { stdout: tty, patchConsole: false },
+        { stdin, stdout: tty, patchConsole: false, interactive: true },
       );
       await nextFrame();
 
@@ -64,10 +81,11 @@ describe("cli.mountApp", () => {
     try {
       const db = BetterSqliteDatabase.withDriver(driver);
       const tty = fakeTty();
+      const stdin = fakeStdin();
 
       const instance = mountApp(
         { db, schema, dbPath: ":memory:" },
-        { stdout: tty, patchConsole: false },
+        { stdin, stdout: tty, patchConsole: false, interactive: true },
       );
       await nextFrame();
 
