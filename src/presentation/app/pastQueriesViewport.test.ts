@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { PastQuery } from "./appReducer.ts";
 import { pastQueriesViewport } from "./pastQueriesViewport.ts";
 
+let nextQid = 0;
 function q(sql: string): PastQuery {
-  return { sql, outcome: { kind: "side-effect" } };
+  nextQid += 1;
+  return { id: nextQid, sql, outcome: { kind: "side-effect" } };
 }
 
 function queries(...sqls: string[]): PastQuery[] {

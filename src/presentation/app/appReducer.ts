@@ -10,6 +10,7 @@ import {
 export const MAX_VISIBLE_QUERIES = 5;
 
 export type PastQuery = {
+  id: number;
   sql: string;
   outcome: QueryOutcome;
 };
@@ -46,6 +47,7 @@ export type AppState = {
   history: { entries: readonly HistoryEntry[] };
   pastQueries: readonly PastQuery[];
   pastQueriesScrollOffset: number;
+  nextPastQueryId: number;
   autocomplete: AutocompleteState | null;
   lastOutcome: QueryOutcome | null;
   statusMessage: StatusMessage | null;
@@ -98,6 +100,7 @@ export const initialState: AppState = {
   history: { entries: [] },
   pastQueries: [],
   pastQueriesScrollOffset: 0,
+  nextPastQueryId: 1,
   autocomplete: null,
   lastOutcome: null,
   statusMessage: null,
@@ -201,24 +204,29 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
       };
     case "recordQuery": {
       const nextEntries = [...state.history.entries, event.entry];
+      const id = state.nextPastQueryId;
       return {
         ...state,
         history: { entries: nextEntries },
         pastQueries: [
           ...state.pastQueries,
-          { sql: event.entry.sql, outcome: event.outcome },
+          { id, sql: event.entry.sql, outcome: event.outcome },
         ],
+        nextPastQueryId: id + 1,
       };
     }
-    case "recordError":
+    case "recordError": {
       // errors show in the results flow but stay out of the ↑/Ctrl+R recall corpus
+      const id = state.nextPastQueryId;
       return {
         ...state,
         pastQueries: [
           ...state.pastQueries,
-          { sql: event.sql, outcome: event.outcome },
+          { id, sql: event.sql, outcome: event.outcome },
         ],
+        nextPastQueryId: id + 1,
       };
+    }
     case "reverseSearchOpen":
       return { ...state, reverseSearch: { query: "" } };
     case "reverseSearchChange":

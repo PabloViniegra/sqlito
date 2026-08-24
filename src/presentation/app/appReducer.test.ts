@@ -507,7 +507,7 @@ describe("appReducer", () => {
         outcome,
       });
 
-      expect(next.pastQueries).toEqual([{ sql: entry.sql, outcome }]);
+      expect(next.pastQueries).toEqual([{ id: 1, sql: entry.sql, outcome }]);
     });
 
     it("preserves prior history.entries", () => {
@@ -545,7 +545,7 @@ describe("appReducer", () => {
       });
 
       expect(next.pastQueries).toEqual([
-        { sql: "SELECT * FROM nope", outcome },
+        { id: 1, sql: "SELECT * FROM nope", outcome },
       ]);
     });
 
@@ -673,6 +673,7 @@ describe("appReducer", () => {
     const seed = (n: number, offset: number) => ({
       ...initialState,
       pastQueries: Array.from({ length: n }, (_, i) => ({
+        id: i + 1,
         sql: `q${i}`,
         outcome: { kind: "side-effect" as const },
       })),

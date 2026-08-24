@@ -54,7 +54,7 @@ export function App({ db, schema, dbPath }: Props) {
           ) : null}
           {resultsView.collapsed.map((item) => (
             <ResultsTable
-              key={`${item.sql}-${state.pastQueries.indexOf(item)}`}
+              key={item.id}
               outcome={item.outcome}
               sql={item.sql}
               theme={state.theme}
@@ -63,7 +63,7 @@ export function App({ db, schema, dbPath }: Props) {
             />
           ))}
           <ResultsTable
-            key={`${expanded.sql}-${state.pastQueries.indexOf(expanded)}`}
+            key={expanded.id}
             outcome={expanded.outcome}
             sql={expanded.sql}
             theme={state.theme}

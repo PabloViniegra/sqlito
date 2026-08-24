@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { PastQuery } from "./appReducer.ts";
 import { countWrappedLines, layoutResults } from "./resultsLayout.ts";
 
+let nextQid = 0;
 const query = (n: number): PastQuery => ({
+  id: ++nextQid,
   sql: `SELECT ${n}`,
   outcome: { kind: "rows", columns: [], rows: [] },
 });
