@@ -29,10 +29,10 @@ describe("outcomeToHistoryKind", () => {
     expect(outcomeToHistoryKind(outcome)).toBe("side-effect");
   });
 
-  it("maps plan outcomes to 'ok'", () => {
+  it("maps plan outcomes to 'plan'", () => {
     const outcome: QueryOutcome = { kind: "plan", nodes: [] };
 
-    expect(outcomeToHistoryKind(outcome)).toBe("ok");
+    expect(outcomeToHistoryKind(outcome)).toBe("plan");
   });
 
   it("maps error outcomes to 'error'", () => {

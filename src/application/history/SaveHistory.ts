@@ -1,4 +1,5 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
+import { historyKindFor } from "../../domain/sql/historyKind.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import type { HistoryRepository } from "../../infrastructure/filesystem/HistoryRepository.ts";
 
@@ -14,26 +15,12 @@ export class SaveHistory {
     outcome: QueryOutcome,
     timestamp: number,
   ): Promise<void> {
-    const historyOutcome = outcomeKindToHistoryOutcome(outcome);
-    if (historyOutcome === null) return;
-    const entry: HistoryEntry = { sql, outcome: historyOutcome, timestamp };
+    if (outcome.kind === "error") return;
+    const entry: HistoryEntry = {
+      sql,
+      outcome: historyKindFor(outcome),
+      timestamp,
+    };
     await this.repo.append(entry);
-  }
-}
-
-function outcomeKindToHistoryOutcome(
-  outcome: QueryOutcome,
-): HistoryEntry["outcome"] | null {
-  switch (outcome.kind) {
-    case "rows":
-      return "ok";
-    case "affected":
-      return "affected";
-    case "side-effect":
-      return "side-effect";
-    case "plan":
-      return "ok";
-    case "error":
-      return null;
   }
 }

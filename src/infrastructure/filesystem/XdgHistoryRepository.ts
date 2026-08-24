@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
+import { newestFirst } from "../../domain/history/historyView.ts";
+import { atomicWrite, isEnoent } from "./atomicWrite.ts";
 
 export const HISTORY_CAP = 1000;
 
@@ -8,41 +10,47 @@ export class XdgHistoryRepository {
   private readonly path: string;
   private entries: HistoryEntry[] = [];
   private loaded = false;
+  private pending: Promise<unknown> = Promise.resolve();
 
   constructor(path: string) {
     this.path = path;
   }
 
   async append(entry: HistoryEntry): Promise<void> {
-    await this.load();
-    const last = this.entries[this.entries.length - 1];
-    if (last !== undefined && last.sql === entry.sql) return;
-    this.entries.push(entry);
-    if (this.entries.length > HISTORY_CAP) {
-      this.entries = this.entries.slice(-HISTORY_CAP);
+    return this.serialise(async () => {
+      await this.load();
+      const last = this.entries[this.entries.length - 1];
+      if (last !== undefined && last.sql === entry.sql) return;
+      this.entries.push(entry);
+      if (this.entries.length > HISTORY_CAP) {
+        this.entries = this.entries.slice(-HISTORY_CAP);
+        await atomicWrite(this.path, serialiseJsonl(this.entries));
+        return;
+      }
       await mkdir(dirname(this.path), { recursive: true });
-      await writeFile(this.path, serialiseJsonl(this.entries));
-      return;
-    }
-    await mkdir(dirname(this.path), { recursive: true });
-    await writeFile(this.path, `${JSON.stringify(entry)}\n`, { flag: "a" });
+      await writeFile(this.path, `${JSON.stringify(entry)}\n`, { flag: "a" });
+    });
   }
 
   async recent(limit: number): Promise<readonly HistoryEntry[]> {
-    await this.load();
-    return newestFirst(this.entries, limit);
+    return this.serialise(async () => {
+      await this.load();
+      return newestFirst(this.entries, limit);
+    });
   }
 
   async search(
     substring: string,
     limit: number,
   ): Promise<readonly HistoryEntry[]> {
-    await this.load();
-    const haystack = substring.toLowerCase();
-    const matches = this.entries.filter((e) =>
-      e.sql.toLowerCase().includes(haystack),
-    );
-    return newestFirst(matches, limit);
+    return this.serialise(async () => {
+      await this.load();
+      const haystack = substring.toLowerCase();
+      const matches = this.entries.filter((e) =>
+        e.sql.toLowerCase().includes(haystack),
+      );
+      return newestFirst(matches, limit);
+    });
   }
 
   private async load(): Promise<void> {
@@ -60,14 +68,23 @@ export class XdgHistoryRepository {
       this.entries = this.entries.slice(-HISTORY_CAP);
     }
   }
-}
 
-export function newestFirst(
-  entries: readonly HistoryEntry[],
-  limit: number,
-): readonly HistoryEntry[] {
-  const start = Math.max(0, entries.length - limit);
-  return entries.slice(start).slice().reverse();
+  // Single-flight queue: every operation chains onto the previous one so
+  // the in-memory `entries` array and the on-disk file stay in lockstep
+  // under concurrent appends.
+  private async serialise<T>(op: () => Promise<T>): Promise<T> {
+    const previous = this.pending;
+    let resolveNext: () => void = () => {};
+    this.pending = new Promise<void>((resolve) => {
+      resolveNext = resolve;
+    });
+    try {
+      await previous;
+      return await op();
+    } finally {
+      resolveNext();
+    }
+  }
 }
 
 function serialiseJsonl(entries: readonly HistoryEntry[]): string {
@@ -87,13 +104,4 @@ function parseJsonl(raw: string): HistoryEntry[] {
     }
   }
   return out;
-}
-
-function isEnoent(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: unknown }).code === "ENOENT"
-  );
 }
