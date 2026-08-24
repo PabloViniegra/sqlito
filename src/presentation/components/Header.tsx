@@ -9,6 +9,11 @@ const MASCOT = [
   " ▀█▀   ▀█▀ ",
 ].join("\n");
 
+// 4-line mascot + round border top + bottom = 6 physical rows.
+// Analytics-side consumers (useResultsLayout) read this so the height
+// budget cannot desync from this component without an import error.
+export const HEADER_LINES = MASCOT.split("\n").length + 2;
+
 type Props = {
   dbPath: string;
   theme: Theme;

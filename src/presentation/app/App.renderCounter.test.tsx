@@ -20,7 +20,7 @@ vi.mock("../components/Header.tsx", async () => {
     counters.header += 1;
     return React.createElement(actual.Header, props);
   }
-  return { Header: React.memo(Stub) };
+  return { Header: React.memo(Stub), HEADER_LINES: actual.HEADER_LINES };
 });
 
 vi.mock("../components/StatusBar.tsx", async () => {

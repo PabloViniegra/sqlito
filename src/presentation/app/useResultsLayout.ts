@@ -2,6 +2,7 @@ import {
   COMMAND_DESCRIPTORS,
   type CommandDescriptor,
 } from "../../application/commands/commandRegistry.ts";
+import { HEADER_LINES } from "../components/Header.tsx";
 import {
   DEFAULT_PROMPT_PREFIX,
   derivePromptLayout,
@@ -18,8 +19,6 @@ import type { AppDeps } from "./useAppDeps.ts";
 
 const COMMAND_PALETTE_MATCH_LIMIT = 10;
 const COMMAND_PALETTE_CHROME = 5;
-// Header.tsx: 4-line mascot + 2 border rows
-const HEADER_HEIGHT = 6;
 
 const ALL_COMMANDS: readonly CommandDescriptor[] =
   Object.values(COMMAND_DESCRIPTORS);
@@ -93,7 +92,7 @@ export function useResultsLayout({
   const resultsView = layoutResults(
     pastQueriesView.visible,
     pastQueriesView.overflowAbove,
-    rows - HEADER_HEIGHT - promptLines - statusLines - paletteLines,
+    rows - HEADER_LINES - promptLines - statusLines - paletteLines,
   );
 
   return {
