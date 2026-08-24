@@ -28,6 +28,7 @@ jobs:
       - run: pnpm test:run
       - run: pnpm build
       - run: npx semantic-release
+        if: "! contains(github.event.head_commit.message, '[skip release]')"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
