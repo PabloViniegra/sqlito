@@ -169,4 +169,36 @@ describe("App frame height discipline", () => {
       await app.cleanup();
     }
   });
+
+  it("Tab on the prompt opens autocomplete without inserting a tab character", async () => {
+    const app = await mountSeededApp(80, 24);
+    try {
+      await app.send("SELECT");
+      const before = app.lastFrame();
+      await app.send("\t");
+      await app.send("\x1b");
+
+      expectAllFramesWithin(app.stdout);
+      expect(before).toContain("SELECT");
+      // After Esc closes autocomplete, the prompt must still read "SELECT"
+      // without a stray tab character left behind by the keystroke race.
+      expect(app.lastFrame()).toContain("SELECT");
+      expect(app.lastFrame()).not.toContain("SELECT\t");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps every frame within a 30-column narrow terminal without overflowing", async () => {
+    const app = await mountSeededApp(30, 24);
+    try {
+      await app.send("SELECT * FROM nums");
+      await app.send(ENTER);
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("▌");
+    } finally {
+      await app.cleanup();
+    }
+  });
 });

@@ -122,6 +122,7 @@ export function useAppKeybindings({
         prefixBase: ac.prefixBase,
         context: ac.context,
       });
+      return;
     }
   });
 
@@ -215,7 +216,7 @@ export function useAppKeybindings({
       dispatch({ type: "readline", intent: { type: "Delete" } });
       return;
     }
-    if (input && !key.ctrl && !key.meta) {
+    if (input && !key.ctrl && !key.meta && !key.tab) {
       dispatch({ type: "readline", intent: { type: "Insert", ch: input } });
     }
   });
