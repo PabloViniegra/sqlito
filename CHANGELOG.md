@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/PabloViniegra/sqlito/compare/v1.0.1...v1.1.0) (2026-08-24)
+
+### Bug Fixes
+
+- **history:** atomic rewrite, single-flight queue, surface save errors, distinguish plan outcomes ([af722e5](https://github.com/PabloViniegra/sqlito/commit/af722e56ee60051e6a58173140a07b8e91637896))
+- **keymap:** cancel reverse-search on Ctrl+C instead of quitting ([44d4069](https://github.com/PabloViniegra/sqlito/commit/44d406926a15aeb2b582203d27014ffbe4423b04))
+- **keymap:** prevent Tab from inserting a literal tab character ([5018f38](https://github.com/PabloViniegra/sqlito/commit/5018f383d20451ba5999660960827cbf816bbfcd))
+- resolve 81% of anti-slop lint findings ([ab0f52b](https://github.com/PabloViniegra/sqlito/commit/ab0f52b9c0b03bcb62ee435eb6c20e91ce92981b))
+
+### Features
+
+- **ci:** surface anti-slop findings as warnings, unblocking the release pipeline ([100297d](https://github.com/PabloViniegra/sqlito/commit/100297d7c8090570b32e6c68ea48a58b14feb5cf))
+
 ## [1.0.2](https://github.com/PabloViniegra/sqlito/compare/v1.0.1...v1.0.2) (2026-08-24)
 
 ### Bug Fixes
