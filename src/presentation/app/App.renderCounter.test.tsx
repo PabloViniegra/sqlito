@@ -102,9 +102,30 @@ function fakeStdin(): FakeStdin {
   return stream;
 }
 
+async function waitForCounterStable(
+  get: () => number,
+  stableMs = 80,
+  timeoutMs = 500,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let last = get();
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    await new Promise<void>((r) => setTimeout(r, 20));
+    const next = get();
+    if (next !== last) {
+      last = next;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince >= stableMs) {
+      return;
+    }
+  }
+}
+
 async function mountApp(): Promise<{
   send: (data: string) => Promise<void>;
   reset: () => void;
+  waitForStable: (timeoutMs?: number) => Promise<void>;
   cleanup: () => Promise<void>;
 }> {
   const driver = new BetterSqlite3(":memory:");
@@ -129,6 +150,13 @@ async function mountApp(): Promise<{
       counters.statusBar = 0;
       counters.resultsTable = 0;
       counters.prompt = 0;
+    },
+    waitForStable(timeoutMs) {
+      return waitForCounterStable(
+        () => counters.resultsTable,
+        80,
+        timeoutMs,
+      );
     },
     async cleanup() {
       instance.unmount();
@@ -161,12 +189,17 @@ describe("App render-counter (memoization guard)", () => {
     }
   });
 
-  it("ResultsTable only re-renders when a new past query is recorded", async () => {
+  it("ResultsTable re-renders when a new past query is recorded", async () => {
     const app = await mountApp();
     try {
       app.reset();
       await app.send("SELECT 1");
       await app.send("\r");
+      await app.waitForStable();
+      // The expected count is 1 (one render on submit/recordQuery). The
+      // count may briefly exceed 1 if an async history save fails and
+      // dispatches setStatus, which forces a layout recalculation; under
+      // normal conditions this does not happen within the stability window.
       expect(counters.resultsTable).toBe(1);
     } finally {
       await app.cleanup();

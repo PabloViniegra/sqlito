@@ -87,6 +87,35 @@ describe("XdgHistoryRepository", () => {
       }
       expect(await countLines()).toBe(HISTORY_CAP);
     });
+
+    it("does not leave a .tmp file behind after the rewrite", async () => {
+      for (let i = 0; i < HISTORY_CAP + 1; i++) {
+        await repo.append({ sql: `q${i}`, outcome: "ok", timestamp: i });
+      }
+      const tmpPath = join(dir, "history.jsonl.tmp");
+      await expect(readFile(tmpPath, "utf8")).rejects.toThrow();
+    });
+
+    it("serialises concurrent appends so the file ends up consistent", async () => {
+      // Without single-flight, two `append`s racing on the dedupe check
+      // can both push, and a fast file append + a slow over-cap rewrite
+      // can interleave so the final file drops entries or duplicates.
+      const writes = await Promise.all(
+        Array.from({ length: 50 }, (_, i) =>
+          repo.append({ sql: `SELECT ${i}`, outcome: "ok", timestamp: i }),
+        ),
+      );
+      await writes[writes.length - 1];
+
+      const raw = await readFile(join(dir, "history.jsonl"), "utf8");
+      const lines = raw.split("\n").filter((l) => l.length > 0);
+      // the in-memory snapshot has every entry; the file must match it
+      expect(lines.length).toBe(50);
+      const parsed = lines.map((l) => JSON.parse(l) as { sql: string });
+      expect(parsed.map((p) => p.sql)).toEqual(
+        Array.from({ length: 50 }, (_, i) => `SELECT ${i}`),
+      );
+    });
   });
 
   describe("recent", () => {

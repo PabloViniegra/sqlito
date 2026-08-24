@@ -49,6 +49,20 @@ function fakeStdin(): FakeStdin {
   return stream;
 }
 
+async function waitFor(
+  read: () => string,
+  predicate: (out: string) => boolean,
+  timeoutMs = 500,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const out = read();
+    if (predicate(out)) return out;
+    await settle();
+  }
+  return read();
+}
+
 async function mountApp() {
   const driver = new BetterSqlite3(":memory:");
   const db = BetterSqliteDatabase.withDriver(driver);
@@ -63,13 +77,15 @@ async function mountApp() {
     interactive: true,
   });
   await settle();
+  const read = (): string => stripAnsi(stdout.buffer).replace(/\r/g, "");
   return {
-    output: () => stripAnsi(stdout.buffer).replace(/\r/g, ""),
+    output: read,
     async send(data: string) {
       stdin.write(data);
       await settle();
-      await settle();
     },
+    waitFor: (predicate: (out: string) => boolean, timeoutMs?: number) =>
+      waitFor(read, predicate, timeoutMs),
     async cleanup() {
       instance.unmount();
       await tick();
@@ -85,7 +101,7 @@ describe("App bracketed paste", () => {
       await app.send(
         `${PASTE_START}SELECT *\nFROM users\nWHERE id = 1${PASTE_END}`,
       );
-      const out = app.output();
+      const out = await app.waitFor((s) => s.includes("WHERE id = 1"));
       expect(out).toContain("SELECT *");
       expect(out).toContain("FROM users");
       expect(out).toContain("WHERE id = 1");
@@ -98,7 +114,7 @@ describe("App bracketed paste", () => {
     const app = await mountApp();
     try {
       await app.send(`${PASTE_START}sel${PASTE_END}`);
-      const out = app.output();
+      const out = await app.waitFor((s) => s.includes("> sel"));
       expect(out).toContain("> sel");
       expect(out).not.toContain("(reverse-i-search)");
     } finally {
@@ -111,7 +127,7 @@ describe("App bracketed paste", () => {
     try {
       await app.send("SELECT 42 AS answer");
       await app.send("\r");
-      const out = app.output();
+      const out = await app.waitFor((s) => s.includes("42"));
       expect(out).toContain("42");
       expect(out).toContain("answer");
     } finally {

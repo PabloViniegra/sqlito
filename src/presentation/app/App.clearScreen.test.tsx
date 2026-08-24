@@ -50,6 +50,23 @@ function fakeStdin(): FakeStdin {
   return stream;
 }
 
+async function waitForAfterClear(
+  read: () => string,
+  timeoutMs = 1500,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const raw = read();
+    const idx = raw.lastIndexOf(clearScreenSequence());
+    if (idx >= 0) {
+      const tail = stripAnsi(raw.slice(idx + clearScreenSequence().length))
+        .replace(/\r/g, "");
+      if (tail.includes(">")) return;
+    }
+    await settle();
+  }
+}
+
 async function mountApp(columns = 80, rows = 24) {
   const driver = new BetterSqlite3(":memory:");
   const db = BetterSqliteDatabase.withDriver(driver);
@@ -72,6 +89,7 @@ async function mountApp(columns = 80, rows = 24) {
       await settle();
       await settle();
     },
+    waitForAfterClear: () => waitForAfterClear(() => stdout.buffer),
     cleanup: async () => {
       instance.unmount();
       await tick();
@@ -87,6 +105,7 @@ describe("App Ctrl+L (clear screen)", () => {
       expect(app.raw()).not.toContain(clearScreenSequence());
 
       await app.send(CTRL_L);
+      await app.waitForAfterClear();
 
       const raw = app.raw();
       expect(raw).toContain(clearScreenSequence());

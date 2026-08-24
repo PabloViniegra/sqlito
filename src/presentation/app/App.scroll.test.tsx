@@ -50,6 +50,18 @@ function fakeStdin(): FakeStdin {
   return stream;
 }
 
+async function waitForOutput(
+  read: () => string,
+  predicate: (out: string) => boolean,
+  timeoutMs = 500,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate(read())) return;
+    await settle();
+  }
+}
+
 async function mountApp(columns = 80, rows = 24) {
   const driver = new BetterSqlite3(":memory:");
   const db = BetterSqliteDatabase.withDriver(driver);
@@ -64,13 +76,16 @@ async function mountApp(columns = 80, rows = 24) {
     interactive: true,
   });
   await settle();
+  const read = (): string => stripAnsi(stdout.buffer).replace(/\r/g, "");
   return {
-    output: () => stripAnsi(stdout.buffer).replace(/\r/g, ""),
+    output: read,
     async send(data: string) {
       stdin.write(data);
       await settle();
       await settle();
     },
+    waitForOutput: (predicate: (out: string) => boolean, timeoutMs?: number) =>
+      waitForOutput(read, predicate, timeoutMs),
     async cleanup() {
       instance.unmount();
       await tick();
@@ -95,12 +110,12 @@ describe("App pastQueries PgUp/PgDn scroll", () => {
     try {
       await submitMany(app, 11);
 
-      const initial = app.output();
-      expect(initial).toContain("↑ 6 more · PgUp");
+      await app.waitForOutput((s) => s.includes("↑ 6 more · PgUp"));
+      expect(app.output()).toContain("↑ 6 more · PgUp");
 
       await app.send(PAGE_UP);
-      const afterPageUp = app.output();
-      expect(afterPageUp).toContain("↑ 5 more · PgUp");
+      await app.waitForOutput((s) => s.includes("↑ 5 more · PgUp"));
+      expect(app.output()).toContain("↑ 5 more · PgUp");
     } finally {
       await app.cleanup();
     }
@@ -110,13 +125,14 @@ describe("App pastQueries PgUp/PgDn scroll", () => {
     const app = await mountApp(80, 24);
     try {
       await submitMany(app, 11);
+      await app.waitForOutput((s) => s.includes("↑ 5 more · PgUp"));
 
       await app.send(PAGE_UP);
       expect(app.output()).toContain("↑ 5 more · PgUp");
 
       await app.send(PAGE_DOWN);
-      const afterPageDown = app.output();
-      expect(afterPageDown).toContain("↑ 6 more · PgUp");
+      await app.waitForOutput((s) => s.includes("↑ 6 more · PgUp"));
+      expect(app.output()).toContain("↑ 6 more · PgUp");
     } finally {
       await app.cleanup();
     }
@@ -126,6 +142,7 @@ describe("App pastQueries PgUp/PgDn scroll", () => {
     const app = await mountApp(80, 24);
     try {
       await submitMany(app, 11);
+      await app.waitForOutput((s) => s.includes("↑ 5 more · PgUp"));
 
       await app.send(PAGE_UP);
       expect(app.output()).toContain("↑ 5 more · PgUp");
@@ -133,6 +150,7 @@ describe("App pastQueries PgUp/PgDn scroll", () => {
       await app.send(`SELECT 99`);
       await app.send(ENTER);
 
+      await app.waitForOutput((s) => s.includes("↑ 7 more · PgUp"));
       const afterSubmit = app.output();
       expect(afterSubmit).toContain("99");
       expect(afterSubmit).toContain("↑ 7 more · PgUp");
