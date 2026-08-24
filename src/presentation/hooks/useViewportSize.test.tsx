@@ -13,6 +13,7 @@ type FakeTty = NodeJS.WriteStream & {
 };
 
 function fakeTty(columns: number, rows: number): FakeTty {
+  // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/rows/isTTY and emits "resize" before the hook reads them.
   const stream = new PassThrough() as unknown as FakeTty;
   stream.columns = columns;
   stream.rows = rows;
@@ -44,6 +45,7 @@ function Probe({ sink }: { sink: Sink }): React.ReactElement {
 
 async function mount(tty: FakeTty, sink: Sink): Promise<Instance> {
   const instance = render(<Probe sink={sink} />, {
+    // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime after the fakeTty fixture above.
     stdout: tty as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,

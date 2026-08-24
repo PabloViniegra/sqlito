@@ -20,6 +20,7 @@ export function BuildPlanTree(rows: readonly unknown[][]): PlanNode[] {
     if (parentNode === undefined) {
       roots.push(node);
     } else {
+      // SAFETY: PlanNode.children is declared readonly to discourage external mutation, but building the tree requires pushing into the freshly-created child arrays.
       (parentNode.children as PlanNode[]).push(node);
     }
   }
@@ -30,6 +31,7 @@ export function BuildPlanTree(rows: readonly unknown[][]): PlanNode[] {
 
 function assignDepths(nodes: readonly PlanNode[], depth: number): void {
   for (const node of nodes) {
+    // SAFETY: PlanNode.depth is declared readonly; assigning during the post-order walk is the only way to compute depth from the root-down construction.
     (node as { depth: number }).depth = depth;
     assignDepths(node.children, depth + 1);
   }

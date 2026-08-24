@@ -22,6 +22,7 @@ type FakeStdout = NodeJS.WriteStream & {
 };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
+  // SAFETY: PassThrough is augmented below with every FakeStdout field the Ink runtime reads.
   const stream = new PassThrough() as unknown as FakeStdout;
   stream.isTTY = true;
   stream.columns = columns;
@@ -42,6 +43,7 @@ type FakeStdin = NodeJS.ReadStream & {
 };
 
 function fakeStdin(): FakeStdin {
+  // SAFETY: PassThrough is augmented below with every FakeStdin field the Ink runtime reads.
   const stream = new PassThrough() as unknown as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
@@ -73,6 +75,7 @@ async function mountApp(columns = 80, rows = 24) {
   const schema = new SqliteSchemaRepository(driver);
   const stdout = fakeStdout(columns, rows);
   const stdin = fakeStdin();
+  // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime.
   const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
     stdin: stdin as unknown as NodeJS.ReadStream,
     stdout: stdout as unknown as NodeJS.WriteStream,

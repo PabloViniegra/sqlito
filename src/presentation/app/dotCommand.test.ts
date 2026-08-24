@@ -4,6 +4,7 @@ import { HELP_TEXT } from "../../application/commands/helpText.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
 import { HIGH_CONTRAST_THEME } from "../../domain/theme/Theme.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
+import { stub } from "../../shared/utils/test-helpers.ts";
 import {
   COMMAND_REGISTRY,
   handleDotCommand,
@@ -13,45 +14,42 @@ import type { StatusMessage } from "./appReducer.ts";
 
 type Captured = { status: StatusMessage | null }[];
 
-function makeDeps(overrides: Partial<DotCommandDeps> = {}): {
-  deps: DotCommandDeps;
-  events: Captured;
-} {
+function makeDeps(overrides: Partial<DotCommandDeps> = {}) {
   const events: Captured = [];
   const deps: DotCommandDeps = {
     dispatch: (event) => {
       if (event.type === "setStatus") events.push({ status: event.status });
     },
-    exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-    copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-    schema: {
+    exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+    copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+    schema: stub<DotCommandDeps["schema"]>({
       tables: () => "posts\nusers",
       indexes: () => "idx on users",
       schema: (name?: string) =>
         name === "ghost"
           ? { ok: false, error: "unknown table: ghost" }
           : { ok: true, text: "CREATE TABLE users (...);" },
-    } as unknown as DotCommandDeps["schema"],
+    }),
     lastOutcome: null,
     onQuit: vi.fn(),
     sessionVars: new SessionVariables(),
     variables: [],
-    runExplain: {
+    runExplain: stub<DotCommandDeps["runExplain"]>({
       explainLast: vi.fn(),
-    } as unknown as DotCommandDeps["runExplain"],
+    }),
     lastSql: "",
     showResult: vi.fn(),
-    saveFavorite: {
+    saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
       save: vi.fn(),
-    } as unknown as DotCommandDeps["saveFavorite"],
-    runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
-    forgetFavorite: {
+    }),
+    runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
+    forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
       forget: vi.fn(),
-    } as unknown as DotCommandDeps["forgetFavorite"],
+    }),
     favorites: [],
-    switchTheme: {
+    switchTheme: stub<DotCommandDeps["switchTheme"]>({
       switch: vi.fn(),
-    } as unknown as DotCommandDeps["switchTheme"],
+    }),
     ...overrides,
   };
   return { deps, events };
@@ -123,7 +121,7 @@ describe("handleDotCommand", () => {
   it(".export errors when the last outcome is not tabular (e.g. affected)", async () => {
     const run = vi.fn();
     const { deps, events } = makeDeps({
-      exportCsv: { run } as unknown as DotCommandDeps["exportCsv"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run }),
       lastOutcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
     });
     await handleDotCommand(".export /tmp/x.csv", deps);
@@ -143,7 +141,7 @@ describe("handleDotCommand", () => {
       .fn()
       .mockResolvedValue({ rowsWritten: 1, path: "/tmp/x.csv" });
     const { deps, events } = makeDeps({
-      exportCsv: { run } as unknown as DotCommandDeps["exportCsv"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run }),
       lastOutcome: outcome,
     });
     await handleDotCommand(".export /tmp/x.csv", deps);
@@ -164,7 +162,7 @@ describe("handleDotCommand", () => {
   it(".copy errors when the last outcome is not tabular (e.g. affected)", async () => {
     const run = vi.fn();
     const { deps, events } = makeDeps({
-      copyCsv: { run } as unknown as DotCommandDeps["copyCsv"],
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run }),
       lastOutcome: { kind: "affected", changes: 1, lastInsertRowid: 1 },
     });
     await handleDotCommand(".copy", deps);
@@ -182,7 +180,7 @@ describe("handleDotCommand", () => {
     };
     const run = vi.fn().mockResolvedValue({ rowsWritten: 1 });
     const { deps, events } = makeDeps({
-      copyCsv: { run } as unknown as DotCommandDeps["copyCsv"],
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run }),
       lastOutcome: outcome,
     });
     await handleDotCommand(".copy", deps);
@@ -194,38 +192,34 @@ describe("handleDotCommand", () => {
 });
 
 describe("handleDotCommand — variables", () => {
-  function makeVarDeps(variables: readonly [string, string][] = []): {
-    deps: DotCommandDeps;
-    events: unknown[];
-    vars: SessionVariables;
-  } {
+  function makeVarDeps(variables: readonly [string, string][] = []) {
     const events: unknown[] = [];
     const vars = new SessionVariables();
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
-      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-      schema: {} as unknown as DotCommandDeps["schema"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+      schema: stub<DotCommandDeps["schema"]>({}),
       lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: vars,
       variables,
-      runExplain: {
+      runExplain: stub<DotCommandDeps["runExplain"]>({
         explainLast: vi.fn(),
-      } as unknown as DotCommandDeps["runExplain"],
+      }),
       lastSql: "",
       showResult: vi.fn(),
-      saveFavorite: {
+      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
         save: vi.fn(),
-      } as unknown as DotCommandDeps["saveFavorite"],
-      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
-      forgetFavorite: {
+      }),
+      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
+      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
         forget: vi.fn(),
-      } as unknown as DotCommandDeps["forgetFavorite"],
+      }),
       favorites: [],
-      switchTheme: {
+      switchTheme: stub<DotCommandDeps["switchTheme"]>({
         switch: vi.fn(),
-      } as unknown as DotCommandDeps["switchTheme"],
+      }),
     };
     return { deps, events, vars };
   }
@@ -307,12 +301,7 @@ describe("handleDotCommand — explain", () => {
   function makeExplainDeps(
     result: QueryOutcome,
     lastSql = "SELECT 1",
-  ): {
-    deps: DotCommandDeps;
-    statuses: (StatusMessage | null)[];
-    shown: { sql: string; outcome: QueryOutcome }[];
-    explainLast: ReturnType<typeof vi.fn>;
-  } {
+  ) {
     const statuses: (StatusMessage | null)[] = [];
     const shown: { sql: string; outcome: QueryOutcome }[] = [];
     const explainLast = vi.fn().mockReturnValue(result);
@@ -320,27 +309,27 @@ describe("handleDotCommand — explain", () => {
       dispatch: (event) => {
         if (event.type === "setStatus") statuses.push(event.status);
       },
-      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-      schema: {} as unknown as DotCommandDeps["schema"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+      schema: stub<DotCommandDeps["schema"]>({}),
       lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],
-      runExplain: { explainLast } as unknown as DotCommandDeps["runExplain"],
+      runExplain: stub<DotCommandDeps["runExplain"]>({ explainLast }),
       lastSql,
       showResult: (sql, outcome) => shown.push({ sql, outcome }),
-      saveFavorite: {
+      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
         save: vi.fn(),
-      } as unknown as DotCommandDeps["saveFavorite"],
-      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
-      forgetFavorite: {
+      }),
+      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
+      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
         forget: vi.fn(),
-      } as unknown as DotCommandDeps["forgetFavorite"],
+      }),
       favorites: [],
-      switchTheme: {
+      switchTheme: stub<DotCommandDeps["switchTheme"]>({
         switch: vi.fn(),
-      } as unknown as DotCommandDeps["switchTheme"],
+      }),
     };
     return { deps, statuses, shown, explainLast };
   }
@@ -395,38 +384,32 @@ describe("handleDotCommand — favorites", () => {
       getResult?: string | undefined;
       forgetResult?: boolean;
     } = {},
-  ): {
-    deps: DotCommandDeps;
-    events: unknown[];
-    save: ReturnType<typeof vi.fn>;
-    get: ReturnType<typeof vi.fn>;
-    forget: ReturnType<typeof vi.fn>;
-  } {
+  ) {
     const events: unknown[] = [];
     const save = vi.fn().mockResolvedValue(undefined);
     const get = vi.fn().mockResolvedValue(over.getResult);
     const forget = vi.fn().mockResolvedValue(over.forgetResult ?? false);
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
-      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-      schema: {} as unknown as DotCommandDeps["schema"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+      schema: stub<DotCommandDeps["schema"]>({}),
       lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],
-      runExplain: {
+      runExplain: stub<DotCommandDeps["runExplain"]>({
         explainLast: vi.fn(),
-      } as unknown as DotCommandDeps["runExplain"],
+      }),
       lastSql: over.lastSql ?? "",
       showResult: vi.fn(),
-      saveFavorite: { save } as unknown as DotCommandDeps["saveFavorite"],
-      runFavorite: { get } as unknown as DotCommandDeps["runFavorite"],
-      forgetFavorite: { forget } as unknown as DotCommandDeps["forgetFavorite"],
+      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({ save }),
+      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get }),
+      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({ forget }),
       favorites: over.favorites ?? [],
-      switchTheme: {
+      switchTheme: stub<DotCommandDeps["switchTheme"]>({
         switch: vi.fn(),
-      } as unknown as DotCommandDeps["switchTheme"],
+      }),
     };
     return { deps, events, save, get, forget };
   }
@@ -467,6 +450,7 @@ describe("handleDotCommand — favorites", () => {
       ],
     });
     await handleDotCommand(".favorites", deps);
+    // SAFETY: only events[0] is inspected; the dispatch handler above guarantees setStatus events with StatusMessage payloads.
     const status = events[0] as { status: StatusMessage };
     const lines = status.status.text.split("\n");
     expect(lines[0].startsWith("alpha:")).toBe(true);
@@ -529,32 +513,29 @@ describe("handleDotCommand — favorites", () => {
 });
 
 describe("handleDotCommand — theme", () => {
-  function makeThemeDeps(switchTheme: DotCommandDeps["switchTheme"]): {
-    deps: DotCommandDeps;
-    events: unknown[];
-  } {
+  function makeThemeDeps(switchTheme: DotCommandDeps["switchTheme"]) {
     const events: unknown[] = [];
     const deps: DotCommandDeps = {
       dispatch: (event) => events.push(event),
-      exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-      copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-      schema: {} as unknown as DotCommandDeps["schema"],
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+      schema: stub<DotCommandDeps["schema"]>({}),
       lastOutcome: null,
       onQuit: vi.fn(),
       sessionVars: new SessionVariables(),
       variables: [],
-      runExplain: {
+      runExplain: stub<DotCommandDeps["runExplain"]>({
         explainLast: vi.fn(),
-      } as unknown as DotCommandDeps["runExplain"],
+      }),
       lastSql: "",
       showResult: vi.fn(),
-      saveFavorite: {
+      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
         save: vi.fn(),
-      } as unknown as DotCommandDeps["saveFavorite"],
-      runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
-      forgetFavorite: {
+      }),
+      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
+      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
         forget: vi.fn(),
-      } as unknown as DotCommandDeps["forgetFavorite"],
+      }),
       favorites: [],
       switchTheme,
     };
@@ -563,9 +544,9 @@ describe("handleDotCommand — theme", () => {
 
   it(".theme high-contrast switches the theme and confirms via status", async () => {
     const doSwitch = vi.fn().mockResolvedValue(HIGH_CONTRAST_THEME);
-    const { deps, events } = makeThemeDeps({
-      switch: doSwitch,
-    } as unknown as DotCommandDeps["switchTheme"]);
+    const { deps, events } = makeThemeDeps(
+      stub<DotCommandDeps["switchTheme"]>({ switch: doSwitch }),
+    );
 
     await handleDotCommand(".theme high-contrast", deps);
 
@@ -584,9 +565,9 @@ describe("handleDotCommand — theme", () => {
     const doSwitch = vi
       .fn()
       .mockRejectedValue(new Error("unknown theme: nope"));
-    const { deps, events } = makeThemeDeps({
-      switch: doSwitch,
-    } as unknown as DotCommandDeps["switchTheme"]);
+    const { deps, events } = makeThemeDeps(
+      stub<DotCommandDeps["switchTheme"]>({ switch: doSwitch }),
+    );
 
     await handleDotCommand(".theme nope", deps);
 
@@ -625,8 +606,10 @@ describe("COMMAND_REGISTRY", () => {
 
   it("takes its name and description from the shared COMMAND_DESCRIPTORS (single source of truth)", () => {
     for (const kind of KNOWN_COMMAND_KINDS) {
+      // SAFETY: KNOWN_COMMAND_KINDS is derived from COMMAND_REGISTRY keys, so each `kind` is a valid key for both lookup tables.
       const descriptor =
         COMMAND_DESCRIPTORS[kind as keyof typeof COMMAND_DESCRIPTORS];
+      // SAFETY: see loop comment above; the assertion that follows is the same invariant.
       const entry = COMMAND_REGISTRY[kind as keyof typeof COMMAND_REGISTRY];
       expect(entry.name).toBe(descriptor.name);
       expect(entry.description).toBe(descriptor.description);

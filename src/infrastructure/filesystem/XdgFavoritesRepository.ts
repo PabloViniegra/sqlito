@@ -56,6 +56,7 @@ export class XdgFavoritesRepository implements FavoritesRepository {
       }
     } catch (err) {
       console.warn(
+        // SAFETY: JSON.parse throws SyntaxError whose `.message` we forward into the user-facing diagnostic.
         `sqlito: favorites file at ${this.path} is corrupt; starting with empty library (${(err as Error).message})`,
       );
     }
@@ -68,6 +69,7 @@ export class XdgFavoritesRepository implements FavoritesRepository {
 
 function isFavorite(value: unknown): value is Favorite {
   if (typeof value !== "object" || value === null) return false;
+  // SAFETY: the value is an unknown JSON entry; we index it by string keys to validate each field below.
   const v = value as Record<string, unknown>;
   return (
     typeof v.name === "string" &&

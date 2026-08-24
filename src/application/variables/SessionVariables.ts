@@ -7,7 +7,9 @@ export class InvalidVariableName extends Error {
   }
 }
 
-type Entry = { raw: string; value: unknown };
+export type VariableValue = string | number | boolean | null;
+
+type Entry = { raw: string; value: VariableValue };
 
 export class SessionVariables {
   private readonly store = new Map<string, Entry>();
@@ -21,8 +23,8 @@ export class SessionVariables {
     return this.store.delete(name);
   }
 
-  entries(): Record<string, unknown> {
-    const snapshot: Record<string, unknown> = {};
+  entries() {
+    const snapshot: Record<string, VariableValue> = {};
     for (const [name, entry] of this.store) snapshot[name] = entry.value;
     return snapshot;
   }
@@ -32,7 +34,7 @@ export class SessionVariables {
   }
 }
 
-function detectValue(raw: string): unknown {
+function detectValue(raw: string): VariableValue {
   if (raw === "true") return true;
   if (raw === "false") return false;
   if (raw === "null") return null;

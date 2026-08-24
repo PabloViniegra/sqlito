@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
 import { SessionVariables } from "../../application/variables/SessionVariables.ts";
+import { stub } from "../../shared/utils/test-helpers.ts";
 import type { AppEvent, CommandPaletteState } from "./appReducer.ts";
 import type { DotCommandDeps } from "./dotCommand.ts";
 import {
@@ -24,33 +25,33 @@ const NO_KEY: Key = {
 function makeDeps(dispatch: (event: AppEvent) => void): DotCommandDeps {
   return {
     dispatch,
-    exportCsv: { run: vi.fn() } as unknown as DotCommandDeps["exportCsv"],
-    copyCsv: { run: vi.fn() } as unknown as DotCommandDeps["copyCsv"],
-    schema: {
+    exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
+    copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
+    schema: stub<DotCommandDeps["schema"]>({
       tables: () => "posts\nusers",
       indexes: () => "idx on users",
       schema: () => ({ ok: true, text: "CREATE TABLE users (...);" }),
-    } as unknown as DotCommandDeps["schema"],
+    }),
     lastOutcome: null,
     onQuit: vi.fn(),
     sessionVars: new SessionVariables(),
     variables: [],
-    runExplain: {
+    runExplain: stub<DotCommandDeps["runExplain"]>({
       explainLast: vi.fn(),
-    } as unknown as DotCommandDeps["runExplain"],
+    }),
     lastSql: "",
     showResult: vi.fn(),
-    saveFavorite: {
+    saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
       save: vi.fn(),
-    } as unknown as DotCommandDeps["saveFavorite"],
-    runFavorite: { get: vi.fn() } as unknown as DotCommandDeps["runFavorite"],
-    forgetFavorite: {
+    }),
+    runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
+    forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
       forget: vi.fn(),
-    } as unknown as DotCommandDeps["forgetFavorite"],
+    }),
     favorites: [],
-    switchTheme: {
+    switchTheme: stub<DotCommandDeps["switchTheme"]>({
       switch: vi.fn(),
-    } as unknown as DotCommandDeps["switchTheme"],
+    }),
   };
 }
 

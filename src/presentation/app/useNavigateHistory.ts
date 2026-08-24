@@ -9,6 +9,12 @@ import type { AppState } from "./appReducer.ts";
 import { recallHistory } from "./recallHistory.ts";
 import type { ReadlineState } from "./readline.ts";
 
+type NavigateHistoryApi = {
+  navigateHistory: (direction: "up" | "down") => void;
+  historyCursor: number;
+  setHistoryCursor: (n: number) => void;
+};
+
 export function useNavigateHistory({
   state,
   dispatch,
@@ -17,11 +23,7 @@ export function useNavigateHistory({
   state: AppState;
   dispatch: AppDispatch;
   stashedPromptRef: MutableRefObject<ReadlineState | null>;
-}): {
-  navigateHistory: (direction: "up" | "down") => void;
-  historyCursor: number;
-  setHistoryCursor: (n: number) => void;
-} {
+}): NavigateHistoryApi {
   const { columns } = useViewportSize();
   const [historyCursor, setHistoryCursor] = useState(0);
 

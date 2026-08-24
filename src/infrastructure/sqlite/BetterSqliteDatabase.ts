@@ -21,13 +21,10 @@ export class BetterSqliteDatabase implements Database {
   }
 
   static withDriver(driver: BetterSqliteDriver): BetterSqliteDatabase {
-    const instance = Object.create(
-      BetterSqliteDatabase.prototype,
-    ) as BetterSqliteDatabase;
-    (instance as unknown as { driver: BetterSqliteDriver }).driver = driver;
-    (instance as unknown as { owned: boolean }).owned = false;
-    (instance as unknown as { path: string }).path = ":shared:";
-    return instance;
+    const instance = Object.create(BetterSqliteDatabase.prototype);
+    Object.assign(instance, { driver, owned: false, path: ":shared:" });
+    // SAFETY: instance has BetterSqliteDatabase.prototype, and Object.assign populated every constructor-assigned field.
+    return instance as BetterSqliteDatabase;
   }
 
   prepare(sql: string): PreparedStatement {
@@ -37,9 +34,11 @@ export class BetterSqliteDatabase implements Database {
       readonly: stmt.readonly,
       all: (params?: BindParams) => {
         const columnNames = stmt.columns().map((c) => c.name);
+        // SAFETY: better-sqlite3 returns row objects keyed by column name; we re-shape each into CellValue[] below.
         const rows = (
           params !== undefined ? stmt.all(params) : stmt.all()
         ) as Record<string, unknown>[];
+        // SAFETY: columnNames is derived from stmt.columns(); each lookup is bounded by the declared columns.
         return rows.map((row) =>
           columnNames.map((name) => row[name]),
         ) as readonly unknown[][];
@@ -49,6 +48,7 @@ export class BetterSqliteDatabase implements Database {
         return { changes: info.changes, lastInsertRowid: info.lastInsertRowid };
       },
       columns: () =>
+        // SAFETY: stmt.columns() yields Column definitions from SQLite; we project only name and type.
         stmt.columns().map((c) => ({
           name: c.name,
           type: c.type ?? null,

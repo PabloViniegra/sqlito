@@ -21,6 +21,7 @@ type FakeTty = NodeJS.WriteStream & {
 };
 
 function fakeTty(columns: number, rows: number): FakeTty {
+  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this fixture mutates columns/rows/isTTY/buffer/write before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeTty;
   stream.columns = columns;
   stream.rows = rows;
@@ -42,6 +43,7 @@ async function renderApp(
     const db = BetterSqliteDatabase.withDriver(driver);
     const schema = new SqliteSchemaRepository(driver);
     const tty = fakeTty(columns, rows);
+    // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime.
     const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
       stdout: tty as NodeJS.WriteStream,
       exitOnCtrlC: false,

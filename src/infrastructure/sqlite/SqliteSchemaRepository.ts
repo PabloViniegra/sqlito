@@ -10,6 +10,7 @@ export class SqliteSchemaRepository implements SchemaRepository {
   }
 
   listTables(): readonly Table[] {
+    // SAFETY: the query only selects `name`; better-sqlite3's default `unknown` shape is narrowed to the expected column.
     const rows = this.driver
       .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -21,6 +22,7 @@ export class SqliteSchemaRepository implements SchemaRepository {
   describe(name: string): Table | undefined {
     const table = this.listTables().find((t) => t.name === name);
     if (table === undefined) return undefined;
+    // SAFETY: PRAGMA table_info returns columns (cid, name, type, notnull, dflt_value, pk); we only consume `name` and `type`.
     const cols = this.driver
       .prepare(`PRAGMA table_info(${quoteIdent(name)})`)
       .all() as {

@@ -27,6 +27,7 @@ export class XdgThemeRepository implements ThemeRepository {
       return theme ?? DEFAULT_THEME;
     } catch (err) {
       console.warn(
+        // SAFETY: JSON.parse throws SyntaxError whose `.message` we forward into the user-facing diagnostic.
         `sqlito: config file at ${this.path} is corrupt; falling back to the default theme (${(err as Error).message})`,
       );
       return DEFAULT_THEME;
@@ -40,5 +41,6 @@ export class XdgThemeRepository implements ThemeRepository {
 
 function isConfig(value: unknown): value is { theme: string } {
   if (typeof value !== "object" || value === null) return false;
+  // SAFETY: the value is parsed JSON; we index it by string keys to validate the theme name below.
   return typeof (value as Record<string, unknown>).theme === "string";
 }

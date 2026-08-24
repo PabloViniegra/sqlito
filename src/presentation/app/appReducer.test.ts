@@ -764,6 +764,7 @@ describe("appReducer", () => {
     });
 
     it("replaces an existing variable in place", () => {
+      // SAFETY: the reducer stores entries as 2-tuples; we widen the inferred string[][] to the tuple shape here.
       const state = {
         ...initialState,
         variables: [
@@ -785,6 +786,7 @@ describe("appReducer", () => {
 
   describe("unsetVariable", () => {
     it("removes the named variable", () => {
+      // SAFETY: see setVariable test above; same tuple widening.
       const state = {
         ...initialState,
         variables: [
@@ -797,6 +799,7 @@ describe("appReducer", () => {
     });
 
     it("is a no-op for a missing variable", () => {
+      // SAFETY: see setVariable test above; same tuple widening.
       const state = {
         ...initialState,
         variables: [["a", "1"]] as readonly [string, string][],
@@ -833,6 +836,7 @@ describe("appReducer", () => {
     });
 
     it("overwrites an existing favorite in place", () => {
+      // SAFETY: see setVariable test above; same tuple widening for favorites.
       const state = {
         ...initialState,
         favorites: [
@@ -854,6 +858,7 @@ describe("appReducer", () => {
 
   describe("removeFavorite", () => {
     it("removes the named favorite", () => {
+      // SAFETY: see setVariable test above; same tuple widening for favorites.
       const state = {
         ...initialState,
         favorites: [

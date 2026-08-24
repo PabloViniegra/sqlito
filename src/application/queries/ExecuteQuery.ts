@@ -51,13 +51,9 @@ export class ExecuteQuery {
 
   private toError(err: unknown): QueryOutcome {
     if (err instanceof Error) {
-      const code =
-        "code" in err && typeof (err as { code: unknown }).code === "string"
-          ? (err as { code: string }).code
-          : undefined;
       const message = rewriteBindError(err.message);
-      return code !== undefined
-        ? { kind: "error", code, message }
+      return hasErrorCode(err)
+        ? { kind: "error", code: err.code, message }
         : { kind: "error", message };
     }
     return { kind: "error", message: String(err) };
@@ -69,4 +65,12 @@ function rewriteBindError(message: string): string {
   if (match === null) return message;
   const name = match[1];
   return `variable :${name} is not defined (.set ${name} <value>)`;
+}
+
+function hasErrorCode(err: unknown): err is Error & { code: string } {
+  if (!(err instanceof Error)) return false;
+  if (!("code" in err)) return false;
+  // SAFETY: better-sqlite3 attaches a string `code` to bind errors; we only forward it after runtime validation.
+  const value = (err as { code: unknown }).code;
+  return typeof value === "string";
 }

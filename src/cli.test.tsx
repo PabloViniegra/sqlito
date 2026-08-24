@@ -13,6 +13,7 @@ type FakeTty = NodeJS.WriteStream & {
 };
 
 function fakeTty(): FakeTty {
+  // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/isTTY/buffer/write before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeTty;
   stream.columns = 80;
   stream.isTTY = true;
@@ -32,6 +33,7 @@ type FakeStdin = NodeJS.ReadStream & {
 };
 
 function fakeStdin(): FakeStdin {
+  // SAFETY: PassThrough is duck-typed as NodeJS.ReadStream at runtime; the fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
@@ -44,10 +46,12 @@ async function nextFrame(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
-function openMemoryDb(): {
+type MemoryDb = {
   driver: BetterSqlite3.Database;
   schema: SqliteSchemaRepository;
-} {
+};
+
+function openMemoryDb(): MemoryDb {
   const driver = new BetterSqlite3(":memory:");
   const schema = new SqliteSchemaRepository(driver);
   return { driver, schema };
@@ -109,6 +113,7 @@ describe("cli.run", () => {
         stderrBuffer.push(chunk.toString());
         return true;
       });
+    // SAFETY: vi.fn() returns a generic mock function; we narrow it to process.exit's signature so the spy type-checks against the real API.
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((): never => {
       throw new Error("__process_exit__");
     }) as typeof process.exit);
@@ -132,6 +137,7 @@ describe("cli.run", () => {
         stdoutBuffer.push(chunk.toString());
         return true;
       });
+    // SAFETY: vi.fn() returns a generic mock function; we narrow it to process.exit's signature so the spy type-checks against the real API.
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((): never => {
       throw new Error("__process_exit__");
     }) as typeof process.exit);

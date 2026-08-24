@@ -111,6 +111,7 @@ describe("XdgHistoryRepository", () => {
       const lines = raw.split("\n").filter((l) => l.length > 0);
       // the in-memory snapshot has every entry; the file must match it
       expect(lines.length).toBe(50);
+      // SAFETY: the test seeds entries via append(), whose JSONL output round-trips through serialiseJsonl.
       const parsed = lines.map((l) => JSON.parse(l) as { sql: string });
       expect(parsed.map((p) => p.sql)).toEqual(
         Array.from({ length: 50 }, (_, i) => `SELECT ${i}`),

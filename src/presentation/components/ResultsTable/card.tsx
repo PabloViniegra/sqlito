@@ -146,7 +146,7 @@ function buildErrorCard(
   bodyBudget: number,
   theme: Theme,
 ): CardContent {
-  const hasCode = typeof outcome.code === "string" && outcome.code.length > 0;
+  const hasCode = outcome.code !== undefined && outcome.code.length > 0;
   const gutterWidth = Math.max(1, terminalWidth - 2);
   const messageLines = outcome.message
     .split("\n")

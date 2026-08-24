@@ -185,17 +185,21 @@ describe("Prompt", () => {
     // visible cursor after it collapses to the same line, so the keystroke
     // was silently dropped on screen. A trailing cursor glyph after the
     // text guarantees the line always ends in non-whitespace content.
+    // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; we attach `columns` and `isTTY` and override `write` before Ink consumes it.
     const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
       columns: number;
+      isTTY: boolean;
     };
     stdout.columns = 80;
-    (stdout as unknown as { isTTY: boolean }).isTTY = true;
+    stdout.isTTY = true;
     const writes: string[] = [];
+    // SAFETY: stdout.write is reassigned with the runtime contract `WriteStream.write`; we type-narrow once at the assignment boundary.
     stdout.write = ((chunk: string | Uint8Array): boolean => {
       writes.push(chunk.toString());
       return true;
     }) as typeof stdout.write;
 
+    // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime.
     const instance = render(
       <Prompt
         readlineState={{ text: "SELECT", cursor: 6 }}

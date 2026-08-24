@@ -125,7 +125,9 @@ function tokenize(line: string): { name: string; args: Args } | null {
   return { name: tokens[0]?.slice(1) ?? "", args: tokens.slice(1) };
 }
 
-function unknown(line: string): { ok: false; error: string } {
+type UnknownResult = { ok: false; error: string };
+
+function unknown(line: string): UnknownResult {
   return { ok: false, error: `unknown command: ${line.trim()}` };
 }
 

@@ -11,11 +11,11 @@ type Props = {
   onClose?: () => void;
 };
 
-const KIND_LABEL: Record<Suggestion["kind"], string> = {
+const KIND_LABEL = {
   keyword: "kw",
   table: "table",
   column: "col",
-};
+} satisfies Record<Suggestion["kind"], string>;
 
 export function AutocompletePopup({ suggestions, index, theme }: Props) {
   const { columns: terminalWidth } = useViewportSize();

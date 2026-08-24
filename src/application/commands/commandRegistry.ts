@@ -5,9 +5,7 @@ export type CommandDescriptor = {
   description: string;
 };
 
-export const COMMAND_DESCRIPTORS: {
-  [K in DotCommand["kind"]]: CommandDescriptor;
-} = {
+export const COMMAND_DESCRIPTORS = {
   tables: { name: ".tables", description: "List user tables" },
   schema: {
     name: ".schema [table]",
@@ -51,4 +49,4 @@ export const COMMAND_DESCRIPTORS: {
     name: ".quit",
     description: "Close the database and exit (alias: .exit)",
   },
-};
+} satisfies { [K in DotCommand["kind"]]: CommandDescriptor };

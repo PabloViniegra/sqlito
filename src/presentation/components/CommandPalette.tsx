@@ -12,10 +12,9 @@ type Props = {
 
 const MAX_VISIBLE = 10;
 
-function visibleWindow<T>(
-  items: readonly T[],
-  index: number,
-): { start: number; items: readonly T[] } {
+type VisibleWindow<T> = { start: number; items: readonly T[] };
+
+function visibleWindow<T>(items: readonly T[], index: number): VisibleWindow<T> {
   if (items.length <= MAX_VISIBLE) {
     return { start: 0, items };
   }

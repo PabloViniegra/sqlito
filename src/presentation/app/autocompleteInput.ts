@@ -81,14 +81,16 @@ export function handleAutocompleteInput(args: {
   }
 }
 
-function keepColumnContext(
-  prompt: string,
-  context: AutocompleteContext,
-): {
+type DerivedContext = {
   prefix: string;
   prefixBase?: string;
   context: AutocompleteContext;
-} {
+};
+
+function keepColumnContext(
+  prompt: string,
+  context: AutocompleteContext,
+): DerivedContext {
   const trailing = prompt.match(/\S+$/)?.[0] ?? "";
   const dotIdx = trailing.lastIndexOf(".");
   if (dotIdx >= 0) {

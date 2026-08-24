@@ -11,7 +11,7 @@ describe("SaveFavorite", () => {
     const saved = await new SaveFavorite(repo).save("top", "SELECT 1");
     expect(saved.name).toBe("top");
     expect(saved.sql).toBe("SELECT 1");
-    expect(typeof saved.updatedAt).toBe("number");
+    expect(saved.updatedAt).toEqual(expect.any(Number));
     expect(await repo.get("top")).toMatchObject({
       name: "top",
       sql: "SELECT 1",

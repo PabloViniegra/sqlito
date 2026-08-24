@@ -74,6 +74,7 @@ type FakeStdout = NodeJS.WriteStream & {
 };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
+  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/buffer/write before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdout;
   stream.isTTY = true;
   stream.columns = columns;
@@ -94,6 +95,7 @@ type FakeStdin = NodeJS.ReadStream & {
 };
 
 function fakeStdin(): FakeStdin {
+  // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
@@ -133,6 +135,7 @@ async function mountApp(): Promise<{
   const schema = new SqliteSchemaRepository(driver);
   const stdout = fakeStdout(80, 24);
   const stdin = fakeStdin();
+  // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.
   const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
     stdin: stdin as unknown as NodeJS.ReadStream,
     stdout: stdout as unknown as NodeJS.WriteStream,
@@ -223,6 +226,7 @@ describe("App render-counter (memoization guard) — real component memoization"
     const actual = await vi.importActual<
       typeof import("../components/Header.tsx")
     >("../components/Header.tsx");
+    // SAFETY: React.memo-wrapped components carry a `$$typeof` symbol whose `.description` is "react.memo"; we narrow the type to read it.
     expect((actual.Header as { $$typeof: symbol }).$$typeof.description).toBe(
       "react.memo",
     );
@@ -233,6 +237,7 @@ describe("App render-counter (memoization guard) — real component memoization"
       typeof import("../components/StatusBar.tsx")
     >("../components/StatusBar.tsx");
     expect(
+      // SAFETY: see Header test above; same React.memo introspection.
       (actual.StatusBar as { $$typeof: symbol }).$$typeof.description,
     ).toBe("react.memo");
   });
@@ -241,6 +246,7 @@ describe("App render-counter (memoization guard) — real component memoization"
     const actual = await vi.importActual<
       typeof import("../components/Prompt.tsx")
     >("../components/Prompt.tsx");
+    // SAFETY: see Header test above; same React.memo introspection.
     expect((actual.Prompt as { $$typeof: symbol }).$$typeof.description).toBe(
       "react.memo",
     );
@@ -251,6 +257,7 @@ describe("App render-counter (memoization guard) — real component memoization"
       typeof import("../components/ResultsTable.tsx")
     >("../components/ResultsTable.tsx");
     expect(
+      // SAFETY: see Header test above; same React.memo introspection.
       (actual.ResultsTable as { $$typeof: symbol }).$$typeof.description,
     ).toBe("react.memo");
   });

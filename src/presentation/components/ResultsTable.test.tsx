@@ -529,6 +529,7 @@ describe("ResultsTable", () => {
       isTTY: boolean;
       buffer: string;
     };
+    // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/rows/isTTY/buffer/write before Ink consumes it.
     const tty = new PassThrough() as unknown as FakeTty;
     tty.columns = 20;
     tty.rows = 24;
@@ -555,6 +556,7 @@ describe("ResultsTable", () => {
         columns={20}
       />,
       {
+        // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime after the fixture mutations above.
         stdout: tty as NodeJS.WriteStream,
         exitOnCtrlC: false,
         patchConsole: false,

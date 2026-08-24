@@ -97,6 +97,7 @@ function parseJsonl(raw: string): HistoryEntry[] {
     const trimmed = line.trim();
     if (trimmed === "") continue;
     try {
+      // SAFETY: history JSONL is round-tripped by serialiseJsonl above; malformed lines are skipped, well-formed lines satisfy HistoryEntry.
       out.push(JSON.parse(trimmed) as HistoryEntry);
     } catch {
       // a torn concurrent append/rewrite must not brick the whole history

@@ -21,6 +21,7 @@ type FakeStdout = NodeJS.WriteStream & {
 };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
+  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/buffer/write before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdout;
   stream.isTTY = true;
   stream.columns = columns;
@@ -41,6 +42,7 @@ type FakeStdin = NodeJS.ReadStream & {
 };
 
 function fakeStdin(): FakeStdin {
+  // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
@@ -69,6 +71,7 @@ async function mountApp() {
   const schema = new SqliteSchemaRepository(driver);
   const stdout = fakeStdout(80, 24);
   const stdin = fakeStdin();
+  // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.
   const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
     stdin: stdin as unknown as NodeJS.ReadStream,
     stdout: stdout as unknown as NodeJS.WriteStream,

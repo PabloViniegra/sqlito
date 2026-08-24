@@ -13,6 +13,7 @@ type FakeStdin = NodeJS.ReadStream & {
 };
 
 function fakeStdin(): FakeStdin {
+  // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
@@ -28,6 +29,7 @@ type FakeStdout = NodeJS.WriteStream & {
 };
 
 function fakeStdout(): FakeStdout {
+  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/write before Ink consumes it.
   const stream = new PassThrough() as unknown as FakeStdout;
   stream.isTTY = true;
   stream.columns = 80;
@@ -50,6 +52,7 @@ function Host({
 async function mountHost(overlayActive: boolean) {
   const onKey = vi.fn();
   const stdin = fakeStdin();
+  // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.
   const instance = render(
     <Host overlayActive={overlayActive} onKey={onKey} />,
     {
