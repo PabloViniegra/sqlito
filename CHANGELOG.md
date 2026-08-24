@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/PabloViniegra/sqlito/compare/v1.1.0...v1.1.1) (2026-08-24)
+
+### Bug Fixes
+
+- **presentation:** keep layout within terminal bounds at any width or height ([80bcad0](https://github.com/PabloViniegra/sqlito/commit/80bcad042049efff14490446c9b45d79895a1068))
+
 # [1.1.0](https://github.com/PabloViniegra/sqlito/compare/v1.0.1...v1.1.0) (2026-08-24)
 
 ### Bug Fixes
