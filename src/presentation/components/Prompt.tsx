@@ -5,6 +5,7 @@ import type { ReadlineState } from "../app/readline.ts";
 import {
   DEFAULT_PROMPT_PREFIX,
   derivePromptLayout,
+  promptPrefixForViewport,
   promptEffectiveWidth,
 } from "./derivePromptLayout.ts";
 
@@ -16,7 +17,10 @@ type Props = {
 };
 
 function PromptImpl({ readlineState, viewportColumns, prefix, theme }: Props) {
-  const promptPrefix = prefix ?? DEFAULT_PROMPT_PREFIX;
+  const promptPrefix = promptPrefixForViewport(
+    prefix ?? DEFAULT_PROMPT_PREFIX,
+    viewportColumns,
+  );
   const effectiveWidth = promptEffectiveWidth(
     viewportColumns,
     promptPrefix.length,

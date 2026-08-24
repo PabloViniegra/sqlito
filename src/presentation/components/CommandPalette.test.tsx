@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import stripAnsi from "strip-ansi";
+import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import type { CommandDescriptor } from "../../application/commands/commandRegistry.ts";
 import {
@@ -169,5 +170,63 @@ describe("CommandPalette", () => {
     expect(frame).toContain("Esc");
     expect(frame).toMatch(/\u001b\[90m/);
     expect(frame).toMatch(/\u001b\[1m/);
+  });
+
+  it("truncates rows and hints to a narrow terminal", async () => {
+    const frame = await capture(
+      <CommandPalette
+        commands={[
+          CMD(
+            ".schema [table]",
+            "Show CREATE statements for all tables or one table and its indexes",
+          ),
+        ]}
+        query="schema"
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={30}
+        maxLines={10}
+      />,
+    );
+
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it("caps every chrome line at a very narrow width", async () => {
+    const frame = await capture(
+      <CommandPalette
+        commands={[CMD(".schema [table]", "Show CREATE statements")]}
+        query="schema"
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={15}
+        maxLines={6}
+      />,
+    );
+
+    expect(frame.replace(/\n+$/, "").split("\n")).toHaveLength(6);
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it("caps the empty state at its physical line budget", async () => {
+    const frame = await capture(
+      <CommandPalette
+        commands={[]}
+        query="missing"
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={5}
+        maxLines={6}
+      />,
+    );
+
+    expect(frame.replace(/\n+$/, "").split("\n")).toHaveLength(6);
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(5);
+    }
   });
 });

@@ -1,5 +1,9 @@
 import { useStdout } from "ink";
 import { useEffect, useState } from "react";
+import {
+  normalizeTerminalColumns,
+  normalizeTerminalRows,
+} from "../layout/terminalDimensions.ts";
 
 export type ViewportSize = {
   readonly columns: number;
@@ -11,11 +15,19 @@ export const DEFAULT_VIEWPORT: ViewportSize = { columns: 80, rows: 24 };
 const DEBOUNCE_MS = 16;
 
 function readSize(stdout: NodeJS.WriteStream | undefined): ViewportSize {
-  const columns = stdout?.columns ?? DEFAULT_VIEWPORT.columns;
-  const rows = stdout?.rows ?? DEFAULT_VIEWPORT.rows;
+  const rawColumns = stdout?.columns;
+  const rawRows = stdout?.rows;
   return {
-    columns: columns || DEFAULT_VIEWPORT.columns,
-    rows: rows || DEFAULT_VIEWPORT.rows,
+    columns: normalizeTerminalColumns(
+      rawColumns !== undefined && Number.isFinite(rawColumns) && rawColumns > 0
+        ? rawColumns
+        : DEFAULT_VIEWPORT.columns,
+    ),
+    rows: normalizeTerminalRows(
+      rawRows !== undefined && Number.isFinite(rawRows) && rawRows > 0
+        ? rawRows
+        : DEFAULT_VIEWPORT.rows,
+    ),
   };
 }
 

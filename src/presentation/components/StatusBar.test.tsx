@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import stripAnsi from "strip-ansi";
+import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_THEME } from "../../domain/theme/Theme.ts";
 import { StatusBar } from "./StatusBar.tsx";
@@ -203,5 +204,38 @@ describe("StatusBar", () => {
     expect(output).toContain("ERROR");
     expect(output).not.toContain("ERROR SQLITE");
     expect(output).not.toContain("ERROR :");
+  });
+
+  it("keeps the status line within an extreme narrow width", async () => {
+    const frame = await capture(
+      <StatusBar
+        {...baseProps}
+        columns={11}
+        dbPath="/very/long/database.sqlite"
+        lastOutcome={{
+          kind: "error",
+          code: "SQLITE_CONSTRAINT",
+          message: "unique violation",
+        }}
+      />,
+    );
+
+    for (const line of plain(frame).split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(11);
+    }
+  });
+
+  it("clips status content at one column", async () => {
+    const frame = await capture(
+      <StatusBar
+        {...baseProps}
+        columns={1}
+        statusMessage={{ kind: "error", text: "failure" }}
+      />,
+    );
+
+    for (const line of plain(frame).split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(1);
+    }
   });
 });

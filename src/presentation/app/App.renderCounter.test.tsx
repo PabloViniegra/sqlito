@@ -20,7 +20,9 @@ vi.mock("../components/Header.tsx", async () => {
     counters.header += 1;
     return React.createElement(actual.Header, props);
   }
-  return { Header: React.memo(Stub), HEADER_LINES: actual.HEADER_LINES };
+  return {
+    Header: React.memo(Stub),
+  };
 });
 
 vi.mock("../components/StatusBar.tsx", async () => {
@@ -155,11 +157,7 @@ async function mountApp(): Promise<{
       counters.prompt = 0;
     },
     waitForStable(timeoutMs) {
-      return waitForCounterStable(
-        () => counters.resultsTable,
-        80,
-        timeoutMs,
-      );
+      return waitForCounterStable(() => counters.resultsTable, 80, timeoutMs);
     },
     async cleanup() {
       instance.unmount();

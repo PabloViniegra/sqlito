@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import stripAnsi from "strip-ansi";
+import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THEME,
@@ -63,5 +64,21 @@ describe("Header", () => {
       .split("\n")
       .find((l) => l.includes("█████") && l.includes("SQLITO"));
     expect(mascotRow).toBeDefined();
+  });
+
+  it("uses a compact, width-safe header in a narrow terminal", async () => {
+    const frame = await capture(
+      <Header
+        dbPath="/very/long/path/to/database.sqlite"
+        theme={DEFAULT_THEME}
+        columns={30}
+      />,
+      { columns: 30 },
+    );
+
+    for (const line of plain(frame).split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(30);
+    }
+    expect(plain(frame)).toContain("SQLITO");
   });
 });

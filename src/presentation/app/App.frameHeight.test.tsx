@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { render } from "ink";
+import stringWidth from "string-width";
 
 // keep test-session queries out of the user's real XDG history
 process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), "sqlito-test-"));
@@ -98,6 +99,9 @@ async function mountSeededApp(columns: number, rows: number) {
 function expectAllFramesWithin(stdout: FakeStdout): void {
   for (const frame of stdout.frames) {
     expect(frameLines(frame)).toBeLessThanOrEqual(stdout.rows);
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(stdout.columns);
+    }
   }
 }
 
@@ -197,6 +201,70 @@ describe("App frame height discipline", () => {
 
       expectAllFramesWithin(app.stdout);
       expect(app.lastFrame()).toContain("▌");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps autocomplete within a 30x10 terminal and preserves the prompt", async () => {
+    const app = await mountSeededApp(30, 10);
+    try {
+      await app.send("\t");
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("COMPLETE");
+      expect(app.lastFrame()).toContain("▌");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps the command palette within a 30x10 terminal", async () => {
+    const app = await mountSeededApp(30, 10);
+    try {
+      await app.send(String.fromCharCode(0x10));
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("COMMAND");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps a compact command palette within a 30x5 terminal", async () => {
+    const app = await mountSeededApp(30, 5);
+    try {
+      await app.send(String.fromCharCode(0x10));
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("COMMAND");
+      expect(app.lastFrame()).not.toContain("▌");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps an active overlay visible in a 30x4 terminal", async () => {
+    const app = await mountSeededApp(30, 4);
+    try {
+      await app.send(String.fromCharCode(0x10));
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("COMMAND");
+    } finally {
+      await app.cleanup();
+    }
+  });
+
+  it("keeps the palette visible after a multiline status message", async () => {
+    const app = await mountSeededApp(80, 24);
+    try {
+      await app.send(".help");
+      await app.send(ENTER);
+      await app.send(String.fromCharCode(0x10));
+
+      expectAllFramesWithin(app.stdout);
+      expect(app.lastFrame()).toContain("COMMAND");
     } finally {
       await app.cleanup();
     }

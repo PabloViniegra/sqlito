@@ -25,12 +25,19 @@ export function App({ db, schema, dbPath }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const deps = useAppDeps({ db, schema, dispatch });
   useAppKeybindings({ deps, state, dispatch });
-  const { prefix, suggestions, paletteMatches, resultsView } = useResultsLayout({
-    state,
-    deps,
-    columns,
-    rows,
-  });
+  const {
+    prefix,
+    suggestions,
+    paletteMatches,
+    autocompleteMaxLines,
+    paletteMaxLines,
+    statusMaxLines,
+    compactStatus,
+    headerVisible,
+    statusVisible,
+    promptVisible,
+    resultsView,
+  } = useResultsLayout({ state, deps, columns, rows });
 
   const popup = state.autocomplete;
   const palette = state.commandPalette;
@@ -38,7 +45,9 @@ export function App({ db, schema, dbPath }: Props) {
 
   return (
     <Box flexDirection="column" height={rows}>
-      <Header dbPath={dbPath} theme={state.theme} />
+      {headerVisible ? (
+        <Header dbPath={dbPath} theme={state.theme} columns={columns} />
+      ) : null}
       <Box flexGrow={1} />
       {expanded !== null && (
         <Box
@@ -72,38 +81,48 @@ export function App({ db, schema, dbPath }: Props) {
           />
         </Box>
       )}
-      <Prompt
-        readlineState={state.prompt}
-        viewportColumns={columns}
-        prefix={prefix}
-        theme={state.theme}
-      />
-      {popup !== null && (
-        <Box position="absolute" width={columns} bottom={3}>
+      {popup !== null && autocompleteMaxLines > 0 && palette === null ? (
+        <Box width={columns} flexDirection="column" overflowX="hidden">
           <AutocompletePopup
             suggestions={suggestions}
             index={popup.index}
             theme={state.theme}
+            columns={columns}
+            maxLines={autocompleteMaxLines}
           />
         </Box>
-      )}
-      {palette !== null && (
+      ) : null}
+      {palette !== null && paletteMaxLines > 0 ? (
         <CommandPalette
           commands={paletteMatches}
           query={palette.query}
           index={palette.index}
           theme={state.theme}
+          columns={columns}
+          maxLines={paletteMaxLines}
         />
-      )}
-      <StatusBar
-        dbPath={dbPath}
-        theme={state.theme}
-        statusMessage={state.statusMessage}
-        historyCount={state.history.entries.length}
-        favoritesCount={state.favorites.length}
-        columns={columns}
-        lastOutcome={state.lastOutcome}
-      />
+      ) : null}
+      {promptVisible ? (
+        <Prompt
+          readlineState={state.prompt}
+          viewportColumns={columns}
+          prefix={prefix}
+          theme={state.theme}
+        />
+      ) : null}
+      {statusVisible ? (
+        <StatusBar
+          dbPath={dbPath}
+          theme={state.theme}
+          statusMessage={state.statusMessage}
+          historyCount={state.history.entries.length}
+          favoritesCount={state.favorites.length}
+          columns={columns}
+          lastOutcome={state.lastOutcome}
+          compact={compactStatus}
+          maxLines={statusMaxLines}
+        />
+      ) : null}
     </Box>
   );
 }

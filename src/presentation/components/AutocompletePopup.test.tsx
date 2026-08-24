@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import stripAnsi from "strip-ansi";
+import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import type { Suggestion } from "../../application/autocomplete/Suggestion.ts";
 import {
@@ -170,5 +171,56 @@ describe("AutocompletePopup", () => {
     );
 
     expect(frame).toMatch(/\u001b\[90m.*\(no matches\)/);
+  });
+
+  it("uses a compact one-line presentation when vertical space is tight", async () => {
+    const frame = await capture(
+      <AutocompletePopup
+        suggestions={[TBL("a very long table name")]}
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={30}
+        maxLines={4}
+      />,
+    );
+
+    const line = frame.replace(/\n+$/, "");
+    expect(line.split("\n")).toHaveLength(1);
+    expect(stringWidth(line)).toBeLessThanOrEqual(30);
+    expect(line).toContain("COMPLETE");
+  });
+
+  it("caps every chrome line at a very narrow width", async () => {
+    const frame = await capture(
+      <AutocompletePopup
+        suggestions={[KW("SELECT"), KW("FROM"), KW("WHERE")]}
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={15}
+        maxLines={5}
+      />,
+    );
+
+    expect(frame.replace(/\n+$/, "").split("\n")).toHaveLength(5);
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it("caps the empty state at its physical line budget", async () => {
+    const frame = await capture(
+      <AutocompletePopup
+        suggestions={[]}
+        index={0}
+        theme={DEFAULT_THEME}
+        columns={5}
+        maxLines={5}
+      />,
+    );
+
+    expect(frame.replace(/\n+$/, "").split("\n")).toHaveLength(5);
+    for (const line of frame.split("\n")) {
+      expect(stringWidth(line)).toBeLessThanOrEqual(5);
+    }
   });
 });

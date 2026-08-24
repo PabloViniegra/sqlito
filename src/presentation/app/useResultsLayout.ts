@@ -2,12 +2,19 @@ import {
   COMMAND_DESCRIPTORS,
   type CommandDescriptor,
 } from "../../application/commands/commandRegistry.ts";
-import { HEADER_LINES } from "../components/Header.tsx";
 import {
   DEFAULT_PROMPT_PREFIX,
   derivePromptLayout,
+  promptLineCount,
+  promptPrefixForViewport,
   promptEffectiveWidth,
 } from "../components/derivePromptLayout.ts";
+import { headerLines } from "../layout/headerLayout.ts";
+import {
+  OVERLAY_CHROME_LINES,
+  overlayLineCount,
+} from "../layout/overlayLayout.ts";
+import { normalizeTerminalColumns } from "../layout/terminalDimensions.ts";
 import { MAX_VISIBLE_QUERIES, type AppState } from "./appReducer.ts";
 import {
   countWrappedLines,
@@ -16,9 +23,7 @@ import {
 } from "./resultsLayout.ts";
 import { pastQueriesViewport } from "./pastQueriesViewport.ts";
 import type { AppDeps } from "./useAppDeps.ts";
-
-const COMMAND_PALETTE_MATCH_LIMIT = 10;
-const COMMAND_PALETTE_CHROME = 5;
+import stringWidth from "string-width";
 
 const ALL_COMMANDS: readonly CommandDescriptor[] =
   Object.values(COMMAND_DESCRIPTORS);
@@ -37,6 +42,13 @@ export type AppLayout = {
   prefix: string | undefined;
   suggestions: ReturnType<AppDeps["autocomplete"]["suggest"]>;
   paletteMatches: readonly CommandDescriptor[];
+  autocompleteMaxLines: number;
+  paletteMaxLines: number;
+  statusMaxLines: number;
+  compactStatus: boolean;
+  headerVisible: boolean;
+  statusVisible: boolean;
+  promptVisible: boolean;
   resultsView: ResultsLayout;
 };
 
@@ -51,6 +63,7 @@ export function useResultsLayout({
   columns: number;
   rows: number;
 }): AppLayout {
+  const terminalWidth = normalizeTerminalColumns(columns);
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;
 
@@ -61,8 +74,7 @@ export function useResultsLayout({
       : deps.autocomplete.suggest(popup.prefix, popup.context);
 
   const palette = state.commandPalette;
-  const paletteMatches =
-    palette === null ? [] : filterCommands(palette.query);
+  const paletteMatches = palette === null ? [] : filterCommands(palette.query);
 
   const pastQueriesView = pastQueriesViewport(
     state.pastQueries,
@@ -70,35 +82,84 @@ export function useResultsLayout({
     state.pastQueriesScrollOffset,
   );
 
-  // analytic height budget: everything below must sum to ≤ rows so the frame
-  // never exceeds the terminal (physical scroll is what breaks the layout)
-  const promptLines = derivePromptLayout(
+  const promptPrefix = promptPrefixForViewport(
+    prefix ?? DEFAULT_PROMPT_PREFIX,
+    terminalWidth,
+  );
+  const promptLayout = derivePromptLayout(
     state.prompt,
-    promptEffectiveWidth(columns, (prefix ?? DEFAULT_PROMPT_PREFIX).length),
-  ).rows.length;
-  // StatusBar = rule + status line (+ wrapped statusMessage under paddingX/gutter)
-  const statusLines =
-    2 +
+    promptEffectiveWidth(terminalWidth, stringWidth(promptPrefix)),
+  );
+  const promptLines = promptLineCount(
+    promptLayout,
+    terminalWidth,
+    promptPrefix,
+  );
+  const overlayActive = palette !== null || popup !== null;
+  const inputLines = overlayActive ? 1 : promptLines;
+  const nominalHeaderLines = headerLines(terminalWidth);
+  const headerVisible = rows >= nominalHeaderLines + inputLines;
+  const headerSlotLines = headerVisible ? nominalHeaderLines : 0;
+  const availableStatusLines = Math.max(0, rows - headerSlotLines - inputLines);
+  const baseStatusLines = availableStatusLines > 0 ? 2 : 0;
+  const desiredStatusLines =
+    baseStatusLines +
     (state.statusMessage === null
       ? 0
-      : countWrappedLines(state.statusMessage.text, columns - 4));
-  // CommandPalette chrome is 5 lines + its visible window
-  const paletteLines =
+      : countWrappedLines(state.statusMessage.text, terminalWidth - 4));
+  const statusMaxLines = Math.min(availableStatusLines, desiredStatusLines);
+  const statusVisible = statusMaxLines > 0;
+  const compactStatus = statusMaxLines === 1;
+  const statusLines = statusMaxLines;
+  const fixedLines = headerSlotLines + statusLines;
+  const paletteMaxLines =
     palette === null
       ? 0
-      : COMMAND_PALETTE_CHROME +
-        Math.max(1, Math.min(COMMAND_PALETTE_MATCH_LIMIT, paletteMatches.length));
+      : overlayLineCount(
+          paletteMatches.length,
+          OVERLAY_CHROME_LINES.commandPalette,
+          Math.max(0, rows - fixedLines),
+        );
+  const autocompleteWithPromptLines = Math.max(
+    0,
+    rows - fixedLines - promptLines,
+  );
+  const autocompleteReplacesPrompt =
+    popup !== null && palette === null && autocompleteWithPromptLines < 1;
+  const autocompleteMaxLines =
+    popup === null || palette !== null
+      ? 0
+      : overlayLineCount(
+          suggestions.length,
+          OVERLAY_CHROME_LINES.autocomplete,
+          autocompleteReplacesPrompt
+            ? Math.max(0, rows - fixedLines)
+            : autocompleteWithPromptLines,
+        );
+  const promptVisible = palette === null && !autocompleteReplacesPrompt;
+  const promptSlotLines = promptVisible
+    ? promptLines
+    : palette === null
+      ? 0
+      : paletteMaxLines;
 
   const resultsView = layoutResults(
     pastQueriesView.visible,
     pastQueriesView.overflowAbove,
-    rows - HEADER_LINES - promptLines - statusLines - paletteLines,
+    rows - fixedLines - promptSlotLines - autocompleteMaxLines,
   );
 
   return {
     prefix,
     suggestions,
     paletteMatches,
+    autocompleteMaxLines,
+    paletteMaxLines,
+    statusMaxLines,
+    compactStatus,
+    headerVisible,
+    statusVisible,
+    promptVisible,
     resultsView,
   };
 }

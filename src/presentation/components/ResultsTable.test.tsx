@@ -423,6 +423,27 @@ describe("ResultsTable", () => {
     expect(frame).not.toContain(longValue);
   });
 
+  it("caps physical rows when a result card body wraps", async () => {
+    const outcome: QueryOutcome = {
+      kind: "affected",
+      changes: 1,
+      lastInsertRowid: 12345678901234567890n,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="INSERT INTO users VALUES (1)"
+        theme={DEFAULT_THEME}
+        columns={30}
+        maxLines={4}
+      />,
+      { columns: 30 },
+    );
+
+    expect(frame.replace(/\n+$/, "").split("\n")).toHaveLength(4);
+  });
+
   it("renders plan outcome as an indented tree", async () => {
     const outcome: QueryOutcome = {
       kind: "plan",

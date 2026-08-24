@@ -1,9 +1,15 @@
 import { Box, Text } from "ink";
 import { memo } from "react";
+import stringWidth from "string-width";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { outcomeTag, type OutcomeTag } from "../../domain/sql/outcomeTag.ts";
 import type { Theme } from "../../domain/theme/Theme.ts";
+import { truncateCell } from "../../shared/utils/formatCell.ts";
 import { formatBorderedTable } from "../../shared/utils/formatBorderedTable.ts";
+import {
+  normalizeLayoutLines,
+  normalizeTerminalColumns,
+} from "../layout/terminalDimensions.ts";
 import { buildCard } from "./ResultsTable/card.tsx";
 
 type Props = {
@@ -29,6 +35,7 @@ function ResultsTableImpl({
   maxLines,
   variant = "full",
 }: Props) {
+  terminalWidth = normalizeTerminalColumns(terminalWidth);
   const tag = outcomeTag(outcome);
   const kind = classify(sql, outcome);
   const table =
@@ -40,13 +47,13 @@ function ResultsTableImpl({
       ? `${metadataFor(outcome)} · +${table.hiddenColumns} more cols`
       : metadataFor(outcome);
   const keyword = tag === "ERROR" || tag === "PLAN" ? null : kind;
-  const sqlLabel = truncateSql(
+  const sqlLabel = truncateCell(
     sql,
     sqlBudget(terminalWidth, tag, keyword, metadata),
   );
 
   const header = (
-    <Box height={1} overflowY="hidden">
+    <Box width={terminalWidth} height={1} overflowX="hidden" overflowY="hidden">
       <Text color={theme.tokens.primary}>▎ </Text>
       <Text color={tagColor(theme, tag)}>{tag}</Text>
       {keyword === null ? null : (
@@ -59,8 +66,13 @@ function ResultsTableImpl({
     </Box>
   );
 
-  const budget = maxLines ?? Number.POSITIVE_INFINITY;
-  if (variant === "compact" || budget < MIN_FULL_CARD_LINES) return header;
+  const budget =
+    maxLines === undefined
+      ? Number.POSITIVE_INFINITY
+      : normalizeLayoutLines(maxLines);
+  if (variant === "compact" || budget < MIN_FULL_CARD_LINES) {
+    return capped(header, terminalWidth, budget, maxLines !== undefined);
+  }
 
   const rule = "─".repeat(terminalWidth);
   const card = buildCard(
@@ -72,7 +84,7 @@ function ResultsTableImpl({
     kind,
   );
 
-  return (
+  const cardView = (
     <Box flexDirection="column">
       {header}
       <Text color={theme.tokens.border}>{rule}</Text>
@@ -84,6 +96,27 @@ function ResultsTableImpl({
         </Box>
       )}
       <Text color={theme.tokens.border}>{rule}</Text>
+    </Box>
+  );
+  return capped(cardView, terminalWidth, budget, maxLines !== undefined);
+}
+
+function capped(
+  content: React.ReactElement,
+  terminalWidth: number,
+  lines: number,
+  shouldCap: boolean,
+): React.ReactElement {
+  if (!shouldCap || !Number.isFinite(lines)) return content;
+  return (
+    <Box
+      width={terminalWidth}
+      height={lines}
+      minHeight={0}
+      overflowX="hidden"
+      overflowY="hidden"
+    >
+      {content}
     </Box>
   );
 }
@@ -110,14 +143,7 @@ function sqlBudget(
   metadata: string,
 ): number {
   const fixedBeforeSql = `▎ ${tag}${keyword === null ? "" : ` ${keyword}`} · ${metadata} · `;
-  return Math.max(0, terminalWidth - fixedBeforeSql.length);
-}
-
-function truncateSql(sql: string, max: number): string {
-  if (max <= 0) return "";
-  if (sql.length <= max) return sql;
-  if (max <= 1) return "…";
-  return `${sql.slice(0, max - 1)}…`;
+  return Math.max(0, terminalWidth - stringWidth(fixedBeforeSql));
 }
 
 function classify(sql: string, outcome: QueryOutcome): string {
