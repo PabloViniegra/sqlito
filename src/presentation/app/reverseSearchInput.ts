@@ -25,6 +25,11 @@ export function handleReverseSearchInput(args: {
     dispatch({ type: "reverseSearchCancel" });
     return;
   }
+  if (key.ctrl && input === "c") {
+    dispatch({ type: "setPrompt", value: promptBeforeReverse });
+    dispatch({ type: "reverseSearchCancel" });
+    return;
+  }
   if (key.return) {
     dispatch({ type: "reverseSearchCommit" });
     return;
