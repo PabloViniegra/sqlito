@@ -1,7 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import type { Favorite } from "../../domain/favorites/Favorite.ts";
 import type { FavoritesRepository } from "../../domain/favorites/FavoritesRepository.ts";
+import { atomicWrite, isEnoent } from "./atomicWrite.ts";
 
 export class XdgFavoritesRepository implements FavoritesRepository {
   private readonly path: string;
@@ -62,11 +62,7 @@ export class XdgFavoritesRepository implements FavoritesRepository {
   }
 
   private async flush(): Promise<void> {
-    const payload = JSON.stringify([...this.store.values()], null, 2);
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    await writeFile(tmp, payload);
-    await rename(tmp, this.path);
+    await atomicWrite(this.path, JSON.stringify([...this.store.values()], null, 2));
   }
 }
 
@@ -77,14 +73,5 @@ function isFavorite(value: unknown): value is Favorite {
     typeof v.name === "string" &&
     typeof v.sql === "string" &&
     typeof v.updatedAt === "number"
-  );
-}
-
-function isEnoent(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: unknown }).code === "ENOENT"
   );
 }

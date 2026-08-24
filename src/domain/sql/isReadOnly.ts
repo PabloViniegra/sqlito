@@ -1,11 +1,10 @@
+import { stripSqlComments } from "./stripSqlComments.ts";
+
 const READ_KEYWORDS = new Set(["SELECT", "PRAGMA", "EXPLAIN", "WITH"]);
 const PRAGMA_FUNC_CALL_WRITERS = new Set(["wal_autocheckpoint"]);
 
 export function isReadOnly(sql: string): boolean {
-  const stripped = sql
-    .replace(/--[^\n]*/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .trimStart();
+  const stripped = stripSqlComments(sql).trimStart();
   const match = stripped.match(/^([A-Za-z]+)/);
   if (!match) return false;
   const keyword = match[1].toUpperCase();

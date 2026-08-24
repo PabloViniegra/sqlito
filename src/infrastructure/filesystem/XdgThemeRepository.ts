@@ -1,11 +1,11 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import {
   DEFAULT_THEME,
   findTheme,
   type Theme,
 } from "../../domain/theme/Theme.ts";
 import type { ThemeRepository } from "../../domain/theme/ThemeRepository.ts";
+import { atomicWrite } from "./atomicWrite.ts";
 
 export class XdgThemeRepository implements ThemeRepository {
   private readonly path: string;
@@ -34,11 +34,7 @@ export class XdgThemeRepository implements ThemeRepository {
   }
 
   async save(theme: Theme): Promise<void> {
-    const payload = JSON.stringify({ theme: theme.name }, null, 2);
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    await writeFile(tmp, payload);
-    await rename(tmp, this.path);
+    await atomicWrite(this.path, JSON.stringify({ theme: theme.name }, null, 2));
   }
 }
 

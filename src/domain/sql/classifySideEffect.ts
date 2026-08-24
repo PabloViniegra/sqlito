@@ -1,3 +1,5 @@
+import { stripSqlComments } from "./stripSqlComments.ts";
+
 const SIDE_EFFECT_KEYWORDS = new Set([
   "VACUUM",
   "REINDEX",
@@ -8,10 +10,7 @@ const SIDE_EFFECT_KEYWORDS = new Set([
 ]);
 
 export function classifySideEffect(sql: string): boolean {
-  const stripped = sql
-    .replace(/--[^\n]*/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .trimStart();
+  const stripped = stripSqlComments(sql).trimStart();
   const match = stripped.match(/^([A-Za-z]+)/);
   if (!match) return false;
   const keyword = match[1].toUpperCase();

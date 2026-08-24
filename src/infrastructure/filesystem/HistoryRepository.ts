@@ -1,4 +1,5 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
+import { newestFirst } from "../../domain/history/historyView.ts";
 
 export type HistoryRepository = {
   append: (entry: HistoryEntry) => Promise<void>;
@@ -23,8 +24,7 @@ export function fakeHistoryRepository(
       appended.push(entry);
     },
     async recent(limit: number): Promise<readonly HistoryEntry[]> {
-      const start = Math.max(0, stored.length - limit);
-      return stored.slice(start).slice().reverse();
+      return newestFirst(stored, limit);
     },
     async search(
       substring: string,
@@ -34,8 +34,7 @@ export function fakeHistoryRepository(
       const matches = stored.filter((e) =>
         e.sql.toLowerCase().includes(haystack),
       );
-      const start = Math.max(0, matches.length - limit);
-      return matches.slice(start).slice().reverse();
+      return newestFirst(matches, limit);
     },
   };
 }

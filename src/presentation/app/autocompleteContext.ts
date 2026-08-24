@@ -1,12 +1,12 @@
+import { stripSqlComments } from "../../domain/sql/stripSqlComments.ts";
+
 type FromClause = {
   name: string;
   alias?: string;
 };
 
 export function parseFromClause(sql: string): FromClause | undefined {
-  const stripped = sql
-    .replace(/--[^\n]*/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "");
+  const stripped = stripSqlComments(sql);
   const matches = [...stripped.matchAll(/\bFROM\s+([A-Za-z_]\w*)/gi)];
   const last = matches[matches.length - 1];
   const name = last?.[1];
