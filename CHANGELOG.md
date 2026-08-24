@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/PabloViniegra/sqlito/compare/v1.0.1...v1.0.2) (2026-08-24)
+
+### Bug Fixes
+
+- **history:** atomic rewrite, single-flight queue, surface save errors, distinguish plan outcomes ([af722e5](https://github.com/PabloViniegra/sqlito/commit/af722e56ee60051e6a58173140a07b8e91637896))
+
 ## [1.0.1](https://github.com/PabloViniegra/sqlito/compare/v1.0.0...v1.0.1) (2026-07-10)
 
 ### Bug Fixes
