@@ -1,8 +1,8 @@
 import { render, Text } from "ink";
 import { PassThrough } from "node:stream";
-import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import type { ReactElement } from "react";
+import { useEffect } from "react";
 import { shouldAnimateIntro, useFrameTicker } from "./useFrameTicker.ts";
 
 const flush = (): Promise<void> =>
@@ -10,37 +10,31 @@ const flush = (): Promise<void> =>
 const wait = (ms: number): Promise<void> =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function makeStdout(): NodeJS.WriteStream & { buffer: string } {
-  // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; we attach columns/isTTY and override write before Ink consumes it.
+function makeStdout(): NodeJS.WriteStream {
+  // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; Ink only needs a writable stream because assertions read the frame log, not ANSI output.
   const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
     columns: number;
+    rows: number;
     isTTY: boolean;
-    buffer: string;
   };
   stdout.columns = 80;
+  stdout.rows = 24;
   stdout.isTTY = true;
-  stdout.buffer = "";
-  stdout.write = (chunk: string | Uint8Array): boolean => {
-    stdout.buffer += chunk.toString();
-    return true;
-  };
   return stdout;
 }
 
-async function mountProbe(enabled: boolean): Promise<{
-  output: () => string;
-  cleanup: () => Promise<void>;
-}> {
-  const stdout = makeStdout();
+async function mountProbe(
+  enabled: boolean,
+  log: number[],
+): Promise<{ cleanup: () => Promise<void> }> {
   // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime.
-  const instance = render(<Probe enabled={enabled} />, {
-    stdout,
+  const instance = render(<Probe enabled={enabled} log={log} />, {
+    stdout: makeStdout(),
     exitOnCtrlC: false,
     patchConsole: false,
   });
   await flush();
   return {
-    output: () => stripAnsi(stdout.buffer).replace(/\r/g, ""),
     cleanup: async () => {
       instance.unmount();
       await flush();
@@ -48,38 +42,47 @@ async function mountProbe(enabled: boolean): Promise<{
   };
 }
 
-function Probe({ enabled }: { enabled: boolean }): ReactElement {
+function Probe({
+  enabled,
+  log,
+}: {
+  enabled: boolean;
+  log: number[];
+}): ReactElement {
   const frame = useFrameTicker(5, enabled, [10, 10, 10, 20]);
-  return <Text>{`frame=${frame}`}</Text>;
+  useEffect(() => {
+    log.push(frame);
+  }, [frame, log]);
+  return <Text>{String(frame)}</Text>;
 }
 
 describe("useFrameTicker", () => {
   it("jumps straight to the final frame when disabled", async () => {
-    const probe = await mountProbe(false);
+    const log: number[] = [];
+    const probe = await mountProbe(false, log);
 
-    expect(probe.output()).toContain("frame=5");
-    expect(probe.output()).not.toContain("frame=0");
+    expect(log).toEqual([5]);
     await probe.cleanup();
   });
-  it("advances one frame per delay and stops at the end", async () => {
-    const probe = await mountProbe(true);
 
-    expect(probe.output()).toContain("frame=0");
+  it("advances monotonically and stops at the final frame", async () => {
+    const log: number[] = [];
+    const probe = await mountProbe(true, log);
 
-    // Under load Ink coalesces intermediate paints; poll for the settle.
-    let output = probe.output();
-    for (let i = 0; i < 40 && !output.includes("frame=4"); i += 1) {
+    let settled = false;
+    for (let i = 0; i < 40 && !settled; i += 1) {
       await wait(50);
-      output = probe.output();
+      settled = log[log.length - 1] === 4;
     }
-    expect(output).toContain("frame=4");
+    expect(settled).toBe(true);
 
-    const settled = probe.output();
+    // monotonic walk: every frame was visited in order
+    expect(log).toEqual([0, 1, 2, 3, 4]);
+
+    const count = log.length;
     await wait(120);
-    // the ticker cleared itself: no further frames were painted
-    expect(probe.output().match(/frame=4/g)?.length).toBe(
-      settled.match(/frame=4/g)?.length,
-    );
+    // the ticker cleared itself once the final frame rendered
+    expect(log.length).toBe(count);
     await probe.cleanup();
   });
 
