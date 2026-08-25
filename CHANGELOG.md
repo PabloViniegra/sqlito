@@ -1,3 +1,9 @@
+# [1.2.0](https://github.com/PabloViniegra/sqlito/compare/v1.1.1...v1.2.0) (2026-08-25)
+
+### Features
+
+- **presentation:** add animated intro reveal for the SQLITO header ([5f286d7](https://github.com/PabloViniegra/sqlito/commit/5f286d7730fa27b39fbfc60b8349fa02c8c8eb82))
+
 ## [1.1.1](https://github.com/PabloViniegra/sqlito/compare/v1.1.0...v1.1.1) (2026-08-24)
 
 ### Bug Fixes
