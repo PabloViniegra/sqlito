@@ -1,18 +1,23 @@
 <div align="center">
-  <img src="docs/assets/logo.svg" alt="SQLito logo" width="120" />
+  <img src="docs/assets/logo.svg" alt="SQLito logo" width="96" />
   <h1>SQLito</h1>
   <p><strong>A keyboard-first SQLite client for the terminal.</strong></p>
-  <p>Single responsibility: work with SQLite. The SQL is the protagonist; the UI is a header, a results table and a prompt.</p>
+  <p>SQL is the protagonist. The UI is a header, a results table and a prompt.</p>
   <p>
-    <a href="https://github.com/PabloViniegra/sqlito/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License: MIT" /></a>
-    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" /></a>
-    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" /></a>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" /></a>
-    <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" /></a>
-    <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-F69220?style=for-the-badge&logo=pnpm&logoColor=white" alt="pnpm" /></a>
-    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" /></a>
-    <a href="https://prettier.io/"><img src="https://img.shields.io/badge/Prettier-F7BA3E?style=for-the-badge&logo=prettier&logoColor=black" alt="Prettier" /></a>
+    <a href="https://www.npmjs.com/package/@pablo-v/sqlito"><img src="https://img.shields.io/npm/v/@pablo-v/sqlito?style=flat-square&color=cb3837&logo=npm&logoColor=white" alt="npm version" /></a>
+    <a href="https://github.com/PabloViniegra/sqlito/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/node-%E2%89%A522-43853D?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 22 or later" />
+    <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript strict" />
+    <img src="https://img.shields.io/badge/SQLite-07405E?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
   </p>
+  <p>
+    <a href="#installation">Install</a> ·
+    <a href="#usage">Usage</a> ·
+    <a href="#architecture">Architecture</a> ·
+    <a href="CONTRIBUTING.md">Contribute</a>
+  </p>
+  <br />
+  <img src="docs/assets/demo.gif" alt="SQLito demo: command palette, autocompletion, a write, reverse search and the query plan" width="860" />
 </div>
 
 ---
@@ -37,12 +42,10 @@
 
 ## Overview
 
-SQLito is a terminal client for SQLite, inspired by Claude Code. The goal
-is an extremely fast, clean and keyboard-driven experience for browsing,
-querying and editing local SQLite files. SQL is the user interface; the
-surrounding chrome exists only to keep you in flow.
-
-The entry point is intentionally narrow:
+SQLito is a terminal client for SQLite, inspired by Claude Code. It is
+built to be fast, clean and entirely keyboard-driven for browsing,
+querying and editing local SQLite files. The surrounding chrome exists
+only to keep you in flow.
 
 ```bash
 sqlito <database.db>
@@ -54,27 +57,22 @@ is a layer on top of that one command.
 
 ## Features
 
-- Open any local SQLite file from the command line.
-- Execute SQL against the file via `better-sqlite3` in a background process,
-  so a long query never freezes the UI and `Ctrl+C` cancels it, with a
-  colored outcome tag (READ / WRITE / DDL / ERROR / PLAN) on every result.
-- Render results in a windowed, terminal-native table; past queries scroll
-  with PageUp / PageDown and show an overflow indicator.
-- Persistent per-database query history with recall (Up / Down); a failed
-  query can be recalled and retried immediately.
-- Autocompletion for table and column names.
-- CSV export of the current result set, to a file (`.export`) or straight
-  to the clipboard (`.copy`).
-- Session variables, an `EXPLAIN QUERY PLAN` view and favourite queries
-  (`.set`/`.vars`, `.explain`, `.save`/`.run`/`.favorites`).
-- Switchable themes (`.theme`), persisted to `~/.config/sqlito/config.json`.
-- Dot-commands for schema introspection: `.tables`, `.schema`, `.indexes`.
-- Command palette (Ctrl+P) surfacing every dot-command.
-- Keyboard-only navigation across the whole interface.
-- Takes over the terminal on launch via the alternate screen buffer; the
-  previous content is restored when you exit (Ctrl+C, `.quit`/`.exit`, or
-  normal exit).
-- Cold-start bench gate (`pnpm bench`) enforces a 1500 ms budget.
+|                              |                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Never blocks**             | Queries run in a background process, so a long one never freezes the UI and `Ctrl+C` cancels it. |
+| **Clear outcomes**           | Every result carries a colored tag: READ, WRITE, DDL, ERROR or PLAN.                             |
+| **Autocomplete**             | `Tab` completes table and column names from the live schema.                                     |
+| **History**                  | Persistent per database, with Up / Down recall and `Ctrl+R` reverse search.                      |
+| **Command palette**          | `Ctrl+P` surfaces every dot-command.                                                             |
+| **Query plans**              | `.explain` re-runs the last query as `EXPLAIN QUERY PLAN` and draws the tree.                    |
+| **Export**                   | Current result to CSV, as a file (`.export`) or on the clipboard (`.copy`).                      |
+| **Variables and favourites** | `.set` / `.vars` for `:name` placeholders; `.save` / `.run` for saved queries.                   |
+| **Themes**                   | `.theme`, persisted to `~/.config/sqlito/config.json`.                                           |
+| **Tidy terminal**            | Uses the alternate screen and restores your terminal on exit.                                    |
+| **Fast start**               | Bundled cold start under 400 ms, enforced by `pnpm bench`.                                       |
+
+Results render in a windowed, terminal-native table; past queries scroll
+with PageUp / PageDown. Navigation is keyboard-only throughout.
 
 ## Installation
 
@@ -191,7 +189,8 @@ Presentation  →  Application  →  Domain  ←  Infrastructure
   `ListFavorites`, `RunFavorite`, `ForgetFavorite`, `LoadTheme`,
   `SwitchTheme`, `SessionVariables`.
 - **Infrastructure** adapts the outside world to the domain:
-  `BetterSqliteDatabase`, `SqliteSchemaRepository`, `XdgHistoryRepository`,
+  `WorkerDatabase` (child process), `BetterSqliteDatabase`,
+  `SqliteSchemaRepository`, `XdgHistoryRepository`,
   `XdgFavoritesRepository`, `XdgThemeRepository`. Keyboard handling lives
   in the presentation layer instead (`App.tsx`, `promptKeymap.ts`,
   `readline.ts`).
@@ -223,7 +222,7 @@ src/
 │   ├── favorites/        # Favorite, FavoritesRepository
 │   └── theme/            # Theme, ThemeRepository
 ├── infrastructure/
-│   ├── sqlite/           # BetterSqliteDatabase, SqliteSchemaRepository
+│   ├── sqlite/           # WorkerDatabase, BetterSqliteDatabase, SqliteSchemaRepository
 │   └── filesystem/       # XdgHistoryRepository, XdgFavoritesRepository, XdgThemeRepository
 ├── presentation/
 │   ├── app/              # App, dotCommand, readline, promptKeymap, pastQueriesViewport
@@ -239,19 +238,19 @@ src/
 
 Common scripts, run from the project root:
 
-| Command          | Description                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| `pnpm dev`       | Start the Ink entry via `tsx watch src/main.tsx`.                  |
-| `pnpm build`     | Type-check the project with `tsc -b`.                              |
-| `pnpm typecheck` | Same as `build`, split out for pre-commit hooks.                   |
-| `pnpm lint`      | Run oxlint with the project rules.                                 |
-| `pnpm test`      | Run Vitest in watch mode.                                          |
-| `pnpm test:run`  | Run Vitest once (used by pre-commit).                              |
-| `pnpm format`    | Format `src/**/*.{ts,tsx,json,md}` with Prettier.                  |
-| `pnpm db:seed`   | Generate the sample SQLite database in `fixtures/`.                |
-| `pnpm bench`     | Measure cold-start time of the CLI. Budget: 1500 ms (source-mode). |
-| `pnpm gate`      | Run `lint-staged` → `tsc -b` → `vitest run` → `pnpm bench`.        |
-| `pnpm doctor`    | Run `react-doctor` against the presentation layer.                 |
+| Command          | Description                                                 |
+| ---------------- | ----------------------------------------------------------- |
+| `pnpm dev`       | Start the Ink entry via `tsx watch src/main.tsx`.           |
+| `pnpm build`     | Bundle the CLI with `tsup` into `dist/`.                    |
+| `pnpm typecheck` | Type-check with `tsc -b`.                                   |
+| `pnpm lint`      | Run oxlint with the project rules.                          |
+| `pnpm test`      | Run Vitest in watch mode.                                   |
+| `pnpm test:run`  | Run Vitest once (used by pre-commit).                       |
+| `pnpm format`    | Format `src/**/*.{ts,tsx,json,md}` with Prettier.           |
+| `pnpm db:seed`   | Generate the sample SQLite database in `fixtures/`.         |
+| `pnpm bench`     | Measure cold start of the built CLI. Budget: 400 ms.        |
+| `pnpm gate`      | Run `lint-staged` → `tsc -b` → `vitest run` → `pnpm bench`. |
+| `pnpm doctor`    | Run `react-doctor` against the presentation layer.          |
 
 A Husky pre-commit hook runs `lint-staged` (oxlint + Prettier on staged
 files), then `tsc -b`, then `vitest run`. The hook is installed by
@@ -287,6 +286,9 @@ PLAN` view (`.explain`), favourite queries
   prompt, readline-style editing (kill / word-skip / multi-line wrap),
   history recall at edit boundary, screen clear, scrollable past-query
   viewport (PageUp/PageDown), memoised frames, cold-start bench gate.
+
+- **v1.2 – v1.3** — Diagnostics fixes and a cancellable worker process:
+  queries run off the UI process and `Ctrl+C` stops them.
 
 Planned:
 

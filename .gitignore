@@ -45,3 +45,6 @@ node_modules/.tmp/
 
 # Generated fixtures
 fixtures/*.db
+
+# Demo recordings (regenerate with demo/render.sh)
+demo/output/
