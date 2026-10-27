@@ -1,3 +1,9 @@
+# [1.3.0](https://github.com/PabloViniegra/sqlito/compare/v1.2.1...v1.3.0) (2026-10-27)
+
+### Features
+
+- run SQLite in a cancellable worker process ([8951878](https://github.com/PabloViniegra/sqlito/commit/895187816e3d20e229dbdfe13b11c36a2cbb6d26))
+
 ## [1.2.1](https://github.com/PabloViniegra/sqlito/compare/v1.2.0...v1.2.1) (2026-10-27)
 
 ### Bug Fixes
