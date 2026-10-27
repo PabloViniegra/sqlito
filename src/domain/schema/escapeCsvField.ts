@@ -1,8 +1,8 @@
 const NEEDS_QUOTING = /[",\n\r]/;
 
-export function escapeCsvField(value: unknown): string {
+export function escapeCsvField<T>(value: T): string {
   if (value === null || value === undefined) return "";
-  const str = typeof value === "string" ? value : String(value);
+  const str = String(value);
   if (!NEEDS_QUOTING.test(str)) return str;
   return `"${str.replace(/"/g, '""')}"`;
 }

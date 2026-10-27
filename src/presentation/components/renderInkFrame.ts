@@ -6,9 +6,10 @@ export async function renderInkFrame(
   options: { columns?: number } = {},
 ): Promise<string> {
   // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; we attach `columns` and override `write` before Ink consumes it.
-  const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
-    columns: number;
-  };
+  const stdout = new PassThrough() as PassThrough &
+    NodeJS.WriteStream & {
+      columns: number;
+    };
   let buffer = "";
   stdout.columns = options.columns ?? 80;
   stdout.write = (chunk: string | Uint8Array): boolean => {
@@ -17,7 +18,7 @@ export async function renderInkFrame(
   };
   // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime.
   const instance = render(node, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
+    stdout: stdout as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
   });

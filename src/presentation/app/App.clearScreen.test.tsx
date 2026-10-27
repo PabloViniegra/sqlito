@@ -14,16 +14,17 @@ const UP_ARROW = "\x1b[A";
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r));
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
 
-type FakeStdout = NodeJS.WriteStream & {
-  isTTY: boolean;
-  columns: number;
-  rows: number;
-  buffer: string;
-};
+type FakeStdout = PassThrough &
+  NodeJS.WriteStream & {
+    isTTY: boolean;
+    columns: number;
+    rows: number;
+    buffer: string;
+  };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
   // SAFETY: PassThrough is augmented below with every FakeStdout field the Ink runtime reads.
-  const stream = new PassThrough() as unknown as FakeStdout;
+  const stream = new PassThrough() as FakeStdout;
   stream.isTTY = true;
   stream.columns = columns;
   stream.rows = rows;
@@ -35,16 +36,17 @@ function fakeStdout(columns: number, rows: number): FakeStdout {
   return stream;
 }
 
-type FakeStdin = NodeJS.ReadStream & {
-  isTTY: boolean;
-  setRawMode: (mode: boolean) => FakeStdin;
-  ref: () => FakeStdin;
-  unref: () => FakeStdin;
-};
+type FakeStdin = PassThrough &
+  NodeJS.ReadStream & {
+    isTTY: boolean;
+    setRawMode: (mode: boolean) => FakeStdin;
+    ref: () => FakeStdin;
+    unref: () => FakeStdin;
+  };
 
 function fakeStdin(): FakeStdin {
   // SAFETY: PassThrough is augmented below with every FakeStdin field the Ink runtime reads.
-  const stream = new PassThrough() as unknown as FakeStdin;
+  const stream = new PassThrough() as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
   stream.ref = () => stream;
@@ -61,8 +63,9 @@ async function waitForAfterClear(
     const raw = read();
     const idx = raw.lastIndexOf(clearScreenSequence());
     if (idx >= 0) {
-      const tail = stripAnsi(raw.slice(idx + clearScreenSequence().length))
-        .replace(/\r/g, "");
+      const tail = stripAnsi(
+        raw.slice(idx + clearScreenSequence().length),
+      ).replace(/\r/g, "");
       if (tail.includes(">")) return;
     }
     await settle();
@@ -77,8 +80,8 @@ async function mountApp(columns = 80, rows = 24) {
   const stdin = fakeStdin();
   // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime.
   const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    stdout: stdout as unknown as NodeJS.WriteStream,
+    stdin: stdin as NodeJS.ReadStream,
+    stdout: stdout as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
     interactive: true,

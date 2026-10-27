@@ -63,17 +63,21 @@ export class XdgFavoritesRepository implements FavoritesRepository {
   }
 
   private async flush(): Promise<void> {
-    await atomicWrite(this.path, JSON.stringify([...this.store.values()], null, 2));
+    await atomicWrite(
+      this.path,
+      JSON.stringify([...this.store.values()], null, 2),
+    );
   }
 }
 
-function isFavorite(value: unknown): value is Favorite {
+function isFavorite<T>(value: T): value is T & Favorite {
   if (typeof value !== "object" || value === null) return false;
-  // SAFETY: the value is an unknown JSON entry; we index it by string keys to validate each field below.
-  const v = value as Record<string, unknown>;
   return (
-    typeof v.name === "string" &&
-    typeof v.sql === "string" &&
-    typeof v.updatedAt === "number"
+    "name" in value &&
+    typeof value.name === "string" &&
+    "sql" in value &&
+    typeof value.sql === "string" &&
+    "updatedAt" in value &&
+    typeof value.updatedAt === "number"
   );
 }

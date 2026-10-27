@@ -5,6 +5,7 @@ import type { Theme } from "../../../domain/theme/Theme.ts";
 import type { BorderedTable } from "../../../shared/utils/formatBorderedTable.ts";
 import { truncateCell } from "../../../shared/utils/formatCell.ts";
 import { formatPlanTree } from "../../../shared/utils/formatPlanTree.ts";
+import { keyedLines } from "../../../shared/utils/keyedLines.ts";
 import { wrapPrompt } from "../../../shared/utils/wrapPrompt.ts";
 
 export type CardContent = {
@@ -92,9 +93,7 @@ function buildAffectedCard(
       <Text>
         <Text color={theme.tokens.success}>✓ {keyword} OK · </Text>
         <Text color={theme.tokens.writes} bold>
-          {outcome.changes === 0
-            ? "0 rows matched"
-            : `${outcome.changes} rows`}
+          {outcome.changes === 0 ? "0 rows matched" : `${outcome.changes} rows`}
         </Text>
         {rowid === "" ? null : (
           <Text color={theme.tokens.success}>{rowid}</Text>
@@ -171,8 +170,8 @@ function buildErrorCard(
             <Text color={theme.tokens.error}>{outcome.code}</Text>
           </Box>
         ) : null}
-        {shown.map((line, i) => (
-          <Box key={i}>
+        {keyedLines(shown).map(({ line, key }) => (
+          <Box key={key}>
             <Text color={theme.tokens.muted}>! </Text>
             <Text color={theme.tokens.error}>{line}</Text>
           </Box>
@@ -193,12 +192,12 @@ function footerFor(outcome: QueryOutcome): string | null {
 
 function renderTableLines(lines: readonly string[], theme: Theme): ReactNode {
   const last = lines.length - 1;
-  return lines.map((line, i) => {
+  return keyedLines(lines).map(({ line, key }, i) => {
     const isHeader = i === 1;
     const isBorder = i === 0 || i === 2 || i === last;
     return (
       <Text
-        key={i}
+        key={key}
         color={
           isHeader
             ? theme.tokens.primary
@@ -215,8 +214,8 @@ function renderTableLines(lines: readonly string[], theme: Theme): ReactNode {
 }
 
 function renderPlanLines(lines: readonly string[], theme: Theme): ReactNode {
-  return lines.map((line, i) => (
-    <Text key={i} color={theme.tokens.muted}>
+  return keyedLines(lines).map(({ line, key }) => (
+    <Text key={key} color={theme.tokens.muted}>
       {line}
     </Text>
   ));

@@ -35,12 +35,14 @@ export class XdgThemeRepository implements ThemeRepository {
   }
 
   async save(theme: Theme): Promise<void> {
-    await atomicWrite(this.path, JSON.stringify({ theme: theme.name }, null, 2));
+    await atomicWrite(
+      this.path,
+      JSON.stringify({ theme: theme.name }, null, 2),
+    );
   }
 }
 
-function isConfig(value: unknown): value is { theme: string } {
+function isConfig<T>(value: T): value is T & { theme: string } {
   if (typeof value !== "object" || value === null) return false;
-  // SAFETY: the value is parsed JSON; we index it by string keys to validate the theme name below.
-  return typeof (value as Record<string, unknown>).theme === "string";
+  return "theme" in value && typeof value.theme === "string";
 }

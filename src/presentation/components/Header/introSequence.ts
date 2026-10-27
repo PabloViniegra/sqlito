@@ -12,7 +12,11 @@ const DECODE_STAGGER = 1;
 const DECODE_CYCLES = 2;
 
 export type MascotCell = "hidden" | "ghost" | "solid";
-export type IntroCell = { readonly char: string; readonly locked: boolean };
+export type IntroCell = {
+  readonly position: number;
+  readonly char: string;
+  readonly locked: boolean;
+};
 
 export type IntroFrame = {
   readonly mascot: readonly MascotCell[];
@@ -59,14 +63,17 @@ export function buildIntroSchedule(
     );
     const cells = letters.map((ch, i): IntroCell => {
       const start = decodeStart + i * DECODE_STAGGER;
-      if (f >= start + DECODE_CYCLES) return { char: ch, locked: true };
+      if (f >= start + DECODE_CYCLES) {
+        return { position: i, char: ch, locked: true };
+      }
       if (f >= start) {
         return {
+          position: i,
           char: SCRAMBLE_POOL[(f * 3 + i * 5) % SCRAMBLE_POOL.length]!,
           locked: false,
         };
       }
-      return { char: " ", locked: false };
+      return { position: i, char: " ", locked: false };
     });
     const sweeping = f >= shimmerStart && f < shimmerStart + letters.length;
     frames.push({

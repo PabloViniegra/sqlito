@@ -12,11 +12,12 @@ const wait = (ms: number): Promise<void> =>
 
 function makeStdout(): NodeJS.WriteStream {
   // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; Ink only needs a writable stream because assertions read the frame log, not ANSI output.
-  const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
-    columns: number;
-    rows: number;
-    isTTY: boolean;
-  };
+  const stdout = new PassThrough() as PassThrough &
+    NodeJS.WriteStream & {
+      columns: number;
+      rows: number;
+      isTTY: boolean;
+    };
   stdout.columns = 80;
   stdout.rows = 24;
   stdout.isTTY = true;

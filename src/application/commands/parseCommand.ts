@@ -30,93 +30,113 @@ export type DotCommandResult =
   { ok: true; command: DotCommand } | { ok: false; error: string };
 
 type Args = readonly string[];
-type Validator = (args: Args) =>
-  | { ok: true; command: DotCommand }
-  | { ok: false; error: string };
+type Validator = (
+  args: Args,
+) => { ok: true; command: DotCommand } | { ok: false; error: string };
 
-const validators: Record<string, Validator> = {
-  export(args) {
-    if (args.length < 1 || args[0] === "") {
-      return { ok: false, error: "export: missing path" };
-    }
-    if (args.length > 1) return { ok: false, error: "export: too many arguments" };
-    return { ok: true, command: { kind: "export", path: args[0]! } };
-  },
-  tables(args) {
-    if (args.length > 0) return { ok: false, error: "tables: too many arguments" };
-    return { ok: true, command: { kind: "tables" } };
-  },
-  schema(args) {
-    if (args.length > 1) return { ok: false, error: "schema: too many arguments" };
-    return {
-      ok: true,
-      command: args[0] === undefined ? { kind: "schema" } : { kind: "schema", table: args[0] },
-    };
-  },
-  indexes(args) {
-    if (args.length > 0) return { ok: false, error: "indexes: too many arguments" };
-    return { ok: true, command: { kind: "indexes" } };
-  },
-  help(args) {
-    if (args.length > 0) return { ok: false, error: "help: too many arguments" };
-    return { ok: true, command: { kind: "help" } };
-  },
-  quit(args) {
-    if (args.length > 0) return { ok: false, error: "quit: too many arguments" };
-    return { ok: true, command: { kind: "quit" } };
-  },
-  set(args) {
-    if (args.length < 1) return { ok: false, error: "set: missing name" };
-    if (args.length < 2) return { ok: false, error: "set: missing value" };
-    return {
-      ok: true,
-      command: { kind: "set", name: args[0]!, raw: args.slice(1).join(" ") },
-    };
-  },
-  unset(args) {
-    if (args.length < 1) return { ok: false, error: "unset: missing name" };
-    if (args.length > 1) return { ok: false, error: "unset: too many arguments" };
-    return { ok: true, command: { kind: "unset", name: args[0]! } };
-  },
-  vars(args) {
-    if (args.length > 0) return { ok: false, error: "vars: too many arguments" };
-    return { ok: true, command: { kind: "vars" } };
-  },
-  explain(args) {
-    if (args.length > 0) return { ok: false, error: "explain: too many arguments" };
-    return { ok: true, command: { kind: "explain" } };
-  },
-  save(args) {
-    if (args.length < 1) return { ok: false, error: "save: missing name" };
-    if (args.length > 1) return { ok: false, error: "save: too many arguments" };
-    return { ok: true, command: { kind: "save", name: args[0]! } };
-  },
-  favorites(args) {
-    if (args.length > 0) return { ok: false, error: "favorites: too many arguments" };
-    return { ok: true, command: { kind: "favorites" } };
-  },
-  run(args) {
-    if (args.length < 1) return { ok: false, error: "run: missing name" };
-    if (args.length > 1) return { ok: false, error: "run: too many arguments" };
-    return { ok: true, command: { kind: "run", name: args[0]! } };
-  },
-  forget(args) {
-    if (args.length < 1) return { ok: false, error: "forget: missing name" };
-    if (args.length > 1) return { ok: false, error: "forget: too many arguments" };
-    return { ok: true, command: { kind: "forget", name: args[0]! } };
-  },
-  theme(args) {
-    if (args.length < 1) return { ok: false, error: "theme: missing name" };
-    if (args.length > 1) return { ok: false, error: "theme: too many arguments" };
-    return { ok: true, command: { kind: "theme", name: args[0]! } };
-  },
-  copy(args) {
-    if (args.length > 0) return { ok: false, error: "copy: too many arguments" };
-    return { ok: true, command: { kind: "copy" } };
-  },
-};
+const validators = new Map<string, Validator>(
+  Object.entries({
+    export(args) {
+      if (args.length < 1 || args[0] === "") {
+        return { ok: false, error: "export: missing path" };
+      }
+      if (args.length > 1)
+        return { ok: false, error: "export: too many arguments" };
+      return { ok: true, command: { kind: "export", path: args[0]! } };
+    },
+    tables(args) {
+      if (args.length > 0)
+        return { ok: false, error: "tables: too many arguments" };
+      return { ok: true, command: { kind: "tables" } };
+    },
+    schema(args) {
+      if (args.length > 1)
+        return { ok: false, error: "schema: too many arguments" };
+      return {
+        ok: true,
+        command:
+          args[0] === undefined
+            ? { kind: "schema" }
+            : { kind: "schema", table: args[0] },
+      };
+    },
+    indexes(args) {
+      if (args.length > 0)
+        return { ok: false, error: "indexes: too many arguments" };
+      return { ok: true, command: { kind: "indexes" } };
+    },
+    help(args) {
+      if (args.length > 0)
+        return { ok: false, error: "help: too many arguments" };
+      return { ok: true, command: { kind: "help" } };
+    },
+    quit(args) {
+      if (args.length > 0)
+        return { ok: false, error: "quit: too many arguments" };
+      return { ok: true, command: { kind: "quit" } };
+    },
+    set(args) {
+      if (args.length < 1) return { ok: false, error: "set: missing name" };
+      if (args.length < 2) return { ok: false, error: "set: missing value" };
+      return {
+        ok: true,
+        command: { kind: "set", name: args[0]!, raw: args.slice(1).join(" ") },
+      };
+    },
+    unset(args) {
+      if (args.length < 1) return { ok: false, error: "unset: missing name" };
+      if (args.length > 1)
+        return { ok: false, error: "unset: too many arguments" };
+      return { ok: true, command: { kind: "unset", name: args[0]! } };
+    },
+    vars(args) {
+      if (args.length > 0)
+        return { ok: false, error: "vars: too many arguments" };
+      return { ok: true, command: { kind: "vars" } };
+    },
+    explain(args) {
+      if (args.length > 0)
+        return { ok: false, error: "explain: too many arguments" };
+      return { ok: true, command: { kind: "explain" } };
+    },
+    save(args) {
+      if (args.length < 1) return { ok: false, error: "save: missing name" };
+      if (args.length > 1)
+        return { ok: false, error: "save: too many arguments" };
+      return { ok: true, command: { kind: "save", name: args[0]! } };
+    },
+    favorites(args) {
+      if (args.length > 0)
+        return { ok: false, error: "favorites: too many arguments" };
+      return { ok: true, command: { kind: "favorites" } };
+    },
+    run(args) {
+      if (args.length < 1) return { ok: false, error: "run: missing name" };
+      if (args.length > 1)
+        return { ok: false, error: "run: too many arguments" };
+      return { ok: true, command: { kind: "run", name: args[0]! } };
+    },
+    forget(args) {
+      if (args.length < 1) return { ok: false, error: "forget: missing name" };
+      if (args.length > 1)
+        return { ok: false, error: "forget: too many arguments" };
+      return { ok: true, command: { kind: "forget", name: args[0]! } };
+    },
+    theme(args) {
+      if (args.length < 1) return { ok: false, error: "theme: missing name" };
+      if (args.length > 1)
+        return { ok: false, error: "theme: too many arguments" };
+      return { ok: true, command: { kind: "theme", name: args[0]! } };
+    },
+    copy(args) {
+      if (args.length > 0)
+        return { ok: false, error: "copy: too many arguments" };
+      return { ok: true, command: { kind: "copy" } };
+    },
+  }),
+);
 
-const ALIASES: Record<string, string> = { exit: "quit" };
+const ALIASES = new Map<string, string>([["exit", "quit"]]);
 
 function tokenize(line: string): { name: string; args: Args } | null {
   const trimmed = line.trim();
@@ -134,16 +154,18 @@ function unknown(line: string): UnknownResult {
 function runValidator(
   line: string,
   expectedNames: readonly string[],
-):
-  | { ok: true; command: DotCommand }
-  | { ok: false; error: string } {
+): { ok: true; command: DotCommand } | { ok: false; error: string } {
   const tok = tokenize(line);
   if (tok === null) return unknown(line);
-  if (!expectedNames.includes(tok.name) && !expectedNames.includes(ALIASES[tok.name] ?? "")) {
+  const alias = ALIASES.get(tok.name);
+  if (
+    !expectedNames.includes(tok.name) &&
+    !expectedNames.includes(alias ?? "")
+  ) {
     return unknown(line);
   }
-  const resolvedName = ALIASES[tok.name] ?? tok.name;
-  const validator = validators[resolvedName];
+  const resolvedName = alias ?? tok.name;
+  const validator = validators.get(resolvedName);
   if (validator === undefined) return unknown(line);
   return validator(tok.args);
 }
@@ -151,8 +173,8 @@ function runValidator(
 export function parseDotCommand(line: string): DotCommandResult {
   const tok = tokenize(line);
   if (tok === null) return unknown(line);
-  const resolvedName = ALIASES[tok.name] ?? tok.name;
-  const validator = validators[resolvedName];
+  const resolvedName = ALIASES.get(tok.name) ?? tok.name;
+  const validator = validators.get(resolvedName);
   if (validator === undefined) return unknown(line);
   return validator(tok.args);
 }

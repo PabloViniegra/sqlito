@@ -52,17 +52,19 @@ export type AppLayout = {
   resultsView: ResultsLayout;
 };
 
-export function useResultsLayout({
-  state,
-  deps,
-  columns,
-  rows,
-}: {
+type ResultsLayoutInput = {
   state: AppState;
   deps: AppDeps;
   columns: number;
   rows: number;
-}): AppLayout {
+};
+
+export function calculateResultsLayout({
+  state,
+  deps,
+  columns,
+  rows,
+}: ResultsLayoutInput): AppLayout {
   const terminalWidth = normalizeTerminalColumns(columns);
   const prefix =
     state.reverseSearch !== null ? "(reverse-i-search):" : undefined;

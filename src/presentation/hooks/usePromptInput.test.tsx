@@ -5,16 +5,17 @@ import { usePromptInput } from "./usePromptInput.ts";
 
 const settle = () => new Promise<void>((r) => setTimeout(r, 20));
 
-type FakeStdin = NodeJS.ReadStream & {
-  isTTY: boolean;
-  setRawMode: (mode: boolean) => FakeStdin;
-  ref: () => FakeStdin;
-  unref: () => FakeStdin;
-};
+type FakeStdin = PassThrough &
+  NodeJS.ReadStream & {
+    isTTY: boolean;
+    setRawMode: (mode: boolean) => FakeStdin;
+    ref: () => FakeStdin;
+    unref: () => FakeStdin;
+  };
 
 function fakeStdin(): FakeStdin {
   // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeStdin;
+  const stream = new PassThrough() as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
   stream.ref = () => stream;
@@ -22,15 +23,16 @@ function fakeStdin(): FakeStdin {
   return stream;
 }
 
-type FakeStdout = NodeJS.WriteStream & {
-  isTTY: boolean;
-  columns: number;
-  rows: number;
-};
+type FakeStdout = PassThrough &
+  NodeJS.WriteStream & {
+    isTTY: boolean;
+    columns: number;
+    rows: number;
+  };
 
 function fakeStdout(): FakeStdout {
   // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/write before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeStdout;
+  const stream = new PassThrough() as FakeStdout;
   stream.isTTY = true;
   stream.columns = 80;
   stream.rows = 24;
@@ -56,8 +58,8 @@ async function mountHost(overlayActive: boolean) {
   const instance = render(
     <Host overlayActive={overlayActive} onKey={onKey} />,
     {
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      stdout: fakeStdout() as unknown as NodeJS.WriteStream,
+      stdin,
+      stdout: fakeStdout(),
       exitOnCtrlC: false,
       patchConsole: false,
     },

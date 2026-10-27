@@ -17,7 +17,7 @@ describe("clearScreen", () => {
       return true;
     };
     // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the test overrides `write` before clearScreen consumes it.
-    const stdout = sink as unknown as NodeJS.WriteStream;
+    const stdout = sink as PassThrough & NodeJS.WriteStream;
     clearScreen(stdout);
     expect(wrote).toBe("\x1b[3J\x1b[H\x1b[2J");
     expect(wrote).toBe(clearScreenSequence());

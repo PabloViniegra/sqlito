@@ -24,17 +24,143 @@ type Props = {
   maxLines?: number;
 };
 
-function StatusBarImpl({
-  dbPath,
+function StatusBarImpl(props: Props) {
+  const {
+    theme,
+    statusMessage,
+    historyCount,
+    favoritesCount,
+    lastOutcome,
+    compact = false,
+  } = props;
+  const layout = layoutStatusBar(props);
+  if (layout === null) return null;
+  const { terminalWidth, visibleLines, horizontalPadding, contentWidth, rule } =
+    layout;
+
+  return (
+    <Box
+      width={terminalWidth}
+      height={Number.isFinite(visibleLines) ? visibleLines : undefined}
+      minHeight={0}
+      flexDirection="column"
+      overflowX="hidden"
+      overflowY="hidden"
+    >
+      {compact ? null : <Text color={theme.tokens.muted}>{rule}</Text>}
+      <StatusSummary
+        layout={layout}
+        theme={theme}
+        historyCount={historyCount}
+        favoritesCount={favoritesCount}
+        lastOutcome={lastOutcome}
+      />
+      {!compact && statusMessage !== null ? (
+        <Box
+          width={terminalWidth}
+          paddingX={horizontalPadding}
+          overflowX="hidden"
+        >
+          <StatusLine
+            message={statusMessage}
+            theme={theme}
+            maxWidth={terminalWidth < 4 ? contentWidth : undefined}
+          />
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
+type StatusSummaryProps = {
+  layout: StatusBarLayout;
+  theme: Theme;
+  historyCount: number;
+  favoritesCount: number;
+  lastOutcome: QueryOutcome | null;
+};
+
+function StatusSummary({
+  layout,
   theme,
-  statusMessage,
+  historyCount,
+  favoritesCount,
+  lastOutcome,
+}: StatusSummaryProps) {
+  return (
+    <Box
+      width={layout.terminalWidth}
+      paddingX={layout.horizontalPadding}
+      overflowX="hidden"
+    >
+      {layout.showPath ? (
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.success}>● </Text>
+          <Text color={theme.tokens.dim}>{layout.path}</Text>
+        </Box>
+      ) : null}
+      {layout.showCounters ? (
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.muted}>{layout.showPath ? " · " : ""}</Text>
+          <Text color={theme.tokens.muted}>
+            {`${historyCount} history · ${favoritesCount} favorites`}
+          </Text>
+        </Box>
+      ) : null}
+      {lastOutcome !== null ? (
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.muted}>
+            {layout.showPath || layout.showCounters ? " · " : ""}
+          </Text>
+          <OutcomeChip
+            outcome={lastOutcome}
+            theme={theme}
+            display={{
+              tag: layout.displayOutcomeTag,
+              detail: layout.outcomeDetail,
+            }}
+          />
+        </Box>
+      ) : null}
+      <Box flexGrow={1} />
+      {layout.showHints ? (
+        <Box flexShrink={0}>
+          <Text color={theme.tokens.muted}>
+            {layout.showPath || layout.showCounters || lastOutcome !== null
+              ? " · "
+              : ""}
+          </Text>
+          <Hint label="^R" token="search" theme={theme} />
+          <Hint label="^P" token="palette" theme={theme} />
+          <Hint label="^C" token="quit" theme={theme} />
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
+type StatusBarLayout = {
+  terminalWidth: number;
+  visibleLines: number;
+  horizontalPadding: number;
+  contentWidth: number;
+  rule: string;
+  showPath: boolean;
+  showCounters: boolean;
+  showHints: boolean;
+  displayOutcomeTag: string;
+  outcomeDetail: string;
+  path: string;
+};
+
+function layoutStatusBar({
+  dbPath,
   historyCount,
   favoritesCount,
   columns,
   lastOutcome,
-  compact = false,
   maxLines = Number.POSITIVE_INFINITY,
-}: Props) {
+}: Props): StatusBarLayout | null {
   const terminalWidth = normalizeTerminalColumns(columns);
   const visibleLines = normalizeLayoutLines(maxLines);
   if (visibleLines <= 0) return null;
@@ -121,72 +247,19 @@ function StatusBarImpl({
     ),
   );
 
-  return (
-    <Box
-      width={terminalWidth}
-      height={Number.isFinite(visibleLines) ? visibleLines : undefined}
-      minHeight={0}
-      flexDirection="column"
-      overflowX="hidden"
-      overflowY="hidden"
-    >
-      {compact ? null : <Text color={theme.tokens.muted}>{rule}</Text>}
-      <Box
-        width={terminalWidth}
-        paddingX={horizontalPadding}
-        overflowX="hidden"
-      >
-        {showPath ? (
-          <Box flexShrink={0}>
-            <Text color={theme.tokens.success}>● </Text>
-            <Text color={theme.tokens.dim}>{path}</Text>
-          </Box>
-        ) : null}
-        {showCounters ? (
-          <Box flexShrink={0}>
-            <Text color={theme.tokens.muted}>{showPath ? " · " : ""}</Text>
-            <Text color={theme.tokens.muted}>{counterText}</Text>
-          </Box>
-        ) : null}
-        {lastOutcome !== null ? (
-          <Box flexShrink={0}>
-            <Text color={theme.tokens.muted}>
-              {showPath || showCounters ? " · " : ""}
-            </Text>
-            <OutcomeChip
-              outcome={lastOutcome}
-              theme={theme}
-              display={{ tag: displayOutcomeTag, detail: outcomeDetail }}
-            />
-          </Box>
-        ) : null}
-        <Box flexGrow={1} />
-        {showHints ? (
-          <Box flexShrink={0}>
-            <Text color={theme.tokens.muted}>
-              {showPath || showCounters || lastOutcome !== null ? " · " : ""}
-            </Text>
-            <Hint label="^R" token="search" theme={theme} />
-            <Hint label="^P" token="palette" theme={theme} />
-            <Hint label="^C" token="quit" theme={theme} />
-          </Box>
-        ) : null}
-      </Box>
-      {!compact && statusMessage !== null ? (
-        <Box
-          width={terminalWidth}
-          paddingX={horizontalPadding}
-          overflowX="hidden"
-        >
-          <StatusLine
-            message={statusMessage}
-            theme={theme}
-            maxWidth={terminalWidth < 4 ? contentWidth : undefined}
-          />
-        </Box>
-      ) : null}
-    </Box>
-  );
+  return {
+    terminalWidth,
+    visibleLines,
+    horizontalPadding,
+    contentWidth,
+    rule,
+    showPath,
+    showCounters,
+    showHints,
+    displayOutcomeTag,
+    outcomeDetail,
+    path,
+  };
 }
 
 function Hint({

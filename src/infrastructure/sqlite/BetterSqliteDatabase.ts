@@ -3,6 +3,7 @@ import type {
   BindParams,
   Database,
   PreparedStatement,
+  SqliteValue,
 } from "../../domain/database/Database.ts";
 import type { Column } from "../../domain/sql/Column.ts";
 import type { RunInfo } from "../../domain/sql/RunInfo.ts";
@@ -34,14 +35,12 @@ export class BetterSqliteDatabase implements Database {
       readonly: stmt.readonly,
       all: (params?: BindParams) => {
         const columnNames = stmt.columns().map((c) => c.name);
-        // SAFETY: better-sqlite3 returns row objects keyed by column name; we re-shape each into CellValue[] below.
+        // SAFETY: better-sqlite3 returns SQLite values keyed by the names from stmt.columns(); the rows are immediately projected to those columns.
         const rows = (
           params !== undefined ? stmt.all(params) : stmt.all()
-        ) as Record<string, unknown>[];
+        ) as Record<string, SqliteValue>[];
         // SAFETY: columnNames is derived from stmt.columns(); each lookup is bounded by the declared columns.
-        return rows.map((row) =>
-          columnNames.map((name) => row[name]),
-        ) as readonly unknown[][];
+        return rows.map((row) => columnNames.map((name) => row[name]));
       },
       run: (params?: BindParams): RunInfo => {
         const info = params !== undefined ? stmt.run(params) : stmt.run();

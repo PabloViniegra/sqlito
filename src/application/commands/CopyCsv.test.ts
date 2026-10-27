@@ -3,8 +3,7 @@ import type { Column } from "../../domain/sql/Column.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { CopyCsv, NoTabularOutcome } from "./CopyCsv.ts";
 
-const { write } = vi.hoisted(() => ({ write: vi.fn() }));
-vi.mock("clipboardy", () => ({ default: { write } }));
+const write = vi.fn(async (_text: string): Promise<void> => {});
 
 const columns = (names: readonly string[]): readonly Column[] =>
   names.map((name) => ({ name, type: null }));
@@ -15,7 +14,7 @@ const rowsOutcome = (
 ): QueryOutcome => ({ kind: "rows", columns: columns(names), rows });
 
 describe("CopyCsv", () => {
-  const useCase = new CopyCsv();
+  const useCase = new CopyCsv({ write });
 
   describe("gating", () => {
     it("throws NoTabularOutcome when outcome is affected", async () => {

@@ -111,7 +111,7 @@ function HeaderImpl({ dbPath, theme, columns = 80 }: Props) {
         {frame.shimmer !== null ? (
           frame.wordmark.map((cell, i) => (
             <Text
-              key={i}
+              key={cell.position}
               color={
                 i === frame.shimmer ? theme.tokens.accent : theme.tokens.primary
               }

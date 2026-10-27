@@ -186,10 +186,11 @@ describe("Prompt", () => {
     // was silently dropped on screen. A trailing cursor glyph after the
     // text guarantees the line always ends in non-whitespace content.
     // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; we attach `columns` and `isTTY` and override `write` before Ink consumes it.
-    const stdout = new PassThrough() as unknown as NodeJS.WriteStream & {
-      columns: number;
-      isTTY: boolean;
-    };
+    const stdout = new PassThrough() as PassThrough &
+      NodeJS.WriteStream & {
+        columns: number;
+        isTTY: boolean;
+      };
     stdout.columns = 80;
     stdout.isTTY = true;
     const writes: string[] = [];
@@ -207,7 +208,7 @@ describe("Prompt", () => {
         theme={DEFAULT_THEME}
       />,
       {
-        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdout: stdout as NodeJS.WriteStream,
         exitOnCtrlC: false,
         patchConsole: false,
       },

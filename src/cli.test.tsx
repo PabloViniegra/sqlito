@@ -6,15 +6,16 @@ import { mountApp, run } from "./cli.tsx";
 import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
 
-type FakeTty = NodeJS.WriteStream & {
-  columns: number;
-  isTTY: boolean;
-  buffer: string;
-};
+type FakeTty = PassThrough &
+  NodeJS.WriteStream & {
+    columns: number;
+    isTTY: boolean;
+    buffer: string;
+  };
 
 function fakeTty(): FakeTty {
   // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/isTTY/buffer/write before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeTty;
+  const stream = new PassThrough() as FakeTty;
   stream.columns = 80;
   stream.isTTY = true;
   stream.buffer = "";
@@ -25,16 +26,17 @@ function fakeTty(): FakeTty {
   return stream;
 }
 
-type FakeStdin = NodeJS.ReadStream & {
-  isTTY: boolean;
-  setRawMode: (mode: boolean) => FakeStdin;
-  ref: () => FakeStdin;
-  unref: () => FakeStdin;
-};
+type FakeStdin = PassThrough &
+  NodeJS.ReadStream & {
+    isTTY: boolean;
+    setRawMode: (mode: boolean) => FakeStdin;
+    ref: () => FakeStdin;
+    unref: () => FakeStdin;
+  };
 
 function fakeStdin(): FakeStdin {
   // SAFETY: PassThrough is duck-typed as NodeJS.ReadStream at runtime; the fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeStdin;
+  const stream = new PassThrough() as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
   stream.ref = () => stream;

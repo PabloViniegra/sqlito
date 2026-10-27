@@ -17,16 +17,17 @@ const CTRL_R = String.fromCharCode(0x12);
 const tick = () => new Promise<void>((r) => setImmediate(r));
 const settle = () => new Promise<void>((r) => setTimeout(r, 30));
 
-type FakeStdout = NodeJS.WriteStream & {
-  isTTY: boolean;
-  columns: number;
-  rows: number;
-  buffer: string;
-};
+type FakeStdout = PassThrough &
+  NodeJS.WriteStream & {
+    isTTY: boolean;
+    columns: number;
+    rows: number;
+    buffer: string;
+  };
 
 function fakeStdout(columns: number, rows: number): FakeStdout {
   // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/buffer/write before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeStdout;
+  const stream = new PassThrough() as FakeStdout;
   stream.isTTY = true;
   stream.columns = columns;
   stream.rows = rows;
@@ -38,16 +39,17 @@ function fakeStdout(columns: number, rows: number): FakeStdout {
   return stream;
 }
 
-type FakeStdin = NodeJS.ReadStream & {
-  isTTY: boolean;
-  setRawMode: (mode: boolean) => FakeStdin;
-  ref: () => FakeStdin;
-  unref: () => FakeStdin;
-};
+type FakeStdin = PassThrough &
+  NodeJS.ReadStream & {
+    isTTY: boolean;
+    setRawMode: (mode: boolean) => FakeStdin;
+    ref: () => FakeStdin;
+    unref: () => FakeStdin;
+  };
 
 function fakeStdin(): FakeStdin {
   // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as unknown as FakeStdin;
+  const stream = new PassThrough() as FakeStdin;
   stream.isTTY = true;
   stream.setRawMode = () => stream;
   stream.ref = () => stream;
@@ -63,8 +65,8 @@ async function mountApp() {
   const stdin = fakeStdin();
   // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.
   const instance = render(<App db={db} schema={schema} dbPath=":memory:" />, {
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    stdout: stdout as unknown as NodeJS.WriteStream,
+    stdin: stdin as NodeJS.ReadStream,
+    stdout: stdout as NodeJS.WriteStream,
     exitOnCtrlC: false,
     patchConsole: false,
     interactive: true,

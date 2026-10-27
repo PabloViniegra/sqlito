@@ -6,15 +6,16 @@ import { describe, expect, it } from "vitest";
 import type { ViewportSize } from "./useViewportSize.ts";
 import { useViewportSize } from "./useViewportSize.ts";
 
-type FakeTty = NodeJS.WriteStream & {
-  columns: number;
-  rows: number;
-  isTTY: boolean;
-};
+type FakeTty = PassThrough &
+  NodeJS.WriteStream & {
+    columns: number;
+    rows: number;
+    isTTY: boolean;
+  };
 
 function fakeTty(columns: number, rows: number): FakeTty {
   // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/rows/isTTY and emits "resize" before the hook reads them.
-  const stream = new PassThrough() as unknown as FakeTty;
+  const stream = new PassThrough() as FakeTty;
   stream.columns = columns;
   stream.rows = rows;
   stream.isTTY = true;

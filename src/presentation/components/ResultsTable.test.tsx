@@ -544,14 +544,15 @@ describe("ResultsTable", () => {
     // Resize-reactivity now lives in App.tsx's single useViewportSize() call
     // and flows down as a prop, so this drives it via rerender rather than a
     // stdout "resize" event (ResultsTable no longer listens for one itself).
-    type FakeTty = NodeJS.WriteStream & {
-      columns: number;
-      rows: number;
-      isTTY: boolean;
-      buffer: string;
-    };
+    type FakeTty = PassThrough &
+      NodeJS.WriteStream & {
+        columns: number;
+        rows: number;
+        isTTY: boolean;
+        buffer: string;
+      };
     // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/rows/isTTY/buffer/write before Ink consumes it.
-    const tty = new PassThrough() as unknown as FakeTty;
+    const tty = new PassThrough() as FakeTty;
     tty.columns = 20;
     tty.rows = 24;
     tty.isTTY = true;

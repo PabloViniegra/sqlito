@@ -2,17 +2,19 @@ import { describe, expect, it } from "vitest";
 import type { AppEvent } from "./appReducer.ts";
 import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 
-function makeDispatcher(): {
+type Dispatcher = {
   events: AppEvent[];
   dispatch: (event: AppEvent) => void;
-} {
+};
+
+function makeDispatcher() {
   const events: AppEvent[] = [];
   return {
     events,
     dispatch: (event) => {
       events.push(event);
     },
-  };
+  } satisfies Dispatcher;
 }
 
 describe("handleReverseSearchInput", () => {
@@ -21,7 +23,13 @@ describe("handleReverseSearchInput", () => {
 
     handleReverseSearchInput({
       input: "c",
-      key: { ctrl: true, return: false, escape: false, backspace: false, delete: false },
+      key: {
+        ctrl: true,
+        return: false,
+        escape: false,
+        backspace: false,
+        delete: false,
+      },
       promptBeforeReverse: "SELECT 1",
       query: "sel",
       entries: [],
@@ -39,7 +47,13 @@ describe("handleReverseSearchInput", () => {
 
     handleReverseSearchInput({
       input: "",
-      key: { ctrl: false, return: false, escape: true, backspace: false, delete: false },
+      key: {
+        ctrl: false,
+        return: false,
+        escape: true,
+        backspace: false,
+        delete: false,
+      },
       promptBeforeReverse: "SELECT 1",
       query: "sel",
       entries: [],

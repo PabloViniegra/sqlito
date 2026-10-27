@@ -31,9 +31,8 @@ export function useAppKeybindings({
   const promptBeforeReverseRef = useRef<string>("");
   const lastSuccessfulSqlRef = useRef<string>("");
   const lastFailedSqlRef = useRef<string>("");
-  const stashedPromptRef: MutableRefObject<ReadlineState | null> = useRef<
-    ReadlineState | null
-  >(null);
+  const stashedPromptRef: MutableRefObject<ReadlineState | null> =
+    useRef<ReadlineState | null>(null);
 
   const dotCommandDeps = useDotCommandDeps({
     deps,
@@ -154,9 +153,12 @@ export function useAppKeybindings({
           entry: { sql, outcome: historyKindFor(outcome), timestamp },
           outcome,
         });
-        void deps.saveHistory.save(sql, outcome, timestamp).catch((err: unknown) => {
-          const message = err instanceof Error ? err.message : String(err);
-          dispatch({ type: "setStatus", status: { text: `history: ${message}`, kind: "error" } });
+        void deps.saveHistory.save(sql, outcome, timestamp).catch((err) => {
+          const message = rejectionMessage(err);
+          dispatch({
+            type: "setStatus",
+            status: { text: `history: ${message}`, kind: "error" },
+          });
         });
         // a successful query invalidates the prior failure's recall slot — only the most recent error is recallable
         lastFailedSqlRef.current = "";
@@ -227,4 +229,8 @@ export function useAppKeybindings({
     },
     { isActive: !overlayActive },
   );
+}
+
+function rejectionMessage<T>(err: T): string {
+  return err instanceof Error ? err.message : String(err);
 }
