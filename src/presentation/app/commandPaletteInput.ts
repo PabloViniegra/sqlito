@@ -2,8 +2,13 @@ import {
   COMMAND_DESCRIPTORS,
   type CommandDescriptor,
 } from "../../application/commands/commandRegistry.ts";
-import type { AppEvent, CommandPaletteState } from "./appReducer.ts";
-import { handleDotCommand, type DotCommandDeps } from "./dotCommand.ts";
+import type { CommandPaletteState } from "./appReducer.ts";
+import {
+  handleDotCommand,
+  type AppDispatch,
+  type DotCommandDeps,
+} from "./dotCommand.ts";
+import type { OverlayKey } from "./overlayKey.ts";
 
 const ALL_COMMANDS: readonly CommandDescriptor[] =
   Object.values(COMMAND_DESCRIPTORS);
@@ -18,25 +23,11 @@ export function filterCommands(query: string): CommandDescriptor[] {
   );
 }
 
-type Dispatch = (event: AppEvent) => void;
-
-export type Key = {
-  return: boolean;
-  escape: boolean;
-  tab: boolean;
-  upArrow: boolean;
-  downArrow: boolean;
-  backspace: boolean;
-  delete: boolean;
-  ctrl: boolean;
-  meta: boolean;
-};
-
 export function handleCommandPaletteInput(args: {
   input: string;
-  key: Key;
+  key: OverlayKey;
   palette: CommandPaletteState;
-  dispatch: Dispatch;
+  dispatch: AppDispatch;
   deps: DotCommandDeps;
 }): void {
   const { input, key, palette, dispatch, deps } = args;

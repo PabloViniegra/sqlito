@@ -131,6 +131,7 @@ export function createApp(components: AppComponents) {
             favoritesCount={state.favorites.length}
             columns={columns}
             lastOutcome={state.lastOutcome}
+            running={state.running}
             compact={compactStatus}
             maxLines={statusMaxLines}
           />

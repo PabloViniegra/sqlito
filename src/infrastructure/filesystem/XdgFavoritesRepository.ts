@@ -1,7 +1,14 @@
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import type { Favorite } from "../../domain/favorites/Favorite.ts";
 import type { FavoritesRepository } from "../../domain/favorites/FavoritesRepository.ts";
 import { atomicWrite, isEnoent } from "./atomicWrite.ts";
+
+const FavoriteSchema = z.object({
+  name: z.string(),
+  sql: z.string(),
+  updatedAt: z.number(),
+}) satisfies z.ZodType<Favorite>;
 
 export class XdgFavoritesRepository implements FavoritesRepository {
   private readonly path: string;
@@ -49,8 +56,9 @@ export class XdgFavoritesRepository implements FavoritesRepository {
       const parsed: unknown = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         for (const entry of parsed) {
-          if (isFavorite(entry)) {
-            this.store.set(entry.name, entry);
+          const favorite = FavoriteSchema.safeParse(entry);
+          if (favorite.success) {
+            this.store.set(favorite.data.name, favorite.data);
           }
         }
       }
@@ -68,16 +76,4 @@ export class XdgFavoritesRepository implements FavoritesRepository {
       JSON.stringify([...this.store.values()], null, 2),
     );
   }
-}
-
-function isFavorite<T>(value: T): value is T & Favorite {
-  if (typeof value !== "object" || value === null) return false;
-  return (
-    "name" in value &&
-    typeof value.name === "string" &&
-    "sql" in value &&
-    typeof value.sql === "string" &&
-    "updatedAt" in value &&
-    typeof value.updatedAt === "number"
-  );
 }

@@ -46,6 +46,7 @@ The entry point is intentionally narrow:
 
 ```bash
 sqlito <database.db>
+sqlito --readonly <database.db>   # refuse every write
 ```
 
 Everything else — autocompletion, history, CSV export, schema inspection —
@@ -54,7 +55,8 @@ is a layer on top of that one command.
 ## Features
 
 - Open any local SQLite file from the command line.
-- Execute SQL synchronously against the file via `better-sqlite3`, with a
+- Execute SQL against the file via `better-sqlite3` in a background process,
+  so a long query never freezes the UI and `Ctrl+C` cancels it, with a
   colored outcome tag (READ / WRITE / DDL / ERROR / PLAN) on every result.
 - Render results in a windowed, terminal-native table; past queries scroll
   with PageUp / PageDown and show an overflow indicator.
@@ -143,7 +145,7 @@ HMR-style reloads on save without an extra bundling step.
 | `Ctrl+L`              | Clear the screen and re-anchor the prompt.                                                          |
 | `Ctrl+P`              | Open the command palette.                                                                           |
 | `Ctrl+R`              | Open reverse-i-search over the history.                                                             |
-| `Ctrl+C`              | Cancel the current input or exit.                                                                   |
+| `Ctrl+C`              | Cancel the running query, or exit when idle.                                                        |
 | Bracketed paste       | Multi-line paste (`ESC[200~ … ESC[201~`) inserts newlines into the prompt without triggering Enter. |
 | `PageUp` / `PageDown` | Scroll the past-queries viewport.                                                                   |
 

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { BetterSqliteDatabase } from "../../infrastructure/sqlite/BetterSqliteDatabase.ts";
+import { stub } from "../../shared/utils/test-helpers.ts";
+import type { Database } from "../../domain/database/Database.ts";
 import type { Column } from "../../domain/sql/Column.ts";
 import type { QueryOutcome } from "../../domain/sql/QueryOutcome.ts";
 import { CopyCsv, NoTabularOutcome } from "./CopyCsv.ts";
@@ -14,7 +17,7 @@ const rowsOutcome = (
 ): QueryOutcome => ({ kind: "rows", columns: columns(names), rows });
 
 describe("CopyCsv", () => {
-  const useCase = new CopyCsv({ write });
+  const useCase = new CopyCsv(stub<Database>({}), { write });
 
   describe("gating", () => {
     it("throws NoTabularOutcome when outcome is affected", async () => {
@@ -102,5 +105,28 @@ describe("CopyCsv", () => {
       expect(write).toHaveBeenCalledWith("a,b\n");
       expect(result).toEqual({ rowsWritten: 0 });
     });
+  });
+
+  it("copies every row of a truncated read-only result, not just the loaded ones", async () => {
+    const db = new BetterSqliteDatabase(":memory:");
+    const copy = new CopyCsv(db, { write });
+    write.mockClear();
+    try {
+      const result = await copy.run({
+        kind: "rows",
+        columns: columns(["x"]),
+        rows: [[1]],
+        truncated: true,
+        rerun: {
+          sql: "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT :n) SELECT x FROM c",
+          params: { n: 1500 },
+        },
+      });
+
+      expect(result).toEqual({ rowsWritten: 1500 });
+      expect(write.mock.calls[0]?.[0].trimEnd().split("\n")).toHaveLength(1501);
+    } finally {
+      await db.close();
+    }
   });
 });

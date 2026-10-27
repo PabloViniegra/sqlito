@@ -62,4 +62,9 @@ describe("escapeCsvField", () => {
   it("quotes unicode that contains a comma", () => {
     expect(escapeCsvField("café, 漢字")).toBe('"café, 漢字"');
   });
+
+  it("decodes a blob as UTF-8 whether it is a Buffer or a cloned Uint8Array", () => {
+    expect(escapeCsvField(Buffer.from("a,b"))).toBe('"a,b"');
+    expect(escapeCsvField(new Uint8Array([104, 105]))).toBe("hi");
+  });
 });

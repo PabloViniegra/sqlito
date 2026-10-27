@@ -1,7 +1,5 @@
 import { useInput, useStdout, usePaste } from "ink";
 import { useRef, type MutableRefObject } from "react";
-import { historyKindFor } from "../../domain/sql/historyKind.ts";
-import { classifySideEffect } from "../../domain/sql/classifySideEffect.ts";
 import { usePromptInput } from "../hooks/usePromptInput.ts";
 import type { AppState } from "./appReducer.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
@@ -15,6 +13,7 @@ import { handleReverseSearchInput } from "./reverseSearchInput.ts";
 import type { ReadlineState } from "./readline.ts";
 import { useDotCommandDeps } from "./useDotCommandDeps.ts";
 import { useNavigateHistory } from "./useNavigateHistory.ts";
+import { useSubmitQuery } from "./useSubmitQuery.ts";
 import type { AppDeps } from "./useAppDeps.ts";
 
 export function useAppKeybindings({
@@ -39,6 +38,12 @@ export function useAppKeybindings({
     state,
     dispatch,
     lastSuccessfulSqlRef,
+  });
+  const submitQuery = useSubmitQuery({
+    deps,
+    dispatch,
+    lastSuccessfulSqlRef,
+    lastFailedSqlRef,
   });
   const { navigateHistory, setHistoryCursor } = useNavigateHistory({
     state,
@@ -80,7 +85,12 @@ export function useAppKeybindings({
       return;
     }
     if (key.ctrl && input === "c") {
-      deps.quit();
+      if (!state.running) {
+        deps.quit();
+        return;
+      }
+      // the replacement connection starts without temp tables or ATTACHed schemas
+      if (deps.db.cancel()) void deps.schema.refresh();
       return;
     }
     if (state.commandPalette !== null) {
@@ -133,39 +143,14 @@ export function useAppKeybindings({
     }
     if (key.return) {
       const sql = state.prompt.text.trim();
-      if (sql === "") return;
+      if (sql === "" || state.running) return;
       setHistoryCursor(0);
       if (sql.startsWith(".")) {
         void handleDotCommand(sql, dotCommandDeps);
         dispatch({ type: "command", line: sql });
         return;
       }
-      const outcome = deps.executeQuery.execute(sql);
-      dispatch({ type: "submit", outcome });
-      if (outcome.kind === "side-effect" && classifySideEffect(sql)) {
-        deps.schema.refresh();
-      }
-      if (outcome.kind !== "error") {
-        const timestamp = Date.now();
-        lastSuccessfulSqlRef.current = sql;
-        dispatch({
-          type: "recordQuery",
-          entry: { sql, outcome: historyKindFor(outcome), timestamp },
-          outcome,
-        });
-        void deps.saveHistory.save(sql, outcome, timestamp).catch((err) => {
-          const message = rejectionMessage(err);
-          dispatch({
-            type: "setStatus",
-            status: { text: `history: ${message}`, kind: "error" },
-          });
-        });
-        // a successful query invalidates the prior failure's recall slot — only the most recent error is recallable
-        lastFailedSqlRef.current = "";
-      } else {
-        lastFailedSqlRef.current = sql;
-        dispatch({ type: "recordError", sql, outcome });
-      }
+      void submitQuery(sql);
       return;
     }
     if (key.upArrow) {
@@ -229,8 +214,4 @@ export function useAppKeybindings({
     },
     { isActive: !overlayActive },
   );
-}
-
-function rejectionMessage<T>(err: T): string {
-  return err instanceof Error ? err.message : String(err);
 }

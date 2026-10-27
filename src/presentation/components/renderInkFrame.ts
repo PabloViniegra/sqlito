@@ -1,5 +1,6 @@
 import { render } from "ink";
 import { PassThrough } from "node:stream";
+import stripAnsi from "strip-ansi";
 
 export async function renderInkFrame(
   node: React.ReactElement,
@@ -25,4 +26,8 @@ export async function renderInkFrame(
   await new Promise<void>((resolve) => setImmediate(resolve));
   instance.unmount();
   return buffer;
+}
+
+export function plain(frame: string): string {
+  return stripAnsi(frame).replace(/\r/g, "");
 }

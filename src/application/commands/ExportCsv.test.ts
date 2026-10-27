@@ -1,4 +1,12 @@
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { BetterSqliteDatabase } from "../../infrastructure/sqlite/BetterSqliteDatabase.ts";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -17,13 +25,16 @@ const rowsOutcome = (
 describe("ExportCsv", () => {
   let dir: string;
   let useCase: ExportCsv;
+  let db: BetterSqliteDatabase;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "sqlito-export-"));
-    useCase = new ExportCsv();
+    db = new BetterSqliteDatabase(":memory:");
+    useCase = new ExportCsv(db);
   });
 
   afterEach(async () => {
+    await db.close();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -74,7 +85,7 @@ describe("ExportCsv", () => {
 
       const written = await readFile(dest);
       expect(written.equals(Buffer.from("a\n1\n", "utf8"))).toBe(true);
-      expect(result).toEqual({ rowsWritten: 1, path: dest });
+      expect(result).toEqual({ rowsWritten: 1, path: dest, partial: false });
     });
 
     it("writes headers and rows with mixed primitive types", async () => {
@@ -98,7 +109,7 @@ describe("ExportCsv", () => {
           Buffer.from("id,name,score\n1,Ada,9.5\n2,Lin,\n3,Mia,true\n", "utf8"),
         ),
       ).toBe(true);
-      expect(result).toEqual({ rowsWritten: 3, path: dest });
+      expect(result).toEqual({ rowsWritten: 3, path: dest, partial: false });
     });
 
     it("quotes fields containing comma, quote, newline per RFC 4180", async () => {
@@ -150,7 +161,7 @@ describe("ExportCsv", () => {
 
       const written = await readFile(dest);
       expect(written.equals(Buffer.from("a,b\n", "utf8"))).toBe(true);
-      expect(result).toEqual({ rowsWritten: 0, path: dest });
+      expect(result).toEqual({ rowsWritten: 0, path: dest, partial: false });
     });
 
     it("produces byte-identical output across two runs of the same outcome", async () => {
@@ -210,6 +221,66 @@ describe("ExportCsv", () => {
 
       expect(result.path).toBe(dest);
       expect(result.rowsWritten).toBe(1);
+    });
+  });
+
+  describe("truncated results", () => {
+    const COUNT_SQL =
+      "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT :n) SELECT x FROM c";
+
+    it("re-runs a truncated read-only query and streams every row", async () => {
+      const dest = join(dir, "all.csv");
+      const outcome: QueryOutcome = {
+        kind: "rows",
+        columns: columns(["x"]),
+        rows: [[1]],
+        truncated: true,
+        rerun: { sql: COUNT_SQL, params: { n: 2500 } },
+      };
+
+      const result = await useCase.run(outcome, dest);
+
+      expect(result).toEqual({ rowsWritten: 2500, path: dest, partial: false });
+      const lines = (await readFile(dest, "utf8")).trimEnd().split("\n");
+      expect(lines).toHaveLength(2501);
+      expect(lines[0]).toBe("x");
+      expect(lines[2500]).toBe("2500");
+    });
+
+    it("keeps an existing file when the re-run fails midway", async () => {
+      const dest = join(dir, "report.csv");
+      await writeFile(dest, "previous export\n");
+      const outcome: QueryOutcome = {
+        kind: "rows",
+        columns: columns(["x"]),
+        rows: [[1]],
+        truncated: true,
+        rerun: {
+          // abs() of the minimum integer overflows once row 1500 is reached
+          sql: "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT 2000) SELECT CASE WHEN x = 1500 THEN abs(-9223372036854775808) ELSE x END FROM c",
+          params: {},
+        },
+      };
+
+      await expect(useCase.run(outcome, dest)).rejects.toThrow();
+
+      expect(await readFile(dest, "utf8")).toBe("previous export\n");
+      expect(await readdir(dir)).toEqual(["report.csv"]);
+    });
+
+    it("writes only the loaded rows of a truncated write statement", async () => {
+      const dest = join(dir, "partial.csv");
+      const outcome: QueryOutcome = {
+        kind: "rows",
+        columns: columns(["id"]),
+        rows: [[1]],
+        writes: true,
+        truncated: true,
+      };
+
+      const result = await useCase.run(outcome, dest);
+
+      expect(result).toEqual({ rowsWritten: 1, path: dest, partial: true });
     });
   });
 });

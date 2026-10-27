@@ -1,9 +1,14 @@
-import type { Database } from "../../domain/database/Database.ts";
+import type {
+  BindParams,
+  Database,
+  SqliteValue,
+} from "../../domain/database/Database.ts";
 
 export type SchemaResult =
   { ok: true; text: string } | { ok: false; error: string };
 
 const USER_OBJECT = "name NOT LIKE 'sqlite_%'";
+const TABLE_OR_VIEW = "type IN ('table','view')";
 
 export class SchemaPrettyPrint {
   private readonly db: Database;
@@ -12,35 +17,29 @@ export class SchemaPrettyPrint {
     this.db = db;
   }
 
-  tables(): string {
-    const rows = this.db
-      .prepare(
-        `SELECT name FROM sqlite_master WHERE type='table' AND ${USER_OBJECT} ORDER BY name`,
-      )
-      .all();
+  async tables(): Promise<string> {
+    const rows = await this.rows(
+      `SELECT name FROM sqlite_master WHERE ${TABLE_OR_VIEW} AND ${USER_OBJECT} ORDER BY name`,
+    );
     if (rows.length === 0) return "No tables";
     return rows.map((row) => String(row[0])).join("\n");
   }
 
-  indexes(): string {
-    const rows = this.db
-      .prepare(
-        `SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY tbl_name, name`,
-      )
-      .all();
+  async indexes(): Promise<string> {
+    const rows = await this.rows(
+      `SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY tbl_name, name`,
+    );
     if (rows.length === 0) return "No indexes";
     return rows
       .map((row) => `${String(row[0])} on ${String(row[1])}`)
       .join("\n");
   }
 
-  schema(table?: string): SchemaResult {
+  async schema(table?: string): Promise<SchemaResult> {
     if (table === undefined) {
-      const rows = this.db
-        .prepare(
-          `SELECT sql FROM sqlite_master WHERE type='table' AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY name`,
-        )
-        .all();
+      const rows = await this.rows(
+        `SELECT sql FROM sqlite_master WHERE ${TABLE_OR_VIEW} AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY name`,
+      );
       if (rows.length === 0) return { ok: true, text: "No tables" };
       return {
         ok: true,
@@ -48,25 +47,31 @@ export class SchemaPrettyPrint {
       };
     }
 
-    const tableRows = this.db
-      .prepare(
-        `SELECT sql FROM sqlite_master WHERE type='table' AND name = :name AND ${USER_OBJECT}`,
-      )
-      .all({ name: table });
+    const tableRows = await this.rows(
+      `SELECT sql FROM sqlite_master WHERE ${TABLE_OR_VIEW} AND name = :name AND ${USER_OBJECT}`,
+      { name: table },
+    );
     if (tableRows.length === 0) {
       return { ok: false, error: `unknown table: ${table}` };
     }
 
-    const indexRows = this.db
-      .prepare(
-        `SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name = :name AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY name`,
-      )
-      .all({ name: table });
+    const indexRows = await this.rows(
+      `SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name = :name AND ${USER_OBJECT} AND sql IS NOT NULL ORDER BY name`,
+      { name: table },
+    );
 
     const statements = [
       String(tableRows[0][0]),
       ...indexRows.map((row) => String(row[0])),
     ];
     return { ok: true, text: statements.map((s) => `${s};`).join("\n\n") };
+  }
+
+  private async rows(
+    sql: string,
+    params?: BindParams,
+  ): Promise<readonly SqliteValue[][]> {
+    const result = await this.db.execute(sql, params);
+    return result.kind === "rows" ? result.rows : [];
   }
 }

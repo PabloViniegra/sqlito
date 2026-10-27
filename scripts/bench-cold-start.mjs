@@ -26,6 +26,13 @@
 // across 12 runs), a real drop from the ~900 ms source-mode figure above
 // since the tsx transform/module-graph overhead is gone. Budget set to
 // 900 ms (~1.6× observed, rounded) so the gate catches real regressions.
+//
+// Cold-start pass: inlining ink & co. into the bundle, lazy clipboardy, the
+// V8 compile cache and SQLite moved to a worker process bring this to ~240 ms
+// (~180 ms to the first full frame in a real PTY, where Ink skips the `tput`
+// spawn this piped stdout triggers). Budget tightened to 400 ms (~1.6×).
+// The remaining floor is Ink/React/yoga module evaluation, so <100 ms is out
+// of reach without replacing Ink.
 
 import { spawn } from 'node:child_process';
 import { existsSync, statSync, unlinkSync } from 'node:fs';
@@ -37,7 +44,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dbPath = '/tmp/sqlito-bench.db';
 const targetBytes = 1024 * 1024;
 const sourceBudgetMs = 1500;
-const bundledBudgetMs = 900;
+const bundledBudgetMs = 400;
 
 function generateBenchDb() {
   try { unlinkSync(dbPath); } catch {}

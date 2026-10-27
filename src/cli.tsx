@@ -1,4 +1,3 @@
-import BetterSqlite3 from "better-sqlite3";
 import { Command } from "commander";
 import { render, type Instance } from "ink";
 import { existsSync } from "node:fs";
@@ -7,8 +6,8 @@ import pkg from "../package.json" with { type: "json" };
 import type { Database } from "./domain/database/Database.ts";
 import type { SchemaRepository } from "./domain/schema/SchemaRepository.ts";
 import { App } from "./presentation/app/App.tsx";
-import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
+import { WorkerDatabase } from "./infrastructure/sqlite/WorkerDatabase.ts";
 
 export type MountOptions = {
   stdin?: NodeJS.ReadStream;
@@ -34,6 +33,8 @@ export function mountApp(
     <App db={handle.db} schema={handle.schema} dbPath={handle.dbPath} />,
     {
       alternateScreen: true,
+      // ^C must reach the app: it cancels a running query and quits otherwise
+      exitOnCtrlC: false,
       ...(options.stdin !== undefined && { stdin: options.stdin }),
       ...(options.stdout !== undefined && { stdout: options.stdout }),
       ...(options.patchConsole !== undefined && {
@@ -52,15 +53,17 @@ export function run(argv: readonly string[]): void {
     .name("sqlito")
     .version(pkg.version)
     .argument("<database>", "path to a SQLite database file")
-    .action((databaseArg: string) => {
+    .option("--readonly", "open the database read-only")
+    .action((databaseArg: string, options: { readonly?: boolean }) => {
       const dbPath = resolve(databaseArg);
       if (!existsSync(dbPath)) {
         process.stderr.write(`sqlito: cannot open database '${databaseArg}'\n`);
         process.exit(1);
       }
-      const driver = new BetterSqlite3(dbPath);
-      const db = BetterSqliteDatabase.withDriver(driver);
-      const schema = new SqliteSchemaRepository(driver);
+      const db = new WorkerDatabase(dbPath, {
+        readonly: options.readonly === true,
+      });
+      const schema = new SqliteSchemaRepository(db);
       mountApp({ db, schema, dbPath });
     });
 

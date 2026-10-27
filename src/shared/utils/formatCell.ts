@@ -1,9 +1,8 @@
-import { Buffer } from "node:buffer";
 import cliTruncate from "cli-truncate";
 
 export function formatCell<T>(value: T): string {
   if (value === null || value === undefined) return "NULL";
-  if (Buffer.isBuffer(value)) return "<binary>";
+  if (value instanceof Uint8Array) return "<binary>";
   if (isSimpleCell(value)) return String(value);
   try {
     return JSON.stringify(value) ?? String(value);

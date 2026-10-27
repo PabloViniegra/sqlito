@@ -1,16 +1,11 @@
 import chalk from "chalk";
-import stripAnsi from "strip-ansi";
 import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_THEME } from "../../domain/theme/Theme.ts";
 import { StatusBar } from "./StatusBar.tsx";
-import { renderInkFrame as capture } from "./renderInkFrame.ts";
+import { plain, renderInkFrame as capture } from "./renderInkFrame.ts";
 
 chalk.level = 1;
-
-function plain(frame: string): string {
-  return stripAnsi(frame).replace(/\r/g, "");
-}
 
 const baseProps = {
   dbPath: "db.sqlite",

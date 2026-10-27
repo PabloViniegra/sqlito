@@ -28,23 +28,15 @@ describe("appReducer", () => {
       rows: [[1]],
     };
 
-    it("clears the prompt", () => {
-      const state = { ...initialState, prompt: rl("SELECT 1") };
+    it("keeps what was typed while the query ran", () => {
+      const state = { ...initialState, running: true, prompt: rl("SELECT 2") };
       const next = appReducer(state, {
         type: "submit",
         outcome: rowsOutcome,
       });
 
-      expect(next.prompt.text).toBe("");
-    });
-
-    it("is a no-op for prompt when prompt is empty (prompt stays empty)", () => {
-      const next = appReducer(initialState, {
-        type: "submit",
-        outcome: rowsOutcome,
-      });
-
-      expect(next.prompt.text).toBe("");
+      expect(next.prompt.text).toBe("SELECT 2");
+      expect(next.running).toBe(false);
     });
 
     it("clears statusMessage", () => {
@@ -189,26 +181,16 @@ describe("appReducer", () => {
 
       expect(afterMove.prompt).toEqual({ text: "abc", cursor: 2 });
     });
+  });
 
-    it("regression: submitting a multi-character SQL still routes through ExecuteQuery unchanged", () => {
-      const before = appReducer(initialState, {
-        type: "setPrompt",
-        value: "SELECT 1",
-      });
+  describe("queryStarted", () => {
+    it("clears the prompt and marks the query as running", () => {
+      const state = { ...initialState, prompt: rl("SELECT 1") };
+      const next = appReducer(state, { type: "queryStarted" });
 
-      expect(before.prompt.text).toBe("SELECT 1");
-
-      const after = appReducer(before, {
-        type: "submit",
-        outcome: {
-          kind: "rows",
-          columns: [{ name: "a", type: null }],
-          rows: [[1]],
-        },
-      });
-
-      expect(after.prompt.text).toBe("");
-      expect(after.prompt.cursor).toBe(0);
+      expect(next.prompt).toEqual({ text: "", cursor: 0 });
+      expect(next.running).toBe(true);
+      expect(next.statusMessage?.text).toContain("^C");
     });
   });
 

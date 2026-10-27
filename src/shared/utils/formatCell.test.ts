@@ -45,6 +45,10 @@ describe("formatCell", () => {
   it('renders Buffer values as "<binary>"', () => {
     expect(formatCell(Buffer.from("hi"))).toBe("<binary>");
   });
+
+  it('renders blobs cloned across the worker boundary as "<binary>"', () => {
+    expect(formatCell(new Uint8Array([104, 105]))).toBe("<binary>");
+  });
 });
 
 describe("truncateCell", () => {

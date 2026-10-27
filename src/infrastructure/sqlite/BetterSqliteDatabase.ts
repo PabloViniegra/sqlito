@@ -1,61 +1,56 @@
-import BetterSqlite3 from "better-sqlite3";
 import type {
   BindParams,
   Database,
-  PreparedStatement,
-  SqliteValue,
+  ExecuteOptions,
+  StatementResult,
 } from "../../domain/database/Database.ts";
-import type { Column } from "../../domain/sql/Column.ts";
-import type { RunInfo } from "../../domain/sql/RunInfo.ts";
+import { SqliteEngine, type BetterSqliteDriver } from "./SqliteEngine.ts";
+import { toDatabaseError } from "./toDatabaseError.ts";
 
-export type BetterSqliteDriver = BetterSqlite3.Database;
-
+/**
+ * In-process adapter: runs on the caller's thread, so it cannot cancel.
+ * Production uses WorkerDatabase; this one backs tests and seeding.
+ */
 export class BetterSqliteDatabase implements Database {
-  private readonly driver: BetterSqliteDriver;
-  private readonly owned: boolean;
-  readonly path: string;
+  private readonly engine: SqliteEngine;
 
-  constructor(path: string) {
-    this.driver = new BetterSqlite3(path);
-    this.path = path;
-    this.owned = true;
+  constructor(source: string | BetterSqliteDriver) {
+    this.engine = new SqliteEngine(source);
   }
 
-  static withDriver(driver: BetterSqliteDriver): BetterSqliteDatabase {
-    const instance = Object.create(BetterSqliteDatabase.prototype);
-    Object.assign(instance, { driver, owned: false, path: ":shared:" });
-    // SAFETY: instance has BetterSqliteDatabase.prototype, and Object.assign populated every constructor-assigned field.
-    return instance as BetterSqliteDatabase;
+  exec(sql: string): void {
+    this.engine.exec(sql);
   }
 
-  prepare(sql: string): PreparedStatement {
-    const stmt = this.driver.prepare(sql);
-    return {
-      reader: stmt.reader,
-      readonly: stmt.readonly,
-      all: (params?: BindParams) => {
-        const columnNames = stmt.columns().map((c) => c.name);
-        // SAFETY: better-sqlite3 returns SQLite values keyed by the names from stmt.columns(); the rows are immediately projected to those columns.
-        const rows = (
-          params !== undefined ? stmt.all(params) : stmt.all()
-        ) as Record<string, SqliteValue>[];
-        // SAFETY: columnNames is derived from stmt.columns(); each lookup is bounded by the declared columns.
-        return rows.map((row) => columnNames.map((name) => row[name]));
-      },
-      run: (params?: BindParams): RunInfo => {
-        const info = params !== undefined ? stmt.run(params) : stmt.run();
-        return { changes: info.changes, lastInsertRowid: info.lastInsertRowid };
-      },
-      columns: () =>
-        // SAFETY: stmt.columns() yields Column definitions from SQLite; we project only name and type.
-        stmt.columns().map((c) => ({
-          name: c.name,
-          type: c.type ?? null,
-        })) as readonly Column[],
-    };
+  async execute(
+    sql: string,
+    params: BindParams = {},
+    options: ExecuteOptions = {},
+  ): Promise<StatementResult> {
+    try {
+      return this.engine.execute(sql, params, options.maxRows ?? Infinity);
+    } catch (err) {
+      throw toDatabaseError(err);
+    }
   }
 
-  close(): void {
-    if (this.owned) this.driver.close();
+  async exportCsv(
+    sql: string,
+    params: BindParams,
+    dest: string,
+  ): Promise<{ rowsWritten: number }> {
+    try {
+      return { rowsWritten: this.engine.exportCsv(sql, params, dest) };
+    } catch (err) {
+      throw toDatabaseError(err);
+    }
+  }
+
+  cancel(): boolean {
+    return false;
+  }
+
+  async close(): Promise<void> {
+    this.engine.close();
   }
 }

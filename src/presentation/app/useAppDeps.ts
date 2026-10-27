@@ -18,11 +18,13 @@ import { SessionVariables } from "../../application/variables/SessionVariables.t
 import type { Database } from "../../domain/database/Database.ts";
 import type { SchemaRepository } from "../../domain/schema/SchemaRepository.ts";
 import { XdgFavoritesRepository } from "../../infrastructure/filesystem/XdgFavoritesRepository.ts";
-import { resolveXdgFavoritesPath } from "../../infrastructure/filesystem/resolveXdgFavoritesPath.ts";
 import { XdgHistoryRepository } from "../../infrastructure/filesystem/XdgHistoryRepository.ts";
-import { resolveXdgHistoryPath } from "../../infrastructure/filesystem/resolveXdgHistoryPath.ts";
 import { XdgThemeRepository } from "../../infrastructure/filesystem/XdgThemeRepository.ts";
-import { resolveXdgConfigPath } from "../../infrastructure/filesystem/resolveXdgConfigPath.ts";
+import {
+  resolveXdgConfigPath,
+  resolveXdgFavoritesPath,
+  resolveXdgHistoryPath,
+} from "../../infrastructure/filesystem/resolveXdgPath.ts";
 import type { AppDispatch } from "./dotCommand.ts";
 
 export type AppDeps = {
@@ -66,12 +68,9 @@ export function useAppDeps({
     () => new RunExplain(executeQuery),
     [executeQuery],
   );
-  const exportCsv = useMemo(() => new ExportCsv(), []);
-  const copyCsv = useMemo(() => new CopyCsv(), []);
-  const schemaPrettyPrint = useMemo(
-    () => new SchemaPrettyPrint(db),
-    [db],
-  );
+  const exportCsv = useMemo(() => new ExportCsv(db), [db]);
+  const copyCsv = useMemo(() => new CopyCsv(db), [db]);
+  const schemaPrettyPrint = useMemo(() => new SchemaPrettyPrint(db), [db]);
   const historyRepo = useMemo(
     () => new XdgHistoryRepository(resolveXdgHistoryPath()),
     [],
@@ -113,19 +112,16 @@ export function useAppDeps({
     [],
   );
   const loadTheme = useMemo(() => new LoadTheme(themeRepo), [themeRepo]);
-  const switchTheme = useMemo(
-    () => new SwitchTheme(themeRepo),
-    [themeRepo],
-  );
+  const switchTheme = useMemo(() => new SwitchTheme(themeRepo), [themeRepo]);
 
   const quit = useCallback(() => {
-    db.close();
+    void db.close();
     dispatch({ type: "exit" });
     exit();
   }, [db, dispatch, exit]);
 
   useEffect(() => {
-    schema.refresh();
+    void schema.refresh();
   }, [schema]);
 
   useEffect(() => {

@@ -1,4 +1,11 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -48,6 +55,12 @@ describe("XdgHistoryRepository", () => {
       expect(await countLines()).toBe(3);
     });
 
+    it("keeps the file private to the owner", async () => {
+      await repo.append({ sql: "SELECT 1", outcome: "ok", timestamp: 1 });
+      const { mode } = await stat(join(dir, "history.jsonl"));
+      expect(mode & 0o777).toBe(0o600);
+    });
+
     it("creates the parent directory if it does not exist", async () => {
       const nested = new XdgHistoryRepository(
         join(dir, "deep", "nested", "history.jsonl"),
@@ -92,8 +105,7 @@ describe("XdgHistoryRepository", () => {
       for (let i = 0; i < HISTORY_CAP + 1; i++) {
         await repo.append({ sql: `q${i}`, outcome: "ok", timestamp: i });
       }
-      const tmpPath = join(dir, "history.jsonl.tmp");
-      await expect(readFile(tmpPath, "utf8")).rejects.toThrow();
+      expect(await readdir(dir)).toEqual(["history.jsonl"]);
     });
 
     it("serialises concurrent appends so the file ends up consistent", async () => {
@@ -137,6 +149,19 @@ describe("XdgHistoryRepository", () => {
       } finally {
         await rm(emptyDir, { recursive: true, force: true });
       }
+    });
+
+    it("skips lines that are valid JSON but not a history entry", async () => {
+      await writeFile(
+        join(dir, "history.jsonl"),
+        [
+          '{"sql":"good","outcome":"ok","timestamp":1}',
+          '{"sql":42,"outcome":"ok","timestamp":2}',
+          '{"sql":"bad outcome","outcome":"nope","timestamp":3}',
+          "[]",
+        ].join("\n"),
+      );
+      expect((await repo.recent(10)).map((e) => e.sql)).toEqual(["good"]);
     });
 
     it("loads entries from disk for a fresh instance", async () => {

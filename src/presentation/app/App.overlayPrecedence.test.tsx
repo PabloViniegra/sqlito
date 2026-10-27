@@ -1,11 +1,11 @@
 import BetterSqlite3 from "better-sqlite3";
-import { PassThrough } from "node:stream";
 import { render } from "ink";
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import { App } from "./App.tsx";
 import { BetterSqliteDatabase } from "../../infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "../../infrastructure/sqlite/SqliteSchemaRepository.ts";
+import { fakeStdin, fakeStdout } from "../../shared/utils/inkTestStreams.ts";
 
 const TAB = "\t";
 const ESC = "\u001B";
@@ -17,50 +17,10 @@ const CTRL_R = String.fromCharCode(0x12);
 const tick = () => new Promise<void>((r) => setImmediate(r));
 const settle = () => new Promise<void>((r) => setTimeout(r, 30));
 
-type FakeStdout = PassThrough &
-  NodeJS.WriteStream & {
-    isTTY: boolean;
-    columns: number;
-    rows: number;
-    buffer: string;
-  };
-
-function fakeStdout(columns: number, rows: number): FakeStdout {
-  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/buffer/write before Ink consumes it.
-  const stream = new PassThrough() as FakeStdout;
-  stream.isTTY = true;
-  stream.columns = columns;
-  stream.rows = rows;
-  stream.buffer = "";
-  stream.write = (chunk: string | Uint8Array): boolean => {
-    stream.buffer += chunk.toString();
-    return true;
-  };
-  return stream;
-}
-
-type FakeStdin = PassThrough &
-  NodeJS.ReadStream & {
-    isTTY: boolean;
-    setRawMode: (mode: boolean) => FakeStdin;
-    ref: () => FakeStdin;
-    unref: () => FakeStdin;
-  };
-
-function fakeStdin(): FakeStdin {
-  // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as FakeStdin;
-  stream.isTTY = true;
-  stream.setRawMode = () => stream;
-  stream.ref = () => stream;
-  stream.unref = () => stream;
-  return stream;
-}
-
 async function mountApp() {
   const driver = new BetterSqlite3(":memory:");
-  const db = BetterSqliteDatabase.withDriver(driver);
-  const schema = new SqliteSchemaRepository(driver);
+  const db = new BetterSqliteDatabase(driver);
+  const schema = new SqliteSchemaRepository(db);
   const stdout = fakeStdout(80, 24);
   const stdin = fakeStdin();
   // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.

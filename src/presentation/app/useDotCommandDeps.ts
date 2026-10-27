@@ -27,7 +27,10 @@ export function useDotCommandDeps({
       sessionVars: deps.sessionVars,
       variables: state.variables,
       runExplain: deps.runExplain,
-      lastSql: lastSuccessfulSqlRef.current,
+      // read when a command runs, not when the deps are built during render
+      get lastSql() {
+        return lastSuccessfulSqlRef.current;
+      },
       showResult: (resultSql, outcome) =>
         dispatch({
           type: "recordQuery",

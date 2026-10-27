@@ -1,7 +1,6 @@
 import { render } from "ink";
 import { PassThrough } from "node:stream";
 import chalk from "chalk";
-import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THEME,
@@ -9,13 +8,9 @@ import {
 } from "../../domain/theme/Theme.ts";
 import type { ReadlineState } from "../app/readline.ts";
 import { Prompt } from "./Prompt.tsx";
-import { renderInkFrame as capture } from "./renderInkFrame.ts";
+import { plain, renderInkFrame as capture } from "./renderInkFrame.ts";
 
 chalk.level = 1;
-
-function plain(frame: string): string {
-  return stripAnsi(frame).replace(/\r/g, "");
-}
 
 async function settle(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve));

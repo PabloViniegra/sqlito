@@ -1,15 +1,11 @@
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
-import type { AppEvent } from "./appReducer.ts";
+import type { OverlayKey } from "./overlayKey.ts";
+import type { AppDispatch } from "./dotCommand.ts";
 
-type Key = {
-  return: boolean;
-  escape: boolean;
-  backspace: boolean;
-  delete: boolean;
-  ctrl: boolean;
-};
-
-type Dispatch = (event: AppEvent) => void;
+type Key = Pick<
+  OverlayKey,
+  "return" | "escape" | "backspace" | "delete" | "ctrl"
+>;
 
 export function handleReverseSearchInput(args: {
   input: string;
@@ -17,7 +13,7 @@ export function handleReverseSearchInput(args: {
   promptBeforeReverse: string;
   query: string;
   entries: readonly HistoryEntry[];
-  dispatch: Dispatch;
+  dispatch: AppDispatch;
 }): void {
   const { input, key, promptBeforeReverse, query, entries, dispatch } = args;
   if (key.escape) {

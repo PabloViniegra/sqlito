@@ -30,12 +30,11 @@ export class GetAutocompleteSuggestions {
 
     const tableMatches = this.schema
       .listTables()
-      .map((t) => t.name)
-      .filter((name) => matches(haystack, name.toLowerCase()))
-      .map<Suggestion>((label) => ({
-        label,
+      .filter((t) => matches(haystack, t.name.toLowerCase()))
+      .map<Suggestion>((t) => ({
+        label: t.name,
         kind: "table" as const,
-        detail: "table",
+        detail: t.kind,
       }));
 
     const combined = [...keywordMatches, ...tableMatches];

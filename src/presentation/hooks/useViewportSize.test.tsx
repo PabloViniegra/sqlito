@@ -1,7 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { Instance } from "ink";
 import { Text, render } from "ink";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { describe, expect, it } from "vitest";
 import type { ViewportSize } from "./useViewportSize.ts";
 import { useViewportSize } from "./useViewportSize.ts";
@@ -28,24 +28,25 @@ async function nextTick(): Promise<void> {
 
 type Sink = { current: ViewportSize | null; renders: number };
 
-function Probe({ sink }: { sink: Sink }): React.ReactElement {
+function Probe({
+  onSize,
+}: {
+  onSize: (size: ViewportSize) => void;
+}): React.ReactElement {
   const size = useViewportSize();
-  const last = useRef(size);
-  useEffect(() => {
-    if (
-      last.current.columns !== size.columns ||
-      last.current.rows !== size.rows
-    ) {
-      sink.renders += 1;
-      last.current = size;
-    }
-  }, [size, sink]);
-  sink.current = size;
+  useEffect(() => onSize(size), [size, onSize]);
   return <Text>{`${size.columns}x${size.rows}`}</Text>;
 }
 
+function recordInto(sink: Sink): (size: ViewportSize) => void {
+  return (size) => {
+    if (sink.current !== null) sink.renders += 1;
+    sink.current = size;
+  };
+}
+
 async function mount(tty: FakeTty, sink: Sink): Promise<Instance> {
-  const instance = render(<Probe sink={sink} />, {
+  const instance = render(<Probe onSize={recordInto(sink)} />, {
     // SAFETY: Ink's render accepts Node streams; the augmented PassThrough satisfies NodeJS.WriteStream at runtime after the fakeTty fixture above.
     stdout: tty as NodeJS.WriteStream,
     exitOnCtrlC: false,

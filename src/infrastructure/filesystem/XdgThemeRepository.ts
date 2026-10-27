@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import {
   DEFAULT_THEME,
   findTheme,
@@ -6,6 +7,8 @@ import {
 } from "../../domain/theme/Theme.ts";
 import type { ThemeRepository } from "../../domain/theme/ThemeRepository.ts";
 import { atomicWrite } from "./atomicWrite.ts";
+
+const ConfigSchema = z.object({ theme: z.string() });
 
 export class XdgThemeRepository implements ThemeRepository {
   private readonly path: string;
@@ -23,7 +26,8 @@ export class XdgThemeRepository implements ThemeRepository {
     }
     try {
       const parsed: unknown = JSON.parse(raw);
-      const theme = isConfig(parsed) ? findTheme(parsed.theme) : undefined;
+      const config = ConfigSchema.safeParse(parsed);
+      const theme = config.success ? findTheme(config.data.theme) : undefined;
       return theme ?? DEFAULT_THEME;
     } catch (err) {
       console.warn(
@@ -40,9 +44,4 @@ export class XdgThemeRepository implements ThemeRepository {
       JSON.stringify({ theme: theme.name }, null, 2),
     );
   }
-}
-
-function isConfig<T>(value: T): value is T & { theme: string } {
-  if (typeof value !== "object" || value === null) return false;
-  return "theme" in value && typeof value.theme === "string";
 }

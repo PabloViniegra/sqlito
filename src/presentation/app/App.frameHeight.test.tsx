@@ -2,64 +2,27 @@ import BetterSqlite3 from "better-sqlite3";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
 import { render } from "ink";
 import stringWidth from "string-width";
 
 // keep test-session queries out of the user's real XDG history
 process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), "sqlito-test-"));
 process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "sqlito-test-"));
-import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import { App } from "./App.tsx";
 import { BetterSqliteDatabase } from "../../infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "../../infrastructure/sqlite/SqliteSchemaRepository.ts";
+import { untilQuiet } from "../../shared/utils/test-helpers.ts";
+import {
+  fakeStdin,
+  fakeStdout,
+  type FakeStdout,
+} from "../../shared/utils/inkTestStreams.ts";
 
 const ENTER = "\r";
 
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r));
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
-
-type FakeStdout = PassThrough &
-  NodeJS.WriteStream & {
-    isTTY: boolean;
-    columns: number;
-    rows: number;
-    frames: string[];
-  };
-
-function fakeStdout(columns: number, rows: number): FakeStdout {
-  // SAFETY: PassThrough is duck-typed with NodeJS.WriteStream at runtime; this test fixture mutates isTTY/columns/rows/frames/write before Ink consumes it.
-  const stream = new PassThrough() as FakeStdout;
-  stream.isTTY = true;
-  stream.columns = columns;
-  stream.rows = rows;
-  stream.frames = [];
-  stream.write = (chunk: string | Uint8Array): boolean => {
-    const text = stripAnsi(chunk.toString()).replace(/\r/g, "");
-    if (text.trim() !== "") stream.frames.push(text);
-    return true;
-  };
-  return stream;
-}
-
-type FakeStdin = PassThrough &
-  NodeJS.ReadStream & {
-    isTTY: boolean;
-    setRawMode: (mode: boolean) => FakeStdin;
-    ref: () => FakeStdin;
-    unref: () => FakeStdin;
-  };
-
-function fakeStdin(): FakeStdin {
-  // SAFETY: PassThrough is duck-typed with NodeJS.ReadStream at runtime; this test fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as FakeStdin;
-  stream.isTTY = true;
-  stream.setRawMode = () => stream;
-  stream.ref = () => stream;
-  stream.unref = () => stream;
-  return stream;
-}
 
 const frameLines = (frame: string): number =>
   frame.replace(/\n+$/, "").split("\n").length;
@@ -69,8 +32,8 @@ async function mountSeededApp(columns: number, rows: number) {
   driver.exec("CREATE TABLE nums (id INTEGER, label TEXT);");
   const insert = driver.prepare("INSERT INTO nums VALUES (?, ?)");
   for (let i = 0; i < 200; i += 1) insert.run(i, `label for row ${i}`);
-  const db = BetterSqliteDatabase.withDriver(driver);
-  const schema = new SqliteSchemaRepository(driver);
+  const db = new BetterSqliteDatabase(driver);
+  const schema = new SqliteSchemaRepository(db);
   const stdout = fakeStdout(columns, rows);
   const stdin = fakeStdin();
   // SAFETY: Ink's render accepts Node streams; FakeStdin/FakeStdout satisfy that surface at runtime after the fixture mutations above.
@@ -87,8 +50,7 @@ async function mountSeededApp(columns: number, rows: number) {
     lastFrame: () => stdout.frames[stdout.frames.length - 1] ?? "",
     async send(data: string) {
       stdin.write(data);
-      await settle();
-      await settle();
+      await untilQuiet(() => stdout.frames.length);
     },
     async cleanup() {
       instance.unmount();

@@ -6,11 +6,12 @@ import { GetAutocompleteSuggestions } from "./GetAutocompleteSuggestions.ts";
 const stubSchema = (tables: readonly Table[]): SchemaRepository => ({
   listTables: () => tables,
   describe: (name: string) => tables.find((t) => t.name === name),
-  refresh: () => {},
+  refresh: async () => {},
 });
 
 const USERS_TABLE: Table = {
   name: "users",
+  kind: "table",
   columns: [
     { name: "id", type: "INTEGER" },
     { name: "email", type: "TEXT" },
@@ -20,6 +21,7 @@ const USERS_TABLE: Table = {
 
 const POSTS_TABLE: Table = {
   name: "posts",
+  kind: "table",
   columns: [{ name: "id", type: "INTEGER" }],
 };
 
@@ -170,6 +172,7 @@ describe("GetAutocompleteSuggestions", () => {
     it("caps the result at 10 suggestions", () => {
       const tables = Array.from({ length: 30 }, (_, i) => ({
         name: `t${i}`,
+        kind: "table" as const,
         columns: [],
       }));
       const sut = new GetAutocompleteSuggestions(stubSchema(tables));
@@ -247,7 +250,13 @@ describe("GetAutocompleteSuggestions", () => {
 
     it("returns no detail for columns with null type", () => {
       const sut = new GetAutocompleteSuggestions(
-        stubSchema([{ name: "loose", columns: [{ name: "a", type: null }] }]),
+        stubSchema([
+          {
+            name: "loose",
+            kind: "table",
+            columns: [{ name: "a", type: null }],
+          },
+        ]),
       );
 
       const result = sut.suggest("", { referencedTable: "loose" });

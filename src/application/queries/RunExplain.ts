@@ -10,7 +10,7 @@ export class RunExplain {
     this.executeQuery = executeQuery;
   }
 
-  explainLast(sql: string): QueryOutcome {
+  async explainLast(sql: string): Promise<QueryOutcome> {
     const trimmed = sql.trim();
     if (trimmed === "") {
       return { kind: "error", message: "no previous query to explain" };
@@ -18,7 +18,9 @@ export class RunExplain {
     if (!isReadOnly(trimmed)) {
       return { kind: "error", message: "cannot explain a write statement" };
     }
-    const outcome = this.executeQuery.execute(`EXPLAIN QUERY PLAN ${trimmed}`);
+    const outcome = await this.executeQuery.execute(
+      `EXPLAIN QUERY PLAN ${trimmed}`,
+    );
     if (outcome.kind === "rows") {
       return { kind: "plan", nodes: BuildPlanTree(outcome.rows) };
     }

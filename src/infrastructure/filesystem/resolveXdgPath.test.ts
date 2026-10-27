@@ -1,9 +1,11 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveXdgConfigPath } from "./resolveXdgConfigPath.ts";
-import { resolveXdgFavoritesPath } from "./resolveXdgFavoritesPath.ts";
-import { resolveXdgHistoryPath } from "./resolveXdgHistoryPath.ts";
+import {
+  resolveXdgConfigPath,
+  resolveXdgFavoritesPath,
+  resolveXdgHistoryPath,
+} from "./resolveXdgPath.ts";
 
 const CASES = [
   {

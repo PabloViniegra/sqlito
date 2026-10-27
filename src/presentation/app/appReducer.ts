@@ -56,11 +56,15 @@ export type AppState = {
   favorites: readonly [string, string][];
   theme: Theme;
   commandPalette: CommandPaletteState | null;
+  /** a statement is executing on the database worker */
+  running: boolean;
 };
 
 export type AppEvent =
   | { type: "readline"; intent: ReadlineIntent }
   | { type: "setPrompt"; value: string }
+  | { type: "queryStarted" }
+  | { type: "setRunning"; running: boolean }
   | { type: "submit"; outcome: QueryOutcome }
   | { type: "exit" }
   | {
@@ -109,6 +113,7 @@ export const initialState: AppState = {
   favorites: [],
   theme: DEFAULT_THEME,
   commandPalette: null,
+  running: false,
 };
 
 function wrapIndex(raw: number, count: number): number {
@@ -127,10 +132,19 @@ export function appReducer(state: AppState, event: AppEvent): AppState {
           text: event.value,
         }),
       };
+    case "queryStarted":
+      return {
+        ...state,
+        running: true,
+        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
+        statusMessage: { text: "running… (^C to cancel)", kind: "info" },
+      };
+    case "setRunning":
+      return { ...state, running: event.running };
     case "submit": {
       const next: AppState = {
         ...state,
-        prompt: readlineReducer(state.prompt, { type: "Reset", text: "" }),
+        running: false,
         statusMessage: null,
         lastOutcome: event.outcome,
         pastQueriesScrollOffset: 0,

@@ -57,19 +57,21 @@ type CommandRegistry = { [K in DotCommand["kind"]]: CommandEntry<K> };
 export const COMMAND_REGISTRY: CommandRegistry = {
   tables: {
     ...COMMAND_DESCRIPTORS.tables,
-    run: (_command, deps) => setStatus(deps, deps.schema.tables(), "info"),
+    run: async (_command, deps) =>
+      setStatus(deps, await deps.schema.tables(), "info"),
   },
   schema: {
     ...COMMAND_DESCRIPTORS.schema,
-    run: (command, deps) => {
-      const result = deps.schema.schema(command.table);
+    run: async (command, deps) => {
+      const result = await deps.schema.schema(command.table);
       if (result.ok) setStatus(deps, result.text, "info");
       else setStatus(deps, result.error, "error");
     },
   },
   indexes: {
     ...COMMAND_DESCRIPTORS.indexes,
-    run: (_command, deps) => setStatus(deps, deps.schema.indexes(), "info"),
+    run: async (_command, deps) =>
+      setStatus(deps, await deps.schema.indexes(), "info"),
   },
   help: {
     ...COMMAND_DESCRIPTORS.help,
@@ -143,7 +145,19 @@ export async function handleDotCommand(
     setStatus(deps, parsed.error, "error");
     return;
   }
-  await dispatchCommand(parsed.command, deps);
+  try {
+    const pending = dispatchCommand(parsed.command, deps);
+    if (pending === undefined) return;
+    // async commands may hold the database, so ^C must cancel rather than quit
+    deps.dispatch({ type: "setRunning", running: true });
+    try {
+      await pending;
+    } finally {
+      deps.dispatch({ type: "setRunning", running: false });
+    }
+  } catch (err) {
+    setStatus(deps, err instanceof Error ? err.message : String(err), "error");
+  }
 }
 
 async function runSave(deps: DotCommandDeps, name: string): Promise<void> {
@@ -205,8 +219,8 @@ function formatFavorites(favorites: readonly [string, string][]): string {
     .join("\n");
 }
 
-function runExplain(deps: DotCommandDeps): void {
-  const outcome = deps.runExplain.explainLast(deps.lastSql);
+async function runExplain(deps: DotCommandDeps): Promise<void> {
+  const outcome = await deps.runExplain.explainLast(deps.lastSql);
   if (outcome.kind === "error") {
     setStatus(deps, outcome.message, "error");
     return;
@@ -262,9 +276,10 @@ async function runExport(deps: DotCommandDeps, path: string): Promise<void> {
   }
   try {
     const result = await deps.exportCsv.run(deps.lastOutcome, path);
+    const note = result.partial ? " (loaded rows only)" : "";
     setStatus(
       deps,
-      `Exported ${result.rowsWritten} rows to ${result.path}`,
+      `Exported ${result.rowsWritten} rows to ${result.path}${note}`,
       "info",
     );
   } catch (err) {

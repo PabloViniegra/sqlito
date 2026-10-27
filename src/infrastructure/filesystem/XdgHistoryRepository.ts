@@ -1,10 +1,17 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 import type { HistoryEntry } from "../../domain/history/HistoryEntry.ts";
 import { newestFirst } from "../../domain/history/historyView.ts";
-import { atomicWrite, isEnoent } from "./atomicWrite.ts";
+import { PRIVATE_FILE_MODE, atomicWrite, isEnoent } from "./atomicWrite.ts";
 
 export const HISTORY_CAP = 1000;
+
+const HistoryEntrySchema = z.object({
+  sql: z.string(),
+  outcome: z.enum(["ok", "affected", "side-effect", "plan", "error"]),
+  timestamp: z.number(),
+}) satisfies z.ZodType<HistoryEntry>;
 
 export class XdgHistoryRepository {
   private readonly path: string;
@@ -28,7 +35,10 @@ export class XdgHistoryRepository {
         return;
       }
       await mkdir(dirname(this.path), { recursive: true });
-      await writeFile(this.path, `${JSON.stringify(entry)}\n`, { flag: "a" });
+      await writeFile(this.path, `${JSON.stringify(entry)}\n`, {
+        flag: "a",
+        mode: PRIVATE_FILE_MODE,
+      });
     });
   }
 
@@ -96,13 +106,15 @@ function parseJsonl(raw: string): HistoryEntry[] {
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
+    let parsed: unknown;
     try {
-      // SAFETY: history JSONL is round-tripped by serialiseJsonl above; malformed lines are skipped, well-formed lines satisfy HistoryEntry.
-      out.push(JSON.parse(trimmed) as HistoryEntry);
+      parsed = JSON.parse(trimmed);
     } catch {
       // a torn concurrent append/rewrite must not brick the whole history
       continue;
     }
+    const entry = HistoryEntrySchema.safeParse(parsed);
+    if (entry.success) out.push(entry.data);
   }
   return out;
 }

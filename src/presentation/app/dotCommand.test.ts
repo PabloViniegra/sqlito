@@ -11,47 +11,18 @@ import {
   type DotCommandDeps,
 } from "./dotCommand.ts";
 import type { StatusMessage } from "./appReducer.ts";
+import { makeDotCommandDeps } from "./dotCommandDeps.fixture.ts";
 
 type Captured = { status: StatusMessage | null }[];
 
 function makeDeps(overrides: Partial<DotCommandDeps> = {}) {
   const events: Captured = [];
-  const deps: DotCommandDeps = {
+  const deps = makeDotCommandDeps({
     dispatch: (event) => {
       if (event.type === "setStatus") events.push({ status: event.status });
     },
-    exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-    copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-    schema: stub<DotCommandDeps["schema"]>({
-      tables: () => "posts\nusers",
-      indexes: () => "idx on users",
-      schema: (name?: string) =>
-        name === "ghost"
-          ? { ok: false, error: "unknown table: ghost" }
-          : { ok: true, text: "CREATE TABLE users (...);" },
-    }),
-    lastOutcome: null,
-    onQuit: vi.fn(),
-    sessionVars: new SessionVariables(),
-    variables: [],
-    runExplain: stub<DotCommandDeps["runExplain"]>({
-      explainLast: vi.fn(),
-    }),
-    lastSql: "",
-    showResult: vi.fn(),
-    saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
-      save: vi.fn(),
-    }),
-    runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
-    forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
-      forget: vi.fn(),
-    }),
-    favorites: [],
-    switchTheme: stub<DotCommandDeps["switchTheme"]>({
-      switch: vi.fn(),
-    }),
     ...overrides,
-  };
+  });
   return { deps, events };
 }
 
@@ -151,6 +122,39 @@ describe("handleDotCommand", () => {
     ]);
   });
 
+  it("marks an async command as running so ^C cancels it instead of quitting", async () => {
+    const running: boolean[] = [];
+    const { deps } = makeDeps({
+      exportCsv: stub<DotCommandDeps["exportCsv"]>({
+        run: vi.fn().mockResolvedValue({ rowsWritten: 1, path: "/tmp/x.csv" }),
+      }),
+      lastOutcome: { kind: "rows", columns: [], rows: [] },
+    });
+    const dispatch = deps.dispatch;
+    deps.dispatch = (event) => {
+      if (event.type === "setRunning") running.push(event.running);
+      dispatch(event);
+    };
+
+    await handleDotCommand(".export /tmp/x.csv", deps);
+
+    expect(running).toEqual([true, false]);
+  });
+
+  it("reports a failing command in the status bar instead of rejecting", async () => {
+    const { deps, events } = makeDeps({
+      schema: stub<DotCommandDeps["schema"]>({
+        tables: vi.fn().mockRejectedValue(new Error("file is not a database")),
+      }),
+    });
+
+    await expect(handleDotCommand(".tables", deps)).resolves.toBeUndefined();
+
+    expect(events).toEqual([
+      { status: { text: "file is not a database", kind: "error" } },
+    ]);
+  });
+
   it(".copy with no prior result errors", async () => {
     const { deps, events } = makeDeps({ lastOutcome: null });
     await handleDotCommand(".copy", deps);
@@ -195,32 +199,13 @@ describe("handleDotCommand — variables", () => {
   function makeVarDeps(variables: readonly [string, string][] = []) {
     const events: unknown[] = [];
     const vars = new SessionVariables();
-    const deps: DotCommandDeps = {
-      dispatch: (event) => events.push(event),
-      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-      schema: stub<DotCommandDeps["schema"]>({}),
-      lastOutcome: null,
-      onQuit: vi.fn(),
+    const deps = makeDotCommandDeps({
+      dispatch: (event) => {
+        if (event.type !== "setRunning") events.push(event);
+      },
       sessionVars: vars,
       variables,
-      runExplain: stub<DotCommandDeps["runExplain"]>({
-        explainLast: vi.fn(),
-      }),
-      lastSql: "",
-      showResult: vi.fn(),
-      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
-        save: vi.fn(),
-      }),
-      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
-      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
-        forget: vi.fn(),
-      }),
-      favorites: [],
-      switchTheme: stub<DotCommandDeps["switchTheme"]>({
-        switch: vi.fn(),
-      }),
-    };
+    });
     return { deps, events, vars };
   }
 
@@ -298,39 +283,18 @@ describe("handleDotCommand — variables", () => {
 });
 
 describe("handleDotCommand — explain", () => {
-  function makeExplainDeps(
-    result: QueryOutcome,
-    lastSql = "SELECT 1",
-  ) {
+  function makeExplainDeps(result: QueryOutcome, lastSql = "SELECT 1") {
     const statuses: (StatusMessage | null)[] = [];
     const shown: { sql: string; outcome: QueryOutcome }[] = [];
     const explainLast = vi.fn().mockReturnValue(result);
-    const deps: DotCommandDeps = {
+    const deps = makeDotCommandDeps({
       dispatch: (event) => {
         if (event.type === "setStatus") statuses.push(event.status);
       },
-      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-      schema: stub<DotCommandDeps["schema"]>({}),
-      lastOutcome: null,
-      onQuit: vi.fn(),
-      sessionVars: new SessionVariables(),
-      variables: [],
       runExplain: stub<DotCommandDeps["runExplain"]>({ explainLast }),
       lastSql,
       showResult: (sql, outcome) => shown.push({ sql, outcome }),
-      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
-        save: vi.fn(),
-      }),
-      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
-      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
-        forget: vi.fn(),
-      }),
-      favorites: [],
-      switchTheme: stub<DotCommandDeps["switchTheme"]>({
-        switch: vi.fn(),
-      }),
-    };
+    });
     return { deps, statuses, shown, explainLast };
   }
 
@@ -389,28 +353,16 @@ describe("handleDotCommand — favorites", () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const get = vi.fn().mockResolvedValue(over.getResult);
     const forget = vi.fn().mockResolvedValue(over.forgetResult ?? false);
-    const deps: DotCommandDeps = {
-      dispatch: (event) => events.push(event),
-      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-      schema: stub<DotCommandDeps["schema"]>({}),
-      lastOutcome: null,
-      onQuit: vi.fn(),
-      sessionVars: new SessionVariables(),
-      variables: [],
-      runExplain: stub<DotCommandDeps["runExplain"]>({
-        explainLast: vi.fn(),
-      }),
+    const deps = makeDotCommandDeps({
+      dispatch: (event) => {
+        if (event.type !== "setRunning") events.push(event);
+      },
       lastSql: over.lastSql ?? "",
-      showResult: vi.fn(),
       saveFavorite: stub<DotCommandDeps["saveFavorite"]>({ save }),
       runFavorite: stub<DotCommandDeps["runFavorite"]>({ get }),
       forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({ forget }),
       favorites: over.favorites ?? [],
-      switchTheme: stub<DotCommandDeps["switchTheme"]>({
-        switch: vi.fn(),
-      }),
-    };
+    });
     return { deps, events, save, get, forget };
   }
 
@@ -515,30 +467,12 @@ describe("handleDotCommand — favorites", () => {
 describe("handleDotCommand — theme", () => {
   function makeThemeDeps(switchTheme: DotCommandDeps["switchTheme"]) {
     const events: unknown[] = [];
-    const deps: DotCommandDeps = {
-      dispatch: (event) => events.push(event),
-      exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-      copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-      schema: stub<DotCommandDeps["schema"]>({}),
-      lastOutcome: null,
-      onQuit: vi.fn(),
-      sessionVars: new SessionVariables(),
-      variables: [],
-      runExplain: stub<DotCommandDeps["runExplain"]>({
-        explainLast: vi.fn(),
-      }),
-      lastSql: "",
-      showResult: vi.fn(),
-      saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
-        save: vi.fn(),
-      }),
-      runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
-      forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
-        forget: vi.fn(),
-      }),
-      favorites: [],
+    const deps = makeDotCommandDeps({
+      dispatch: (event) => {
+        if (event.type !== "setRunning") events.push(event);
+      },
       switchTheme,
-    };
+    });
     return { deps, events };
   }
 

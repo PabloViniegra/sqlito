@@ -13,43 +13,43 @@ describe("SchemaPrettyPrint", () => {
   };
 
   const seed = (): void => {
-    db.prepare("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)").run();
-    db.prepare("CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)").run();
-    db.prepare("CREATE INDEX idx_users_name ON users(name)").run();
+    db.exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
+    db.exec("CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT)");
+    db.exec("CREATE INDEX idx_users_name ON users(name)");
   };
 
   describe("tables", () => {
-    it("lists user tables sorted, excluding sqlite_ internals", () => {
+    it("lists user tables sorted, excluding sqlite_ internals", async () => {
       const pp = setup();
       seed();
-      expect(pp.tables()).toBe("posts\nusers");
+      expect(await pp.tables()).toBe("posts\nusers");
     });
 
-    it("reports when there are no tables", () => {
+    it("reports when there are no tables", async () => {
       const pp = setup();
-      expect(pp.tables()).toBe("No tables");
+      expect(await pp.tables()).toBe("No tables");
     });
   });
 
   describe("indexes", () => {
-    it("lists user indexes with their table", () => {
+    it("lists user indexes with their table", async () => {
       const pp = setup();
       seed();
-      expect(pp.indexes()).toBe("idx_users_name on users");
+      expect(await pp.indexes()).toBe("idx_users_name on users");
     });
 
-    it("excludes auto-created indexes", () => {
+    it("excludes auto-created indexes", async () => {
       const pp = setup();
-      db.prepare("CREATE TABLE t (id INTEGER, code TEXT UNIQUE)").run();
-      expect(pp.indexes()).toBe("No indexes");
+      db.exec("CREATE TABLE t (id INTEGER, code TEXT UNIQUE)");
+      expect(await pp.indexes()).toBe("No indexes");
     });
   });
 
   describe("schema (no table)", () => {
-    it("concatenates every CREATE TABLE statement", () => {
+    it("concatenates every CREATE TABLE statement", async () => {
       const pp = setup();
       seed();
-      const r = pp.schema();
+      const r = await pp.schema();
       expect(r).toEqual({
         ok: true,
         text:
@@ -58,17 +58,17 @@ describe("SchemaPrettyPrint", () => {
       });
     });
 
-    it("reports when there are no tables", () => {
+    it("reports when there are no tables", async () => {
       const pp = setup();
-      expect(pp.schema()).toEqual({ ok: true, text: "No tables" });
+      expect(await pp.schema()).toEqual({ ok: true, text: "No tables" });
     });
   });
 
   describe("schema <table>", () => {
-    it("prints the CREATE statement plus the table's indexes", () => {
+    it("prints the CREATE statement plus the table's indexes", async () => {
       const pp = setup();
       seed();
-      expect(pp.schema("users")).toEqual({
+      expect(await pp.schema("users")).toEqual({
         ok: true,
         text:
           "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);\n\n" +
@@ -76,19 +76,19 @@ describe("SchemaPrettyPrint", () => {
       });
     });
 
-    it("prints just the CREATE statement when there are no indexes", () => {
+    it("prints just the CREATE statement when there are no indexes", async () => {
       const pp = setup();
       seed();
-      expect(pp.schema("posts")).toEqual({
+      expect(await pp.schema("posts")).toEqual({
         ok: true,
         text: "CREATE TABLE posts (id INTEGER PRIMARY KEY, title TEXT);",
       });
     });
 
-    it("errors for an unknown table", () => {
+    it("errors for an unknown table", async () => {
       const pp = setup();
       seed();
-      expect(pp.schema("ghost")).toEqual({
+      expect(await pp.schema("ghost")).toEqual({
         ok: false,
         error: "unknown table: ghost",
       });

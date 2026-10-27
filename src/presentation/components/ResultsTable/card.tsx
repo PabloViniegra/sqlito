@@ -43,10 +43,12 @@ function buildRowsCard(
   theme: Theme,
 ): CardContent {
   const lines = table === null ? [] : table.lines;
-  const okFooter =
+  const capped = outcome.truncated === true ? " · capped, rest not loaded" : "";
+  const baseFooter =
     outcome.writes === true
       ? `✓ ${keyword} OK · ${outcome.rows.length} rows returned`
       : footerFor(outcome);
+  const okFooter = baseFooter === null ? null : baseFooter + capped;
   const needed = lines.length + (okFooter === null ? 0 : 1);
   if (needed <= bodyBudget) {
     return {
@@ -68,9 +70,9 @@ function buildRowsCard(
     body: renderTableLines(clamped, theme),
     footer: {
       text:
-        hiddenRows > 0
+        (hiddenRows > 0
           ? `… +${hiddenRows} more rows (${outcome.rows.length} total)`
-          : `${outcome.rows.length} rows`,
+          : `${outcome.rows.length} rows`) + capped,
       color: theme.tokens.dim,
     },
   };

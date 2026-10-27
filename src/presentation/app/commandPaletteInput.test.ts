@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_DESCRIPTORS } from "../../application/commands/commandRegistry.ts";
-import { SessionVariables } from "../../application/variables/SessionVariables.ts";
-import { stub } from "../../shared/utils/test-helpers.ts";
 import type { AppEvent, CommandPaletteState } from "./appReducer.ts";
 import type { DotCommandDeps } from "./dotCommand.ts";
+import { makeDotCommandDeps } from "./dotCommandDeps.fixture.ts";
 import {
   filterCommands,
   handleCommandPaletteInput,
-  type Key,
 } from "./commandPaletteInput.ts";
+import type { OverlayKey } from "./overlayKey.ts";
 
-const NO_KEY: Key = {
+const NO_KEY: OverlayKey = {
   return: false,
   escape: false,
   tab: false,
@@ -23,36 +22,7 @@ const NO_KEY: Key = {
 };
 
 function makeDeps(dispatch: (event: AppEvent) => void): DotCommandDeps {
-  return {
-    dispatch,
-    exportCsv: stub<DotCommandDeps["exportCsv"]>({ run: vi.fn() }),
-    copyCsv: stub<DotCommandDeps["copyCsv"]>({ run: vi.fn() }),
-    schema: stub<DotCommandDeps["schema"]>({
-      tables: () => "posts\nusers",
-      indexes: () => "idx on users",
-      schema: () => ({ ok: true, text: "CREATE TABLE users (...);" }),
-    }),
-    lastOutcome: null,
-    onQuit: vi.fn(),
-    sessionVars: new SessionVariables(),
-    variables: [],
-    runExplain: stub<DotCommandDeps["runExplain"]>({
-      explainLast: vi.fn(),
-    }),
-    lastSql: "",
-    showResult: vi.fn(),
-    saveFavorite: stub<DotCommandDeps["saveFavorite"]>({
-      save: vi.fn(),
-    }),
-    runFavorite: stub<DotCommandDeps["runFavorite"]>({ get: vi.fn() }),
-    forgetFavorite: stub<DotCommandDeps["forgetFavorite"]>({
-      forget: vi.fn(),
-    }),
-    favorites: [],
-    switchTheme: stub<DotCommandDeps["switchTheme"]>({
-      switch: vi.fn(),
-    }),
-  };
+  return makeDotCommandDeps({ dispatch });
 }
 
 describe("filterCommands", () => {
@@ -219,7 +189,7 @@ describe("handleCommandPaletteInput", () => {
     ]);
   });
 
-  it("runs the selected command on enter, then dispatches command + closes", () => {
+  it("dispatches command + closes on enter, then reports the command result", async () => {
     const events: AppEvent[] = [];
     const dispatch = (event: AppEvent) => events.push(event);
     const palette: CommandPaletteState = { query: ".tables", index: 0 };
@@ -231,11 +201,14 @@ describe("handleCommandPaletteInput", () => {
       dispatch,
       deps: makeDeps(dispatch),
     });
+    await vi.waitFor(() => expect(events).toHaveLength(5));
 
     expect(events).toEqual([
-      { type: "setStatus", status: { text: "posts\nusers", kind: "info" } },
+      { type: "setRunning", running: true },
       { type: "command", line: ".tables" },
       { type: "closeCommandPalette" },
+      { type: "setStatus", status: { text: "posts\nusers", kind: "info" } },
+      { type: "setRunning", running: false },
     ]);
   });
 

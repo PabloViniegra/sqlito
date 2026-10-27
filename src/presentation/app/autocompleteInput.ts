@@ -1,32 +1,16 @@
 import type { GetAutocompleteSuggestions } from "../../application/autocomplete/GetAutocompleteSuggestions.ts";
-import type {
-  AppEvent,
-  AutocompleteContext,
-  AutocompleteState,
-} from "./appReducer.ts";
+import type { AutocompleteContext, AutocompleteState } from "./appReducer.ts";
 import { deriveAutocompleteContext } from "./autocompleteContext.ts";
-
-type Dispatch = (event: AppEvent) => void;
-
-export type Key = {
-  return: boolean;
-  escape: boolean;
-  tab: boolean;
-  upArrow: boolean;
-  downArrow: boolean;
-  backspace: boolean;
-  delete: boolean;
-  ctrl: boolean;
-  meta: boolean;
-};
+import type { OverlayKey } from "./overlayKey.ts";
+import type { AppDispatch } from "./dotCommand.ts";
 
 export function handleAutocompleteInput(args: {
   input: string;
-  key: Key;
+  key: OverlayKey;
   autocomplete: GetAutocompleteSuggestions;
   prompt: string;
   popup: AutocompleteState;
-  dispatch: Dispatch;
+  dispatch: AppDispatch;
 }): void {
   const { input, key, autocomplete: ac, prompt, popup, dispatch } = args;
   const suggestions = ac.suggest(popup.prefix, popup.context);

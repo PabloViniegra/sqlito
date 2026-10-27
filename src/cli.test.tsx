@@ -1,48 +1,10 @@
 import BetterSqlite3 from "better-sqlite3";
-import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import pkg from "../package.json" with { type: "json" };
 import { mountApp, run } from "./cli.tsx";
 import { BetterSqliteDatabase } from "./infrastructure/sqlite/BetterSqliteDatabase.ts";
 import { SqliteSchemaRepository } from "./infrastructure/sqlite/SqliteSchemaRepository.ts";
-
-type FakeTty = PassThrough &
-  NodeJS.WriteStream & {
-    columns: number;
-    isTTY: boolean;
-    buffer: string;
-  };
-
-function fakeTty(): FakeTty {
-  // SAFETY: PassThrough is duck-typed as NodeJS.WriteStream at runtime; the fixture mutates columns/isTTY/buffer/write before Ink consumes it.
-  const stream = new PassThrough() as FakeTty;
-  stream.columns = 80;
-  stream.isTTY = true;
-  stream.buffer = "";
-  stream.write = (chunk: string | Uint8Array): boolean => {
-    stream.buffer += chunk.toString();
-    return true;
-  };
-  return stream;
-}
-
-type FakeStdin = PassThrough &
-  NodeJS.ReadStream & {
-    isTTY: boolean;
-    setRawMode: (mode: boolean) => FakeStdin;
-    ref: () => FakeStdin;
-    unref: () => FakeStdin;
-  };
-
-function fakeStdin(): FakeStdin {
-  // SAFETY: PassThrough is duck-typed as NodeJS.ReadStream at runtime; the fixture mutates isTTY/setRawMode/ref/unref before Ink consumes it.
-  const stream = new PassThrough() as FakeStdin;
-  stream.isTTY = true;
-  stream.setRawMode = () => stream;
-  stream.ref = () => stream;
-  stream.unref = () => stream;
-  return stream;
-}
+import { fakeStdin, fakeStdout } from "./shared/utils/inkTestStreams.ts";
 
 async function nextFrame(): Promise<void> {
   await new Promise<void>((resolve) => setImmediate(resolve));
@@ -50,21 +12,22 @@ async function nextFrame(): Promise<void> {
 
 type MemoryDb = {
   driver: BetterSqlite3.Database;
+  db: BetterSqliteDatabase;
   schema: SqliteSchemaRepository;
 };
 
 function openMemoryDb(): MemoryDb {
   const driver = new BetterSqlite3(":memory:");
-  const schema = new SqliteSchemaRepository(driver);
-  return { driver, schema };
+  const db = new BetterSqliteDatabase(driver);
+  const schema = new SqliteSchemaRepository(db);
+  return { driver, db, schema };
 }
 
 describe("cli.mountApp", () => {
   it("enters the alternate screen buffer on mount", async () => {
-    const { driver, schema } = openMemoryDb();
+    const { driver, db, schema } = openMemoryDb();
     try {
-      const db = BetterSqliteDatabase.withDriver(driver);
-      const tty = fakeTty();
+      const tty = fakeStdout();
       const stdin = fakeStdin();
 
       const instance = mountApp(
@@ -83,10 +46,9 @@ describe("cli.mountApp", () => {
   });
 
   it("exits the alternate screen buffer on unmount and shows the cursor", async () => {
-    const { driver, schema } = openMemoryDb();
+    const { driver, db, schema } = openMemoryDb();
     try {
-      const db = BetterSqliteDatabase.withDriver(driver);
-      const tty = fakeTty();
+      const tty = fakeStdout();
       const stdin = fakeStdin();
 
       const instance = mountApp(

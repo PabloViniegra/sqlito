@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import stripAnsi from "strip-ansi";
 import stringWidth from "string-width";
 import { describe, expect, it } from "vitest";
 import {
@@ -7,13 +6,9 @@ import {
   HIGH_CONTRAST_THEME,
 } from "../../domain/theme/Theme.ts";
 import { Header } from "./Header.tsx";
-import { renderInkFrame as capture } from "./renderInkFrame.ts";
+import { plain, renderInkFrame as capture } from "./renderInkFrame.ts";
 
 chalk.level = 1;
-
-function plain(frame: string): string {
-  return stripAnsi(frame).replace(/\r/g, "");
-}
 
 describe("Header", () => {
   it("renders the wordmark in the theme's primary color with bold", async () => {

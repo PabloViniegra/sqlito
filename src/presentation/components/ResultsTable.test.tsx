@@ -8,7 +8,7 @@ import {
   DEFAULT_THEME,
   HIGH_CONTRAST_THEME,
 } from "../../domain/theme/Theme.ts";
-import { renderInkFrame as captureRaw } from "./renderInkFrame.ts";
+import { plain, renderInkFrame as captureRaw } from "./renderInkFrame.ts";
 import { ResultsTable } from "./ResultsTable.tsx";
 
 chalk.level = 1;
@@ -17,7 +17,7 @@ async function capture(
   node: React.ReactElement,
   options: { columns?: number } = {},
 ): Promise<string> {
-  return stripAnsi(await captureRaw(node, options)).replace(/\r/g, "");
+  return plain(await captureRaw(node, options));
 }
 
 describe("ResultsTable", () => {
@@ -421,6 +421,27 @@ describe("ResultsTable", () => {
 
     expect(frame).toContain("…");
     expect(frame).not.toContain(longValue);
+  });
+
+  it("tells the user a capped result did not load every row", async () => {
+    const outcome: QueryOutcome = {
+      kind: "rows",
+      columns: [{ name: "n", type: null }],
+      rows: Array.from({ length: 50 }, (_, i) => [i]),
+      truncated: true,
+    };
+
+    const frame = await capture(
+      <ResultsTable
+        outcome={outcome}
+        sql="SELECT n FROM big"
+        theme={DEFAULT_THEME}
+        columns={80}
+        maxLines={10}
+      />,
+    );
+
+    expect(frame).toContain("(50 total) · capped, rest not loaded");
   });
 
   it("caps physical rows when a result card body wraps", async () => {

@@ -11,52 +11,54 @@ describe("RunExplain", () => {
 
   const setup = (bind: () => BindParams = () => ({})): RunExplain => {
     db = new BetterSqliteDatabase(":memory:");
-    db.prepare("CREATE TABLE t (id INTEGER PRIMARY KEY, n INTEGER)").run();
-    db.prepare("INSERT INTO t (n) VALUES (1), (2), (3)").run();
+    db.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, n INTEGER)");
+    db.exec("INSERT INTO t (n) VALUES (1), (2), (3)");
     return new RunExplain(new ExecuteQuery(db, bind));
   };
 
-  it("errors when there is no previous query", () => {
+  it("errors when there is no previous query", async () => {
     const explain = setup();
-    expect(explain.explainLast("")).toEqual({
+    expect(await explain.explainLast("")).toEqual({
       kind: "error",
       message: "no previous query to explain",
     });
   });
 
-  it("errors when only whitespace is given", () => {
+  it("errors when only whitespace is given", async () => {
     const explain = setup();
-    expect(explain.explainLast("   ")).toEqual({
+    expect(await explain.explainLast("   ")).toEqual({
       kind: "error",
       message: "no previous query to explain",
     });
   });
 
-  it("returns a plan outcome for a SELECT", () => {
+  it("returns a plan outcome for a SELECT", async () => {
     const explain = setup();
-    const outcome = explain.explainLast("SELECT * FROM t");
+    const outcome = await explain.explainLast("SELECT * FROM t");
     expect(outcome.kind).toBe("plan");
     if (outcome.kind !== "plan") throw new Error("expected plan");
     expect(outcome.nodes.length).toBeGreaterThan(0);
   });
 
-  it("errors for a write statement", () => {
+  it("errors for a write statement", async () => {
     const explain = setup();
-    expect(explain.explainLast("INSERT INTO t (n) VALUES (9)")).toEqual({
+    expect(await explain.explainLast("INSERT INTO t (n) VALUES (9)")).toEqual({
       kind: "error",
       message: "cannot explain a write statement",
     });
   });
 
-  it("substitutes session variables before planning", () => {
+  it("substitutes session variables before planning", async () => {
     const explain = setup(() => ({ threshold: 2 }));
-    const outcome = explain.explainLast("SELECT * FROM t WHERE n > :threshold");
+    const outcome = await explain.explainLast(
+      "SELECT * FROM t WHERE n > :threshold",
+    );
     expect(outcome.kind).toBe("plan");
   });
 
-  it("propagates an execution error for invalid SQL", () => {
+  it("propagates an execution error for invalid SQL", async () => {
     const explain = setup();
-    const outcome = explain.explainLast("SELECT FROM");
+    const outcome = await explain.explainLast("SELECT FROM");
     expect(outcome.kind).toBe("error");
   });
 });
