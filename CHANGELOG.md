@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/PabloViniegra/sqlito/compare/v1.2.0...v1.2.1) (2026-10-27)
+
+### Bug Fixes
+
+- resolve React Doctor diagnostics ([117c0cc](https://github.com/PabloViniegra/sqlito/commit/117c0ccce00142c15b489fb3885ad5f3e8019672))
+
 # [1.2.0](https://github.com/PabloViniegra/sqlito/compare/v1.1.1...v1.2.0) (2026-08-25)
 
 ### Features
